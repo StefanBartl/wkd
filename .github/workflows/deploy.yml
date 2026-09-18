@@ -33,7 +33,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/repos"
           owner=$(jq -r .owner src/data/registry.json)
           for name in $(jq -r '.plugins[].name' src/data/registry.json); do
-            git clone --quiet --filter=blob:none "https://github.com/$owner/$name.git" "$RUNNER_TEMP/repos/$name" \n              || echo "::warning::$name could not be cloned (private or missing) -- skipped"
+            git clone --quiet --filter=blob:none "https://github.com/$owner/$name.git" "$RUNNER_TEMP/repos/$name" \
+              || echo "::warning::$name could not be cloned (private or missing) -- skipped"
           done
           echo "PLUGINS_DIR=$RUNNER_TEMP/repos" >> "$GITHUB_ENV"
 
