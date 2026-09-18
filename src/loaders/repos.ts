@@ -238,7 +238,7 @@ export function scanRepos(logger: Logger): Scanned[] {
 
 export function pluginsLoader(): Loader {
   return {
-    name: 'dotnvim-plugins',
+    name: 'wkd-plugins',
     async load({ store, parseData, generateDigest, logger }) {
       store.clear();
       for (const { plugin } of scanRepos(logger)) {
@@ -251,7 +251,7 @@ export function pluginsLoader(): Loader {
 
 export function activityLoader(): Loader {
   return {
-    name: 'dotnvim-activity',
+    name: 'wkd-activity',
     async load({ store, parseData, generateDigest, logger }) {
       store.clear();
       for (const { commits } of scanRepos(logger)) {

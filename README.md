@@ -1,17 +1,17 @@
-# dotnvim
+# wkd
 
 Website for the `.nvim` plugin family. Everything on the site — taglines, status,
 ASCII banners, docs listings, commit counts, the activity stream — is read from the
 plugin repositories at build time. Nothing about a plugin is written twice.
 
-Live (once deployed): <https://stefanbartl.github.io/dotnvim/>
+Live (once deployed): <https://stefanbartl.github.io/wkd/>
 
 ## Two skins, one content layer
 
 | Skin | Path | Look |
 |---|---|---|
-| `modern` (default) | `/dotnvim/…` | Editorial brutalism: hairline grid, one acid accent, oversized variable type, `light-dark()` |
-| `tui` | `/dotnvim/tui/…` | The site as a Neovim window: statusline, sidebar, cmdline, 16-colour terminal palette |
+| `modern` (default) | `/wkd/…` | Editorial brutalism: hairline grid, one acid accent, oversized variable type, `light-dark()` |
+| `tui` | `/wkd/tui/…` | The site as a Neovim window: statusline, sidebar, cmdline, 16-colour terminal palette |
 
 Both skins are built statically from the same collections. The switcher is a plain link to
 the same page in the other skin; `src/scripts/skin.ts` remembers the choice in
@@ -37,7 +37,7 @@ the same page in the other skin; `src/scripts/skin.ts` remembers the choice in
 
 ```bash
 pnpm install
-pnpm dev        # http://127.0.0.1:4321/dotnvim/
+pnpm dev        # http://127.0.0.1:4321/wkd/
 pnpm build      # static output in dist/
 pnpm preview
 pnpm verify     # biome + astro check + build
@@ -55,7 +55,7 @@ Requires Node ≥ 22.12 and pnpm ≥ 10.
   can serve. Consequences: no `<ClientRouter />`, no Shiki inline styles, no external
   scripts. `frame-ancestors`, COOP/COEP and `Permissions-Policy` need real headers and will
   come with a move to Cloudflare Pages.
-- **Base path** is `/dotnvim`. Every internal URL goes through `href()` in `src/lib/site.ts`;
+- **Base path** is `/wkd`. Every internal URL goes through `href()` in `src/lib/site.ts`;
   moving to a custom domain is `base: '/'` in `astro.config.ts` and nothing else.
 - **Lint/format**: Biome. `.astro` templates are not analysed for unused imports (Biome does
   not read the template part yet).
@@ -70,16 +70,16 @@ without downloading blobs. No token, no API rate limits.
 To rebuild the site on every plugin push, add this to each plugin repo's CI:
 
 ```yaml
-- name: Notify dotnvim
+- name: Notify wkd
   if: github.ref == 'refs/heads/main'
   run: |
-    gh api repos/StefanBartl/dotnvim/dispatches \
+    gh api repos/StefanBartl/wkd/dispatches \
       -f event_type=plugin-push -f 'client_payload[repo]=${{ github.repository }}'
   env:
-    GH_TOKEN: ${{ secrets.DOTNVIM_DISPATCH_TOKEN }}
+    GH_TOKEN: ${{ secrets.WKD_DISPATCH_TOKEN }}
 ```
 
-(`DOTNVIM_DISPATCH_TOKEN`: a fine-grained PAT with `contents: write` on this repo only.)
+(`WKD_DISPATCH_TOKEN`: a fine-grained PAT with `contents: write` on this repo only.)
 
 ## Roadmap
 

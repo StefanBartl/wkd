@@ -22,7 +22,7 @@ const groups = Object.entries(CATEGORIES)
   .map(([id, label]) => ({ id, label, items: plugins.filter((p) => p.data.category === id) }))
   .filter((g) => g.items.length > 0);
 const current = page.startsWith('p/') ? page.slice(2) : null;
-const file = page ? `~/dotnvim/${page}` : '~/dotnvim';
+const file = page ? `~/wkd/${page}` : '~/wkd';
 ---
 
 <Base skin="tui" page={page} title={title} description={description}>
@@ -40,7 +40,7 @@ const file = page ? `~/dotnvim/${page}` : '~/dotnvim';
     </a>
     <div class="tui-body">
       <nav class="tui-side" aria-label="Plugins">
-        <a class="root" href={href('', 'tui')} data-nav="">~/dotnvim/</a>
+        <a class="root" href={href('', 'tui')} data-nav="">~/wkd/</a>
         {
           groups.map((g) => (
             <div class="grp">

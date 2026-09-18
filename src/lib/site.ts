@@ -3,7 +3,7 @@
 // the skin prefix live in exactly one place.
 export type Skin = 'modern' | 'tui';
 export const SKINS: readonly Skin[] = ['modern', 'tui'];
-export const STORAGE_KEY = 'dotnvim:skin';
+export const STORAGE_KEY = 'wkd:skin';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 

@@ -5,7 +5,7 @@ import { defineConfig, fontProviders } from 'astro/config';
 // else in the codebase may assume the path (see src/lib/site.ts).
 export default defineConfig({
   site: 'https://stefanbartl.github.io',
-  base: '/dotnvim',
+  base: '/wkd',
   trailingSlash: 'always',
   compressHTML: true,
   build: { format: 'directory' },
