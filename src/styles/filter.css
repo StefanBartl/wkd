@@ -1,0 +1,28 @@
+/* Category filter behaviour (shared by both skins). One rule per category id
+   from src/data/registry.json -- CSS cannot read the radio's value, so the
+   ids are spelled out. Visuals are per skin. */
+@layer components {
+  .home:has(#cat-ai:checked) [data-cat]:not([data-cat="ai"]),
+  .home:has(#cat-edit:checked) [data-cat]:not([data-cat="edit"]),
+  .home:has(#cat-navigate:checked) [data-cat]:not([data-cat="navigate"]),
+  .home:has(#cat-inspect:checked) [data-cat]:not([data-cat="inspect"]),
+  .home:has(#cat-project:checked) [data-cat]:not([data-cat="project"]),
+  .home:has(#cat-view:checked) [data-cat]:not([data-cat="view"]),
+  .home:has(#cat-foundation:checked) [data-cat]:not([data-cat="foundation"]),
+  .home:has(#cat-desktop:checked) [data-cat]:not([data-cat="desktop"]) {
+    display: none;
+  }
+
+  .filter {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .filter label {
+    cursor: pointer;
+    user-select: none;
+  }
+}

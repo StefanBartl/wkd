@@ -24,17 +24,195 @@
   }
 
   /* ---- shell ------------------------------------------------------------ */
+  :root[data-skin="modern"][data-mode="light"] {
+    color-scheme: light;
+  }
+  :root[data-skin="modern"][data-mode="dark"] {
+    color-scheme: dark;
+  }
+
   .m-header {
+    position: relative;
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: var(--s-6);
-    padding: var(--s-4) var(--gutter);
+    padding: var(--s-3) var(--gutter);
     border-bottom: var(--line);
     text-transform: uppercase;
     letter-spacing: 0.06em;
     font-size: 0.85rem;
     font-weight: 600;
+  }
+  .m-select {
+    display: inline-flex;
+  }
+  .m-select select {
+    font: inherit;
+    font-family: var(--font-mono), monospace;
+    text-transform: none;
+    letter-spacing: 0;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px dashed var(--muted);
+    padding: 0;
+    cursor: pointer;
+  }
+  .m-select select:focus-visible {
+    outline: 2px solid var(--acid);
+    outline-offset: 2px;
+  }
+
+  /* ---- search ----------------------------------------------------------- */
+  .search {
+    flex: 1 1 12rem;
+    max-width: 28rem;
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    font-family: var(--font-mono), monospace;
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+  }
+  .search-prefix::before {
+    content: "/";
+    color: var(--muted);
+  }
+  .search-input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    border-bottom: var(--line);
+    padding: var(--s-1) 0;
+  }
+  .search-input::placeholder {
+    color: var(--muted);
+  }
+  .search-input:focus-visible {
+    outline: none;
+    border-bottom-color: var(--acid);
+    border-bottom-width: 2px;
+  }
+  .search-input::-webkit-search-cancel-button {
+    display: none;
+  }
+  .search-panel {
+    position: absolute;
+    inset: 100% 0 auto 0;
+    z-index: 10;
+    background: var(--paper);
+    border-bottom: var(--line);
+    padding: var(--s-4) var(--gutter);
+    display: grid;
+    gap: var(--s-2);
+    font-family: var(--font-mono), monospace;
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+    box-shadow: 0 1.5rem 3rem -1.5rem color-mix(in oklab, var(--ink) 40%, transparent);
+  }
+  .search-status,
+  .search-keys {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+  .search-results {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+    gap: 1px;
+    background: var(--ink);
+    border: var(--line);
+  }
+  .search-results a {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--s-1) var(--s-3);
+    padding: var(--s-3);
+    background: var(--paper);
+  }
+  .search-results a:hover,
+  .search-results a:focus-visible {
+    background: var(--ink);
+    color: var(--paper);
+    outline: none;
+  }
+  .s-title {
+    font-family: var(--font-display), sans-serif;
+    font-weight: 800;
+    font-size: 1.2rem;
+    letter-spacing: -0.02em;
+  }
+  .s-cat {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    align-self: center;
+  }
+  .s-excerpt {
+    grid-column: 1 / -1;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: var(--muted);
+  }
+  .search-results a:hover .s-excerpt,
+  .search-results a:hover .s-cat {
+    color: var(--paper);
+  }
+  .s-excerpt mark {
+    background: var(--acid);
+    color: var(--acid-ink);
+  }
+
+  /* ---- category filter -------------------------------------------------- */
+  .m-filter {
+    padding: var(--s-3) var(--gutter);
+    border-bottom: var(--line);
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .m-filter .filter {
+    gap: var(--s-2);
+  }
+  .m-filter label {
+    padding: var(--s-1) var(--s-3);
+    border: 1px solid var(--muted);
+    color: var(--muted);
+  }
+  .m-filter label:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+  .m-filter input:checked + label {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  .m-filter input:focus-visible + label {
+    outline: 2px solid var(--acid);
+    outline-offset: 2px;
+  }
+  .filter-n {
+    opacity: 0.6;
+  }
+  @media (width < 48rem) {
+    .m-header {
+      flex-wrap: wrap;
+    }
+    .search {
+      order: 3;
+      flex-basis: 100%;
+      max-width: none;
+    }
   }
   .m-brand {
     font-weight: 900;

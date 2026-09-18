@@ -1,5 +1,6 @@
 ---
 import { getCollection } from 'astro:content';
+import CategoryFilter from '../components/CategoryFilter.astro';
 import CommitLine from '../components/CommitLine.astro';
 import { categoryLabel, pad2 } from '../lib/format';
 import { href } from '../lib/site';
@@ -13,6 +14,8 @@ const activity = (await getCollection('activity'))
   .slice(0, 10);
 const commits = plugins.reduce((n, p) => n + p.data.commitCount, 0);
 const latest = activity[0]?.data;
+const counts: Record<string, number> = {};
+for (const p of plugins) counts[p.data.category] = (counts[p.data.category] ?? 0) + 1;
 const title = 'wkd — a family of Neovim plugins';
 const description = `${plugins.length} Neovim plugins from one workshop: AI, editing, navigation, debugging, project tooling — one command each, one shared foundation.`;
 ---
@@ -56,20 +59,25 @@ const description = `${plugins.length} Neovim plugins from one workshop: AI, edi
     </div>
   </section>
 
-  <section class="roster" aria-label="All plugins">
-    {
-      plugins.map((p, i) => (
-        <a class="m-card" href={href(`p/${p.id}`)} data-nav={`p/${p.id}`}>
-          <span class="m-card-head">
-            <span>{pad2(i + 1)}</span>
-            <span class="m-card-cat">{categoryLabel(p.data.category)}</span>
-          </span>
-          <strong class="m-card-name">{p.data.name}</strong>
-          <span class="m-card-tag">{p.data.tagline}</span>
-        </a>
-      ))
-    }
-  </section>
+  <div class="home">
+    <div class="m-filter">
+      <CategoryFilter counts={counts} />
+    </div>
+    <section class="roster" aria-label="All plugins">
+      {
+        plugins.map((p, i) => (
+          <a class="m-card" href={href(`p/${p.id}`)} data-nav={`p/${p.id}`} data-cat={p.data.category}>
+            <span class="m-card-head">
+              <span>{pad2(i + 1)}</span>
+              <span class="m-card-cat">{categoryLabel(p.data.category)}</span>
+            </span>
+            <strong class="m-card-name">{p.data.name}</strong>
+            <span class="m-card-tag">{p.data.tagline}</span>
+          </a>
+        ))
+      }
+    </section>
+  </div>
 
   <section class="m-plugin" aria-label="Recent activity">
     <h2 class="m-h2">Recent activity</h2>

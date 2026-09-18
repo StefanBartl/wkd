@@ -156,35 +156,173 @@
 
   /* ---- cmdline ---------------------------------------------------------- */
   .tui-cmd {
+    position: relative;
     display: flex;
     border-top: 1px solid var(--border);
     background: var(--bg-alt);
     padding: 0 1ch;
     white-space: nowrap;
-    overflow: hidden;
-  }
-  .tui-cmd .cmdtext {
-    color: var(--fg);
-  }
-  .tui-cmd .cursor {
-    display: inline-block;
-    width: 1ch;
-    background: var(--fg);
-    animation: blink 1.1s steps(1) infinite;
   }
   .tui-cmd .pos {
     margin-left: auto;
     color: var(--fg-dim);
+    flex: none;
   }
-  @keyframes blink {
-    50% {
-      opacity: 0;
+
+  /* ---- search (lives in the cmdline) ------------------------------------ */
+  .tui-cmd .search {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+  }
+  .search-prefix::before {
+    content: ":";
+    color: var(--fg-dim);
+  }
+  .search:focus-within .search-prefix::before {
+    content: "/";
+    color: var(--yellow);
+  }
+  .search-input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    color: var(--fg);
+    background: transparent;
+    border: 0;
+    padding: 0;
+    caret-color: var(--fg);
+  }
+  .search-input::placeholder {
+    color: var(--fg);
+    opacity: 1;
+  }
+  .search-input:focus-visible {
+    outline: none;
+  }
+  .search-input:focus-visible::placeholder {
+    color: var(--fg-dim);
+  }
+  .search-input::-webkit-search-cancel-button {
+    display: none;
+  }
+  .search-panel {
+    position: absolute;
+    inset: auto 0 100% 0;
+    z-index: 10;
+    background: var(--bg-alt);
+    border-top: 1px solid var(--border);
+    padding: 0.5lh 1ch;
+    max-height: 60dvh;
+    overflow-y: auto;
+  }
+  .search-status {
+    color: var(--yellow);
+  }
+  .search-keys {
+    color: var(--fg-dim);
+  }
+  .search-results a {
+    display: grid;
+    grid-template-columns: 24ch 14ch 1fr;
+    gap: 0 2ch;
+    white-space: nowrap;
+    overflow: hidden;
+    padding: 0 1ch;
+  }
+  .search-results a:hover,
+  .search-results a:focus-visible {
+    background: var(--bg-hl);
+    outline: none;
+  }
+  .s-title {
+    color: var(--cyan);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .s-cat {
+    color: var(--magenta);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .s-excerpt {
+    color: var(--fg-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .s-excerpt mark {
+    background: transparent;
+    color: var(--yellow);
+    font-weight: 700;
+  }
+  @media (width < 52rem) {
+    .search-results a {
+      grid-template-columns: 1fr;
+    }
+    .s-cat {
+      display: none;
     }
   }
-  @media (prefers-reduced-motion: reduce) {
-    .tui-cmd .cursor {
-      animation: none;
-    }
+
+  /* ---- statusline select ------------------------------------------------ */
+  .seg-select {
+    display: inline-flex;
+    gap: 1ch;
+    align-items: center;
+  }
+  .seg-select select {
+    font: inherit;
+    color: var(--cyan);
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+  .seg-select select:focus-visible {
+    outline: 1px solid var(--yellow);
+  }
+  .seg-select option {
+    background: var(--bg-alt);
+    color: var(--fg);
+  }
+
+  /* ---- category filter -------------------------------------------------- */
+  .tui-filter {
+    display: flex;
+    gap: 0 2ch;
+    align-items: baseline;
+    margin-block: 0.25lh 0.5lh;
+  }
+  .tui-filter .filter {
+    gap: 0 1ch;
+  }
+  .tui-filter label {
+    color: var(--fg-dim);
+  }
+  .tui-filter label::before {
+    content: "[";
+    opacity: 0;
+  }
+  .tui-filter label::after {
+    content: "]";
+    opacity: 0;
+  }
+  .tui-filter label:hover {
+    color: var(--fg);
+  }
+  .tui-filter input:checked + label {
+    color: var(--yellow);
+  }
+  .tui-filter input:checked + label::before,
+  .tui-filter input:checked + label::after {
+    opacity: 1;
+  }
+  .tui-filter input:focus-visible + label {
+    outline: 1px solid var(--yellow);
+  }
+  .filter-n {
+    color: var(--fg-dim);
   }
 
   /* ---- content ---------------------------------------------------------- */

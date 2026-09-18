@@ -1,0 +1,29 @@
+---
+import { CATEGORIES } from '../lib/format';
+
+// Pure-CSS filter: radio buttons + `:has()` rules in src/styles/filter.css.
+// No script, nothing to hydrate, works with the hashed CSP. The wrapping
+// element must carry class "home" and the filterable items `data-cat`.
+interface Props {
+  counts: Record<string, number>;
+}
+const { counts } = Astro.props;
+const total = Object.values(counts).reduce((n, c) => n + c, 0);
+const cats = Object.entries(CATEGORIES).filter(([id]) => (counts[id] ?? 0) > 0);
+---
+
+<fieldset class="filter">
+  <legend class="visually-hidden">Filter plugins by category</legend>
+  <input class="visually-hidden" type="radio" name="cat" id="cat-all" checked />
+  <label for="cat-all">all <span class="filter-n">{total}</span></label>
+  {
+    cats.map(([id, label]) => (
+      <>
+        <input class="visually-hidden" type="radio" name="cat" id={`cat-${id}`} />
+        <label for={`cat-${id}`}>
+          {label.toLowerCase()} <span class="filter-n">{counts[id]}</span>
+        </label>
+      </>
+    ))
+  }
+</fieldset>

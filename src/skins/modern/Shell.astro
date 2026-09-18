@@ -1,7 +1,8 @@
 ---
 import Base from '../../components/Base.astro';
+import Search from '../../components/Search.astro';
 import '../../styles/modern.css';
-import { href } from '../../lib/site';
+import { href, MODES } from '../../lib/site';
 
 interface Props {
   page: string;
@@ -15,9 +16,16 @@ const tuiHref = href(page, 'tui');
 <Base skin="modern" page={page} title={title} description={description}>
   <header class="m-header">
     <a class="m-brand" href={href('')} data-nav="">wkd</a>
+    <Search placeholder="search  /" />
     <nav class="m-nav" aria-label="Site">
       <a href={href('')} data-nav="">Plugins</a>
       <a href={href('activity')} data-nav="activity">Activity</a>
+      <label class="m-select">
+        <span class="visually-hidden">Color mode</span>
+        <select data-mode-select>
+          {MODES.map((m) => <option value={m}>{m}</option>)}
+        </select>
+      </label>
       <a class="m-switch" href={tuiHref} data-skin-switch title="Switch to the TUI skin">[ tui ]</a>
     </nav>
   </header>

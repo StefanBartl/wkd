@@ -1,0 +1,68 @@
+/* TUI colorschemes. Default (tokyonight-night) is defined in tui.css; each
+   preset below only overrides the palette variables. Names match THEMES in
+   src/lib/site.ts and the <select data-theme-select> in the statusline. */
+@layer skin {
+  :root[data-skin="tui"][data-theme="gruvbox"] {
+    --bg: #282828;
+    --bg-alt: #1d2021;
+    --bg-hl: #3c3836;
+    --fg: #ebdbb2;
+    --fg-dim: #928374;
+    --border: #504945;
+    --blue: #83a598;
+    --cyan: #8ec07c;
+    --green: #b8bb26;
+    --yellow: #fabd2f;
+    --orange: #fe8019;
+    --red: #fb4934;
+    --magenta: #d3869b;
+  }
+
+  :root[data-skin="tui"][data-theme="catppuccin"] {
+    --bg: #1e1e2e;
+    --bg-alt: #181825;
+    --bg-hl: #313244;
+    --fg: #cdd6f4;
+    --fg-dim: #6c7086;
+    --border: #45475a;
+    --blue: #89b4fa;
+    --cyan: #89dceb;
+    --green: #a6e3a1;
+    --yellow: #f9e2af;
+    --orange: #fab387;
+    --red: #f38ba8;
+    --magenta: #cba6f7;
+  }
+
+  :root[data-skin="tui"][data-theme="kanagawa"] {
+    --bg: #1f1f28;
+    --bg-alt: #16161d;
+    --bg-hl: #2a2a37;
+    --fg: #dcd7ba;
+    --fg-dim: #727169;
+    --border: #54546d;
+    --blue: #7e9cd8;
+    --cyan: #7fb4ca;
+    --green: #98bb6c;
+    --yellow: #e6c384;
+    --orange: #ffa066;
+    --red: #ff5d62;
+    --magenta: #957fb8;
+  }
+
+  :root[data-skin="tui"][data-theme="nord"] {
+    --bg: #2e3440;
+    --bg-alt: #272c36;
+    --bg-hl: #3b4252;
+    --fg: #d8dee9;
+    --fg-dim: #4c566a;
+    --border: #434c5e;
+    --blue: #81a1c1;
+    --cyan: #88c0d0;
+    --green: #a3be8c;
+    --yellow: #ebcb8b;
+    --orange: #d08770;
+    --red: #bf616e;
+    --magenta: #b48ead;
+  }
+}

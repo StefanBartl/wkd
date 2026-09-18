@@ -1,4 +1,5 @@
 import { defineConfig, fontProviders } from 'astro/config';
+import { pagefindIntegration } from './src/integrations/pagefind';
 
 // Deployed under a project sub-path on GitHub Pages for now. Moving to a
 // custom domain later means changing `site` and setting `base: '/'` -- nothing
@@ -12,6 +13,7 @@ export default defineConfig({
   prefetch: { prefetchAll: true, defaultStrategy: 'hover' },
   // No markdown is rendered yet; Shiki's inline styles would break the hashed CSP.
   markdown: { syntaxHighlight: false },
+  integrations: [pagefindIntegration()],
   security: {
     // Static output: Astro emits a hashed <meta http-equiv> CSP. GitHub Pages
     // cannot send headers, so this is the only CSP we can ship there.
@@ -27,6 +29,8 @@ export default defineConfig({
         "form-action 'none'",
         'upgrade-insecure-requests',
       ],
+      // Pagefind runs a WebAssembly search core; the bundle itself is same-origin.
+      scriptDirective: { resources: ["'self'", "'wasm-unsafe-eval'"] },
     },
   },
   fonts: [

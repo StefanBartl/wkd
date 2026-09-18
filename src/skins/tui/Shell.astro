@@ -1,9 +1,11 @@
 ---
 import { getCollection } from 'astro:content';
 import Base from '../../components/Base.astro';
+import Search from '../../components/Search.astro';
 import '../../styles/tui.css';
+import '../../styles/themes.css';
 import { CATEGORIES } from '../../lib/format';
-import { href } from '../../lib/site';
+import { href, THEMES } from '../../lib/site';
 
 interface Props {
   page: string;
@@ -32,8 +34,14 @@ const file = page ? `~/wkd/${page}` : '~/wkd';
       <span class="seg path">{file}</span>
       <span class="spacer"></span>
       <a class="seg" href={modernHref} data-skin-switch title="Switch to the modern skin">:set skin=modern</a>
+      <label class="seg seg-select">
+        <span aria-hidden="true">:colorscheme</span>
+        <span class="visually-hidden">Colorscheme</span>
+        <select data-theme-select>
+          {THEMES.map((t) => <option value={t}>{t}</option>)}
+        </select>
+      </label>
       <span class="seg">utf-8</span>
-      <span class="seg">lua</span>
     </header>
     <a class="tui-hint" href={modernHref} data-skin-hint hidden>
       -- you usually use the modern skin: :set skin=modern --
@@ -63,7 +71,7 @@ const file = page ? `~/wkd/${page}` : '~/wkd';
       <main class="tui-main"><slot /></main>
     </div>
     <footer class="tui-cmd" aria-label="Command line">
-      <span class="cmdtext">:{cmd}</span><span class="cursor" aria-hidden="true"></span>
+      <Search placeholder={`:${cmd}`} />
       <span class="pos">{plugins.length} plugins</span>
     </footer>
   </div>

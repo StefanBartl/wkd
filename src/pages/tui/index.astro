@@ -1,5 +1,6 @@
 ---
 import { getCollection } from 'astro:content';
+import CategoryFilter from '../../components/CategoryFilter.astro';
 import CommitLine from '../../components/CommitLine.astro';
 import { categoryLabel, pad2 } from '../../lib/format';
 import { href } from '../../lib/site';
@@ -12,6 +13,8 @@ const activity = (await getCollection('activity'))
   .sort((a, b) => b.data.date.localeCompare(a.data.date))
   .slice(0, 8);
 const commits = plugins.reduce((n, p) => n + p.data.commitCount, 0);
+const counts: Record<string, number> = {};
+for (const p of plugins) counts[p.data.category] = (counts[p.data.category] ?? 0) + 1;
 // figlet -f Slant wkd
 const banner = [
   '           __       __',
@@ -29,18 +32,24 @@ const banner = [
     Generated from the repositories. Taglines, status and commits are read from source at build time.
   </p>
 
-  <h2 class="tui-h2">plugins</h2>
-  <div class="tui-table" role="list">
-    {
-      plugins.map((p, i) => (
-        <a role="listitem" href={href(`p/${p.id}`, 'tui')} data-nav={`p/${p.id}`}>
-          <span class="idx">{pad2(i + 1)}</span>
-          <span class="name">{p.data.name}</span>
-          <span class="stat" data-status={p.data.status}>{p.data.status}</span>
-          <span class="cat">{categoryLabel(p.data.category).toLowerCase()} — {p.data.tagline}</span>
-        </a>
-      ))
-    }
+  <div class="home">
+    <h2 class="tui-h2">plugins</h2>
+    <div class="tui-filter">
+      <span class="tui-dim" aria-hidden="true">:filter</span>
+      <CategoryFilter counts={counts} />
+    </div>
+    <div class="tui-table" role="list">
+      {
+        plugins.map((p, i) => (
+          <a role="listitem" href={href(`p/${p.id}`, 'tui')} data-nav={`p/${p.id}`} data-cat={p.data.category}>
+            <span class="idx">{pad2(i + 1)}</span>
+            <span class="name">{p.data.name}</span>
+            <span class="stat" data-status={p.data.status}>{p.data.status}</span>
+            <span class="cat">{categoryLabel(p.data.category).toLowerCase()} — {p.data.tagline}</span>
+          </a>
+        ))
+      }
+    </div>
   </div>
 
   <h2 class="tui-h2">git log --all --oneline</h2>

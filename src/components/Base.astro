@@ -1,6 +1,7 @@
 ---
 import { Font } from 'astro:assets';
 import '../styles/tokens.css';
+import '../styles/filter.css';
 import { href, otherSkin, type Skin } from '../lib/site';
 
 interface Props {
@@ -23,13 +24,24 @@ const canonical = new URL(href(page), Astro.site);
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    <link rel="icon" href={`${import.meta.env.BASE_URL.replace(/\/?$/, '/')}favicon.svg`} type="image/svg+xml" />
     <meta name="color-scheme" content={skin === 'tui' ? 'dark' : 'light dark'} />
     <meta name="theme-color" content={skin === 'tui' ? '#1a1b26' : '#0b0b0c'} />
     {skin === 'modern' ? <Font cssVariable="--font-display" preload /> : null}
     <Font cssVariable="--font-mono" preload={skin === 'tui'} />
+    {/* Apply stored theme/mode before first paint. Keys mirror src/lib/site.ts. */}
+    <script is:inline>
+      try {
+        var t = localStorage.getItem('wkd:theme');
+        if (t && t !== 'tokyonight') document.documentElement.dataset.theme = t;
+        var m = localStorage.getItem('wkd:mode');
+        if (m === 'light' || m === 'dark') document.documentElement.dataset.mode = m;
+      } catch (e) {}
+    </script>
   </head>
   <body data-other-skin={other}>
     <slot />
-    <script src="../scripts/skin.ts"></script>
+    <script src="../scripts/prefs.ts"></script>
+    <script src="../scripts/search.ts"></script>
   </body>
 </html>

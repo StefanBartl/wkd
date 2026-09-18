@@ -20,18 +20,20 @@ const [nameBase, nameSuffix] = d.name.endsWith('.nvim')
 ---
 
 <Shell page={page} title={`${d.name} — wkd`} description={d.tagline}>
-  <article class="m-plugin">
+  {/* data-pagefind-*: this (modern) page is the one Pagefind indexes for the plugin. */}
+  <article class="m-plugin" data-pagefind-body data-pagefind-meta={`title:${d.name}`}>
     <header class="m-plugin-head">
       <p class="m-kicker">
-        <b>{categoryLabel(d.category)}</b> · <span class="m-status" data-status={d.status}>{d.status}</span>
-        {d.nvimMin ? <span> · Neovim {d.nvimMin}+</span> : null}
-        <span> · {d.commitCount} commits</span>
+        <b data-pagefind-filter="category">{categoryLabel(d.category)}</b> ·
+        <span class="m-status" data-status={d.status} data-pagefind-filter="status">{d.status}</span>
+        {d.nvimMin ? <span data-pagefind-ignore> · Neovim {d.nvimMin}+</span> : null}
+        <span data-pagefind-ignore> · {d.commitCount} commits</span>
       </p>
       <h1 class="display display--name" data-kinetic>
         {nameBase}<wbr /><span class="m-suffix">{nameSuffix}</span>
       </h1>
       <p class="m-lede">{d.description}</p>
-      <p class="m-actions">
+      <p class="m-actions" data-pagefind-ignore>
         <a class="m-btn" data-primary href={d.url} rel="noopener">Repository</a>
         <a class="m-btn" href={`${d.url}#readme`} rel="noopener">README</a>
         {d.hasVimdoc ? <a class="m-btn" href={`${d.url}/tree/main/doc`} rel="noopener">:help</a> : null}
@@ -39,7 +41,7 @@ const [nameBase, nameSuffix] = d.name.endsWith('.nvim')
     </header>
 
     <div class="m-cols">
-      <section>
+      <section data-pagefind-ignore>
         <h2 class="m-h2">Install</h2>
         <pre class="code"><code>{lazySnippet(d.owner, d.name)}</code></pre>
         {d.statusNote ? <p class="m-kicker">{d.statusNote}</p> : null}
@@ -57,7 +59,7 @@ const [nameBase, nameSuffix] = d.name.endsWith('.nvim')
           {d.docs.length === 0 ? <li>See the README.</li> : null}
         </ul>
       </section>
-      <section>
+      <section data-pagefind-ignore>
         <h2 class="m-h2">Recent commits</h2>
         <ol class="m-list">
           {d.recent.slice(0, 8).map((c) => <CommitLine commit={c} skin="modern" showPlugin={false} />)}
@@ -65,6 +67,6 @@ const [nameBase, nameSuffix] = d.name.endsWith('.nvim')
       </section>
     </div>
 
-    {d.banner ? <pre class="m-banner" aria-hidden="true">{d.banner}</pre> : null}
+    {d.banner ? <pre class="m-banner" aria-hidden="true" data-pagefind-ignore>{d.banner}</pre> : null}
   </article>
 </Shell>
