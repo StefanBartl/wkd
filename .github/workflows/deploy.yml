@@ -26,13 +26,14 @@ jobs:
 
       # The content loader reads plugin checkouts from disk. Treeless clones
       # keep full commit history (for counts and the activity stream) while
-      # fetching blobs only for the checked-out tree.
+      # fetching blobs only for the checked-out tree. Anonymous clones: a
+      # private repo is skipped with a warning and simply missing from the site.
       - name: Clone plugin repositories
         run: |
           mkdir -p "$RUNNER_TEMP/repos"
           owner=$(jq -r .owner src/data/registry.json)
           for name in $(jq -r '.plugins[].name' src/data/registry.json); do
-            git clone --quiet --filter=blob:none "https://github.com/$owner/$name.git" "$RUNNER_TEMP/repos/$name"
+            git clone --quiet --filter=blob:none "https://github.com/$owner/$name.git" "$RUNNER_TEMP/repos/$name" \n              || echo "::warning::$name could not be cloned (private or missing) -- skipped"
           done
           echo "PLUGINS_DIR=$RUNNER_TEMP/repos" >> "$GITHUB_ENV"
 
