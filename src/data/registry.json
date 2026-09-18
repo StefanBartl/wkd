@@ -40,7 +40,6 @@
     { "name": "cmdlog.nvim", "category": "inspect" },
 
     { "name": "sandbox.nvim", "category": "project" },
-    { "name": "casedesk.nvim", "category": "project" },
     { "name": "github_stats.nvim", "category": "project" },
     { "name": "reposcope.nvim", "category": "project" },
     { "name": "documentation.nvim", "category": "project" },

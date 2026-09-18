@@ -13,7 +13,7 @@ const activity = (await getCollection('activity'))
   .slice(0, 10);
 const commits = plugins.reduce((n, p) => n + p.data.commitCount, 0);
 const latest = activity[0]?.data;
-const title = '.nvim — a family of Neovim plugins';
+const title = 'wkd — a family of Neovim plugins';
 const description = `${plugins.length} Neovim plugins from one workshop: AI, editing, navigation, debugging, project tooling — one command each, one shared foundation.`;
 ---
 

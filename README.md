@@ -1,6 +1,6 @@
 # wkd
 
-Website for the `.nvim` plugin family. Everything on the site — taglines, status,
+wkd -- website for the `.nvim` plugin family. Everything on the site — taglines, status,
 ASCII banners, docs listings, commit counts, the activity stream — is read from the
 plugin repositories at build time. Nothing about a plugin is written twice.
 

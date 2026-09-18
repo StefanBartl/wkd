@@ -14,7 +14,7 @@ const { plugin } = Astro.props as Props;
 const d = plugin.data;
 ---
 
-<Shell page={`p/${plugin.id}`} title={`${d.name} — .nvim`} description={d.tagline} cmd={`help ${plugin.id}`}>
+<Shell page={`p/${plugin.id}`} title={`${d.name} — wkd`} description={d.tagline} cmd={`help ${plugin.id}`}>
   {d.banner ? <pre class="banner" aria-hidden="true">{d.banner}</pre> : null}
   <h1 class="tui-h1">{d.name}</h1>
   <p class="tui-p">{d.description}</p>
