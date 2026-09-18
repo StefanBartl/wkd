@@ -1,0 +1,50 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  repository_dispatch:
+    types: [plugin-push]
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # The content loader reads plugin checkouts from disk. Treeless clones
+      # keep full commit history (for counts and the activity stream) while
+      # fetching blobs only for the checked-out tree.
+      - name: Clone plugin repositories
+        run: |
+          mkdir -p "$RUNNER_TEMP/repos"
+          owner=$(jq -r .owner src/data/registry.json)
+          for name in $(jq -r '.plugins[].name' src/data/registry.json); do
+            git clone --quiet --filter=blob:none "https://github.com/$owner/$name.git" "$RUNNER_TEMP/repos/$name"
+          done
+          echo "PLUGINS_DIR=$RUNNER_TEMP/repos" >> "$GITHUB_ENV"
+
+      - name: Install, build and upload
+        uses: withastro/action@v6
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

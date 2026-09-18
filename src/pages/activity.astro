@@ -1,0 +1,34 @@
+---
+import { getCollection } from 'astro:content';
+import CommitLine from '../components/CommitLine.astro';
+import { isoDay } from '../lib/format';
+import Shell from '../skins/modern/Shell.astro';
+
+const activity = (await getCollection('activity')).sort((a, b) =>
+  b.data.date.localeCompare(a.data.date),
+);
+const days = new Map<string, typeof activity>();
+for (const c of activity) {
+  const day = isoDay(c.data.date);
+  days.set(day, [...(days.get(day) ?? []), c]);
+}
+---
+
+<Shell page="activity" title="Activity — .nvim" description="Every recent commit across the plugin family, newest first.">
+  <section class="m-hero">
+    <p class="m-kicker"><b>{activity.length} commits</b> · newest first · all repositories</p>
+    <h1 class="display" data-kinetic>Activity</h1>
+  </section>
+  {
+    [...days.entries()].map(([day, items]) => (
+      <section class="m-day">
+        <h2>{day}</h2>
+        <ol class="m-list">
+          {items.map((c) => (
+            <CommitLine commit={c.data} skin="modern" />
+          ))}
+        </ol>
+      </section>
+    ))
+  }
+</Shell>

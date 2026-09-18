@@ -1,0 +1,451 @@
+/* Skin: modern -- editorial brutalism. Hairline grid, one acid accent,
+   oversized variable type. Light/dark via light-dark(); the accent stays. */
+@layer skin {
+  :root[data-skin="modern"] {
+    color-scheme: light dark;
+    --ink: light-dark(#0b0b0c, #f1efe8);
+    --paper: light-dark(#f1efe8, #0b0b0c);
+    --muted: light-dark(#5f5e5a, #9c9a93);
+    --acid: #c6ff3d;
+    --acid-ink: #0b0b0c;
+    --line: 1px solid var(--ink);
+
+    font-family: var(--font-display), "Arial Narrow", sans-serif;
+    font-size: clamp(1rem, 0.95rem + 0.3vw, 1.125rem);
+    line-height: 1.35;
+    background: var(--paper);
+    color: var(--ink);
+    font-feature-settings: "ss01", "tnum";
+  }
+
+  [data-skin="modern"] ::selection {
+    background: var(--acid);
+    color: var(--acid-ink);
+  }
+
+  /* ---- shell ------------------------------------------------------------ */
+  .m-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-6);
+    padding: var(--s-4) var(--gutter);
+    border-bottom: var(--line);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .m-brand {
+    font-weight: 900;
+    font-size: 1.4rem;
+    letter-spacing: -0.03em;
+    text-transform: none;
+  }
+  .m-nav {
+    display: flex;
+    gap: var(--s-6);
+  }
+  .m-nav a:hover,
+  .m-nav a:focus-visible {
+    background: var(--ink);
+    color: var(--paper);
+    outline: none;
+  }
+  .m-switch {
+    font-family: var(--font-mono), monospace;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .m-hint {
+    display: block;
+    padding: var(--s-2) var(--gutter);
+    background: var(--acid);
+    color: var(--acid-ink);
+    border-bottom: var(--line);
+    font-size: 0.9rem;
+  }
+  .m-main {
+    view-transition-name: main;
+  }
+  .m-footer {
+    padding: var(--s-8) var(--gutter);
+    border-top: var(--line);
+    color: var(--muted);
+    font-size: 0.85rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-4) var(--s-8);
+  }
+
+  /* ---- type ------------------------------------------------------------- */
+  .display {
+    font-weight: 800;
+    font-size: clamp(3rem, 12vw, 11rem);
+    line-height: 0.86;
+    letter-spacing: -0.045em;
+    text-transform: uppercase;
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+    font-stretch: 88%;
+  }
+  .display b {
+    color: var(--acid);
+    -webkit-text-stroke: 0.02em var(--ink);
+    font-weight: inherit;
+  }
+  .display--name {
+    font-size: clamp(2.5rem, 9vw, 9rem);
+    overflow-wrap: normal;
+  }
+  .m-suffix {
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .m-lede {
+    max-width: var(--measure);
+    font-size: clamp(1.15rem, 1rem + 0.8vw, 1.6rem);
+    line-height: 1.3;
+    text-wrap: pretty;
+    font-weight: 400;
+  }
+  .m-kicker {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+  .m-kicker b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .m-h2 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 700;
+    border-bottom: var(--line);
+    padding-bottom: var(--s-2);
+    margin-bottom: var(--s-4);
+  }
+
+  /* Scroll-driven width animation on the variable font's wdth axis.
+     Progressive: no support -> static 88% stretch. */
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      .display[data-kinetic] {
+        animation: widen linear both;
+        animation-timeline: view();
+        animation-range: entry 0% cover 45%;
+      }
+      @keyframes widen {
+        from {
+          font-stretch: 62%;
+          letter-spacing: -0.02em;
+        }
+        to {
+          font-stretch: 100%;
+          letter-spacing: -0.05em;
+        }
+      }
+    }
+  }
+
+  /* ---- home ------------------------------------------------------------- */
+  .m-hero {
+    padding: clamp(2rem, 6vw, 5rem) var(--gutter) var(--s-12);
+    display: grid;
+    gap: var(--s-8);
+    border-bottom: var(--line);
+  }
+  .m-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    border: var(--line);
+  }
+  .m-stats > div {
+    padding: var(--s-4);
+    border-right: var(--line);
+    display: grid;
+    gap: var(--s-1);
+  }
+  .m-stats > div:last-child {
+    border-right: 0;
+  }
+  .m-stats dt {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+  .m-stats dd {
+    font-size: clamp(2rem, 5vw, 4rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ticker {
+    border-bottom: var(--line);
+    overflow: hidden;
+    font-family: var(--font-mono), monospace;
+    font-size: 0.85rem;
+    display: flex;
+  }
+  .ticker-label {
+    flex: none;
+    padding: var(--s-2) var(--gutter);
+    background: var(--ink);
+    color: var(--paper);
+    display: grid;
+    place-items: center;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+  }
+  .ticker-track {
+    display: flex;
+    gap: var(--s-12);
+    width: max-content;
+    padding: var(--s-2) 0 var(--s-2) var(--s-6);
+    animation: marquee 70s linear infinite;
+  }
+  .ticker:hover .ticker-track,
+  .ticker:focus-within .ticker-track {
+    animation-play-state: paused;
+  }
+  .ticker-track > a {
+    white-space: nowrap;
+    display: inline-flex;
+    gap: 1ch;
+    align-items: baseline;
+  }
+  .ticker-track > a:hover {
+    background: var(--acid);
+    color: var(--acid-ink);
+  }
+  .ticker-track .ctype {
+    font-weight: 700;
+  }
+  .ticker-track .cplug {
+    color: var(--muted);
+  }
+  @keyframes marquee {
+    to {
+      translate: -50% 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ticker {
+      overflow-x: auto;
+    }
+    .ticker-track {
+      animation: none;
+    }
+  }
+
+  .roster {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+    border-bottom: var(--line);
+  }
+  .m-card {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: var(--s-6);
+    padding: var(--s-4) var(--s-4) var(--s-6);
+    min-height: 14rem;
+    border-right: var(--line);
+    border-bottom: var(--line);
+    transition:
+      background var(--dur) var(--ease),
+      color var(--dur) var(--ease);
+  }
+  .m-card:hover,
+  .m-card:focus-visible {
+    background: var(--ink);
+    color: var(--paper);
+    outline: none;
+  }
+  .m-card-head {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .m-card-cat {
+    color: var(--muted);
+  }
+  .m-card:hover .m-card-cat,
+  .m-card:focus-visible .m-card-cat {
+    color: var(--acid);
+  }
+  .m-card-name {
+    font-size: clamp(1.7rem, 2.6vw, 2.4rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 0.95;
+    overflow-wrap: anywhere;
+    align-self: end;
+  }
+  .m-card-tag {
+    font-size: 0.95rem;
+    line-height: 1.3;
+    text-wrap: pretty;
+  }
+  .m-status {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.1em 0.5em;
+    border: 1px solid currentColor;
+  }
+  .m-status[data-status="beta"] {
+    background: var(--acid);
+    color: var(--acid-ink);
+    border-color: var(--acid);
+  }
+
+  /* ---- plugin page ------------------------------------------------------ */
+  .m-plugin {
+    display: grid;
+    gap: var(--s-8);
+    padding: clamp(2rem, 5vw, 4rem) var(--gutter) var(--s-16);
+  }
+  .m-plugin-head {
+    display: grid;
+    gap: var(--s-4);
+  }
+  .m-cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+    border: var(--line);
+  }
+  .m-cols > section {
+    padding: var(--s-4);
+    border-right: var(--line);
+    border-bottom: var(--line);
+    margin-bottom: -1px;
+    display: grid;
+    align-content: start;
+    gap: var(--s-2);
+  }
+  .m-cols > section:last-child {
+    border-right: 0;
+  }
+  .code {
+    background: var(--ink);
+    color: var(--paper);
+    padding: var(--s-4);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    tab-size: 2;
+  }
+  .m-list li {
+    display: flex;
+    gap: 1ch;
+    align-items: baseline;
+    padding: var(--s-1) 0;
+    border-bottom: 1px dashed color-mix(in oklab, var(--ink) 25%, transparent);
+    font-size: 0.95rem;
+  }
+  .m-list li:last-child {
+    border-bottom: 0;
+  }
+  .m-list a:hover {
+    background: var(--acid);
+    color: var(--acid-ink);
+  }
+  .m-list time,
+  .m-list .ctype {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    flex: none;
+  }
+  .m-list .ctype {
+    color: var(--ink);
+    font-weight: 700;
+    min-width: 5ch;
+  }
+  .m-list .cplug {
+    flex: none;
+    font-weight: 600;
+  }
+  .m-list .csubj {
+    overflow-wrap: anywhere;
+  }
+  .m-banner {
+    font-size: clamp(0.5rem, 1.4vw, 0.95rem);
+    line-height: 1.15;
+    color: var(--muted);
+    overflow-x: auto;
+    padding-top: var(--s-8);
+  }
+  .m-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+  .m-btn {
+    padding: var(--s-2) var(--s-4);
+    border: var(--line);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+  .m-btn:hover,
+  .m-btn:focus-visible {
+    background: var(--ink);
+    color: var(--paper);
+    outline: none;
+  }
+  .m-btn[data-primary] {
+    background: var(--acid);
+    color: var(--acid-ink);
+    border-color: var(--acid);
+  }
+  .m-btn[data-primary]:hover {
+    background: var(--ink);
+    color: var(--acid);
+    border-color: var(--ink);
+  }
+
+  /* ---- activity page ---------------------------------------------------- */
+  .m-day {
+    display: grid;
+    grid-template-columns: minmax(8rem, 12rem) 1fr;
+    border-bottom: var(--line);
+  }
+  .m-day > h2 {
+    padding: var(--s-4) var(--gutter);
+    border-right: var(--line);
+    font-family: var(--font-mono), monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    align-self: start;
+  }
+  .m-day > ol {
+    padding: var(--s-2) var(--gutter);
+  }
+  @media (width < 40rem) {
+    .m-day {
+      grid-template-columns: 1fr;
+    }
+    .m-day > h2 {
+      border-right: 0;
+      border-bottom: var(--line);
+      position: static;
+    }
+  }
+}

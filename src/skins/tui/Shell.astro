@@ -1,0 +1,70 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../components/Base.astro';
+import '../../styles/tui.css';
+import { CATEGORIES } from '../../lib/format';
+import { href } from '../../lib/site';
+
+interface Props {
+  page: string;
+  title: string;
+  description: string;
+  mode?: string;
+  cmd?: string;
+}
+const { page, title, description, mode = 'NORMAL', cmd = '' } = Astro.props;
+const modernHref = href(page, 'modern');
+
+const plugins = (await getCollection('plugins')).sort((a, b) =>
+  a.data.name.localeCompare(b.data.name),
+);
+const groups = Object.entries(CATEGORIES)
+  .map(([id, label]) => ({ id, label, items: plugins.filter((p) => p.data.category === id) }))
+  .filter((g) => g.items.length > 0);
+const current = page.startsWith('p/') ? page.slice(2) : null;
+const file = page ? `~/dotnvim/${page}` : '~/dotnvim';
+---
+
+<Base skin="tui" page={page} title={title} description={description}>
+  <div class="tui">
+    <header class="tui-status" aria-label="Statusline">
+      <span class="mode" aria-label="Mode">{mode}</span>
+      <span class="seg path">{file}</span>
+      <span class="spacer"></span>
+      <a class="seg" href={modernHref} data-skin-switch title="Switch to the modern skin">:set skin=modern</a>
+      <span class="seg">utf-8</span>
+      <span class="seg">lua</span>
+    </header>
+    <a class="tui-hint" href={modernHref} data-skin-hint hidden>
+      -- you usually use the modern skin: :set skin=modern --
+    </a>
+    <div class="tui-body">
+      <nav class="tui-side" aria-label="Plugins">
+        <a class="root" href={href('', 'tui')} data-nav="">~/dotnvim/</a>
+        {
+          groups.map((g) => (
+            <div class="grp">
+              <div class="grp-h">▾ {g.label.toLowerCase()}/</div>
+              {g.items.map((p) => (
+                <a
+                  class:list={['item', { cur: p.id === current }]}
+                  href={href(`p/${p.id}`, 'tui')}
+                  data-nav={`p/${p.id}`}
+                  aria-current={p.id === current ? 'page' : undefined}
+                >
+                  {p.data.name}
+                </a>
+              ))}
+            </div>
+          ))
+        }
+        <a class="grp-h" href={href('activity', 'tui')} data-nav="activity">▸ activity.log</a>
+      </nav>
+      <main class="tui-main"><slot /></main>
+    </div>
+    <footer class="tui-cmd" aria-label="Command line">
+      <span class="cmdtext">:{cmd}</span><span class="cursor" aria-hidden="true"></span>
+      <span class="pos">{plugins.length} plugins</span>
+    </footer>
+  </div>
+</Base>

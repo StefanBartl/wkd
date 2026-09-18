@@ -1,0 +1,28 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { isoDay } from '../lib/format';
+import { href, type Skin } from '../lib/site';
+
+interface Props {
+  commit: CollectionEntry<'activity'>['data'];
+  skin: Skin;
+  showPlugin?: boolean;
+}
+const { commit: c, skin, showPlugin = true } = Astro.props;
+const commitUrl = `https://github.com/StefanBartl/${c.pluginName}/commit/${c.sha}`;
+---
+
+<li>
+  <time datetime={c.date}>{isoDay(c.date)}</time>
+  {
+    showPlugin ? (
+      <a class="cplug" href={href(`p/${c.plugin}`, skin)} data-nav={`p/${c.plugin}`}>
+        {c.pluginName}
+      </a>
+    ) : null
+  }
+  <span class="ctype" data-type={c.type ?? 'none'}>{c.type ?? '·'}</span>
+  <a class="csubj" href={commitUrl} rel="noopener" title={c.sha.slice(0, 10)}>
+    {c.scope ? `${c.scope}: ` : ''}{c.subject}
+  </a>
+</li>

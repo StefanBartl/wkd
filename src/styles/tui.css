@@ -1,0 +1,368 @@
+/* Skin: tui -- the site as a Neovim window: statusline, sidebar, cmdline.
+   Palette is a 16-colour terminal set (tokyonight-night by default) so a
+   colorscheme switcher can swap the whole look by redefining these vars. */
+@layer skin {
+  :root[data-skin="tui"] {
+    color-scheme: dark;
+    --bg: #1a1b26;
+    --bg-alt: #16161e;
+    --bg-hl: #292e42;
+    --fg: #c0caf5;
+    --fg-dim: #565f89;
+    --border: #3b4261;
+    --blue: #7aa2f7;
+    --cyan: #7dcfff;
+    --green: #9ece6a;
+    --yellow: #e0af68;
+    --orange: #ff9e64;
+    --red: #f7768e;
+    --magenta: #bb9af7;
+
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: clamp(0.85rem, 0.8rem + 0.25vw, 1rem);
+    line-height: 1.5;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  [data-skin="tui"] ::selection {
+    background: var(--bg-hl);
+  }
+
+  .tui {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-height: 100dvh;
+  }
+
+  /* ---- statusline ------------------------------------------------------- */
+  .tui-status {
+    display: flex;
+    align-items: stretch;
+    background: var(--bg-alt);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .tui-status .mode {
+    background: var(--blue);
+    color: var(--bg);
+    font-weight: 700;
+    padding: 0 1ch;
+  }
+  .tui-status .seg {
+    padding: 0 1ch;
+    border-right: 1px solid var(--border);
+    color: var(--fg-dim);
+  }
+  .tui-status .seg.path {
+    color: var(--fg);
+  }
+  .tui-status .spacer {
+    flex: 1;
+  }
+  .tui-status a.seg:hover,
+  .tui-status a.seg:focus-visible {
+    background: var(--bg-hl);
+    color: var(--fg);
+    outline: none;
+  }
+  .tui-hint {
+    background: var(--yellow);
+    color: var(--bg);
+    padding: 0 1ch;
+    display: block;
+  }
+
+  /* ---- body ------------------------------------------------------------- */
+  .tui-body {
+    display: grid;
+    grid-template-columns: 30ch 1fr;
+    min-height: 0;
+  }
+  .tui-side {
+    border-right: 1px solid var(--border);
+    padding: 0.5lh 0;
+    overflow-y: auto;
+    max-height: calc(100dvh - 2lh - 2px);
+    position: sticky;
+    top: 0;
+  }
+  .tui-side a,
+  .tui-side .grp-h {
+    display: block;
+    padding: 0 1ch;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tui-side .root {
+    color: var(--magenta);
+    font-weight: 700;
+    margin-bottom: 0.5lh;
+  }
+  .tui-side .grp-h {
+    color: var(--blue);
+    margin-top: 0.5lh;
+  }
+  .tui-side .item {
+    padding-left: 3ch;
+    color: var(--fg);
+  }
+  .tui-side .item::before {
+    content: "· ";
+    color: var(--fg-dim);
+  }
+  .tui-side .item:hover,
+  .tui-side .item:focus-visible {
+    background: var(--bg-hl);
+    outline: none;
+  }
+  .tui-side .item.cur {
+    background: var(--bg-hl);
+    color: var(--cyan);
+  }
+  .tui-side .item.cur::before {
+    content: "▸ ";
+    color: var(--cyan);
+  }
+  .tui-main {
+    padding: 1lh 2ch 2lh;
+    min-width: 0;
+    view-transition-name: main;
+  }
+  @media (width < 52rem) {
+    .tui-body {
+      grid-template-columns: 1fr;
+    }
+    .tui-side {
+      position: static;
+      max-height: none;
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0 1ch;
+      padding: 0.25lh 1ch;
+    }
+    .tui-side .grp-h,
+    .tui-side .root {
+      flex-basis: 100%;
+      margin: 0;
+    }
+    .tui-side .item {
+      padding-left: 1ch;
+    }
+  }
+
+  /* ---- cmdline ---------------------------------------------------------- */
+  .tui-cmd {
+    display: flex;
+    border-top: 1px solid var(--border);
+    background: var(--bg-alt);
+    padding: 0 1ch;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .tui-cmd .cmdtext {
+    color: var(--fg);
+  }
+  .tui-cmd .cursor {
+    display: inline-block;
+    width: 1ch;
+    background: var(--fg);
+    animation: blink 1.1s steps(1) infinite;
+  }
+  .tui-cmd .pos {
+    margin-left: auto;
+    color: var(--fg-dim);
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tui-cmd .cursor {
+      animation: none;
+    }
+  }
+
+  /* ---- content ---------------------------------------------------------- */
+  .banner {
+    font-size: clamp(0.45rem, 1.1vw, 0.9rem);
+    line-height: 1.15;
+    overflow-x: auto;
+    background: linear-gradient(120deg, var(--blue), var(--magenta) 55%, var(--cyan));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: 700;
+    margin-bottom: 1lh;
+  }
+  .tui-h1 {
+    color: var(--yellow);
+    font-size: inherit;
+    font-weight: 700;
+  }
+  .tui-h1::before {
+    content: "# ";
+    color: var(--fg-dim);
+  }
+  .tui-h2 {
+    color: var(--blue);
+    font-size: inherit;
+    font-weight: 700;
+    margin-top: 1lh;
+  }
+  .tui-h2::before {
+    content: "## ";
+    color: var(--fg-dim);
+  }
+  .tui-p {
+    max-width: var(--measure);
+    margin-block: 0.5lh;
+  }
+  .tui-dim {
+    color: var(--fg-dim);
+  }
+  .tui-kv {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0 2ch;
+    margin-block: 0.5lh;
+  }
+  .tui-kv dt {
+    color: var(--fg-dim);
+  }
+  .tui-kv dt::after {
+    content: ":";
+  }
+  .tui-kv dd {
+    overflow-wrap: anywhere;
+  }
+  .tui-kv a {
+    color: var(--cyan);
+    text-decoration: underline;
+    text-decoration-color: var(--border);
+  }
+  .tui-code {
+    border: 1px solid var(--border);
+    padding: 0.5lh 1ch;
+    margin-block: 0.5lh;
+    overflow-x: auto;
+    color: var(--green);
+  }
+  .tui-code::before {
+    content: "-- lazy.nvim";
+    display: block;
+    color: var(--fg-dim);
+  }
+  .tui-list li {
+    display: flex;
+    gap: 1ch;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tui-list a:hover,
+  .tui-list a:focus-visible {
+    background: var(--bg-hl);
+    outline: none;
+  }
+  .tui-list time {
+    color: var(--fg-dim);
+    flex: none;
+  }
+  .tui-list .cplug {
+    color: var(--magenta);
+    flex: none;
+    min-width: 18ch;
+  }
+  .tui-list .csubj {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Conventional-commit types get the same colours everywhere. */
+  .ctype {
+    flex: none;
+    min-width: 8ch;
+    font-weight: 700;
+  }
+  .ctype[data-type="feat"] {
+    color: var(--green);
+  }
+  .ctype[data-type="fix"] {
+    color: var(--red);
+  }
+  .ctype[data-type="docs"] {
+    color: var(--cyan);
+  }
+  .ctype[data-type="test"] {
+    color: var(--yellow);
+  }
+  .ctype[data-type="refactor"] {
+    color: var(--magenta);
+  }
+  .ctype[data-type="chore"],
+  .ctype[data-type="ci"],
+  .ctype[data-type="build"] {
+    color: var(--fg-dim);
+  }
+
+  /* Home: plugin table like a quickfix list. */
+  .tui-table {
+    display: grid;
+    grid-template-columns: 3ch max-content max-content 1fr;
+    gap: 0 2ch;
+    margin-block: 0.5lh;
+  }
+  .tui-table > a {
+    display: contents;
+  }
+  .tui-table > a > span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 0.5ch;
+  }
+  .tui-table > a:hover > span,
+  .tui-table > a:focus-visible > span {
+    background: var(--bg-hl);
+  }
+  .tui-table .idx {
+    color: var(--fg-dim);
+    text-align: right;
+  }
+  .tui-table .name {
+    color: var(--cyan);
+  }
+  .tui-table .cat {
+    color: var(--fg-dim);
+  }
+  .tui-table .stat[data-status="beta"] {
+    color: var(--yellow);
+  }
+  .tui-table .stat[data-status="alpha"] {
+    color: var(--red);
+  }
+  .tui-table .stat[data-status="stable"] {
+    color: var(--green);
+  }
+  @media (width < 52rem) {
+    .tui-table {
+      grid-template-columns: 3ch 1fr;
+    }
+    .tui-table .cat,
+    .tui-table .stat {
+      display: none;
+    }
+  }
+  .tui-log {
+    color: var(--fg-dim);
+    margin-top: 1lh;
+  }
+  .tui-log b {
+    color: var(--fg);
+  }
+}

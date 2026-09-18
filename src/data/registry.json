@@ -1,0 +1,59 @@
+{
+  "owner": "StefanBartl",
+  "categories": {
+    "ai": "AI",
+    "edit": "Editing",
+    "navigate": "Files & navigation",
+    "inspect": "Debug & inspect",
+    "project": "Project & repos",
+    "view": "View & render",
+    "foundation": "Foundation",
+    "desktop": "Desktop"
+  },
+  "plugins": [
+    { "name": "ai.nvim", "category": "ai" },
+    { "name": "buffer-ctx.nvim", "category": "ai" },
+
+    { "name": "cascade.nvim", "category": "edit" },
+    { "name": "replacer.nvim", "category": "edit" },
+    { "name": "emojis.nvim", "category": "edit" },
+    { "name": "language.nvim", "category": "edit" },
+    { "name": "markdown.nvim", "category": "edit" },
+    { "name": "data.nvim", "category": "edit" },
+
+    { "name": "gopath.nvim", "category": "navigate" },
+    { "name": "hover.nvim", "category": "navigate" },
+    { "name": "open.nvim", "category": "navigate" },
+    { "name": "pickers.nvim", "category": "navigate" },
+    { "name": "filetree.nvim", "category": "navigate" },
+    { "name": "fileops.nvim", "category": "navigate" },
+    { "name": "sessions.nvim", "category": "navigate" },
+
+    { "name": "dap.nvim", "category": "inspect" },
+    { "name": "debugging.nvim", "category": "inspect" },
+    { "name": "diff.nvim", "category": "inspect" },
+    { "name": "lsp.nvim", "category": "inspect" },
+    { "name": "insights.nvim", "category": "inspect" },
+    { "name": "runtime-analysis.nvim", "category": "inspect" },
+    { "name": "recommender.nvim", "category": "inspect" },
+    { "name": "spotlight.nvim", "category": "inspect" },
+    { "name": "cmdlog.nvim", "category": "inspect" },
+
+    { "name": "sandbox.nvim", "category": "project" },
+    { "name": "casedesk.nvim", "category": "project" },
+    { "name": "github_stats.nvim", "category": "project" },
+    { "name": "reposcope.nvim", "category": "project" },
+    { "name": "documentation.nvim", "category": "project" },
+
+    { "name": "ui.nvim", "category": "view" },
+    { "name": "color_my_ascii.nvim", "category": "view" },
+    { "name": "images.nvim", "category": "view" },
+    { "name": "mdview.nvim", "category": "view" },
+    { "name": "media.nvim", "category": "view" },
+    { "name": "pdfport.nvim", "category": "view" },
+
+    { "name": "lib.nvim", "category": "foundation" },
+
+    { "name": "docmap-desktop", "category": "desktop", "kind": "desktop" }
+  ]
+}

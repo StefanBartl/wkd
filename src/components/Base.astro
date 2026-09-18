@@ -1,0 +1,35 @@
+---
+import { Font } from 'astro:assets';
+import '../styles/tokens.css';
+import { href, otherSkin, type Skin } from '../lib/site';
+
+interface Props {
+  skin: Skin;
+  /** site-relative page path without base or skin prefix, e.g. "p/cascade" */
+  page: string;
+  title: string;
+  description: string;
+}
+const { skin, page, title, description } = Astro.props;
+const other = otherSkin(skin);
+const canonical = new URL(href(page), Astro.site);
+---
+
+<!doctype html>
+<html lang="en" data-skin={skin}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta name="color-scheme" content={skin === 'tui' ? 'dark' : 'light dark'} />
+    <meta name="theme-color" content={skin === 'tui' ? '#1a1b26' : '#0b0b0c'} />
+    {skin === 'modern' ? <Font cssVariable="--font-display" preload /> : null}
+    <Font cssVariable="--font-mono" preload={skin === 'tui'} />
+  </head>
+  <body data-other-skin={other}>
+    <slot />
+    <script src="../scripts/skin.ts"></script>
+  </body>
+</html>

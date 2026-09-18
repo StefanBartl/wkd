@@ -1,0 +1,33 @@
+---
+import Base from '../../components/Base.astro';
+import '../../styles/modern.css';
+import { href } from '../../lib/site';
+
+interface Props {
+  page: string;
+  title: string;
+  description: string;
+}
+const { page, title, description } = Astro.props;
+const tuiHref = href(page, 'tui');
+---
+
+<Base skin="modern" page={page} title={title} description={description}>
+  <header class="m-header">
+    <a class="m-brand" href={href('')} data-nav="">.nvim</a>
+    <nav class="m-nav" aria-label="Site">
+      <a href={href('')} data-nav="">Plugins</a>
+      <a href={href('activity')} data-nav="activity">Activity</a>
+      <a class="m-switch" href={tuiHref} data-skin-switch title="Switch to the TUI skin">[ tui ]</a>
+    </nav>
+  </header>
+  <a class="m-hint" href={tuiHref} data-skin-hint hidden>
+    You usually use the TUI skin — switch back.
+  </a>
+  <main class="m-main"><slot /></main>
+  <footer class="m-footer">
+    <span>A family of Neovim plugins. MIT licensed.</span>
+    <a href="https://github.com/StefanBartl?tab=repositories&q=.nvim" rel="noopener">Source on GitHub</a>
+    <span>Generated from the plugin repositories — nothing here is written twice.</span>
+  </footer>
+</Base>

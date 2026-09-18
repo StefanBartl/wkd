@@ -1,0 +1,81 @@
+---
+import { getCollection } from 'astro:content';
+import CommitLine from '../components/CommitLine.astro';
+import { categoryLabel, pad2 } from '../lib/format';
+import { href } from '../lib/site';
+import Shell from '../skins/modern/Shell.astro';
+
+const plugins = (await getCollection('plugins')).sort((a, b) =>
+  a.data.name.localeCompare(b.data.name),
+);
+const activity = (await getCollection('activity'))
+  .sort((a, b) => b.data.date.localeCompare(a.data.date))
+  .slice(0, 10);
+const commits = plugins.reduce((n, p) => n + p.data.commitCount, 0);
+const latest = activity[0]?.data;
+const title = '.nvim — a family of Neovim plugins';
+const description = `${plugins.length} Neovim plugins from one workshop: AI, editing, navigation, debugging, project tooling — one command each, one shared foundation.`;
+---
+
+<Shell page="" title={title} description={description}>
+  <section class="m-hero">
+    <p class="m-kicker">
+      github.com/StefanBartl · <b>{plugins.length} repositories</b> · {commits.toLocaleString('en')} commits
+    </p>
+    <h1 class="display" data-kinetic>
+      {plugins.length} plugins.<br />One <b>family</b>.
+    </h1>
+    <p class="m-lede">
+      Neovim plugins that share one rule — one command, one concern — and one tested foundation.
+      This site is generated from the repositories themselves: every tagline, status and commit
+      below is read from the source, not written here.
+    </p>
+    <dl class="m-stats">
+      <div><dt>plugins</dt><dd>{plugins.length}</dd></div>
+      <div><dt>commits</dt><dd>{commits.toLocaleString('en')}</dd></div>
+      <div><dt>with vimdoc</dt><dd>{plugins.filter((p) => p.data.hasVimdoc).length}</dd></div>
+      <div>
+        <dt>last push</dt>
+        <dd>{latest ? latest.date.slice(5, 10) : '—'}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="ticker" aria-label="Latest commits across all plugins">
+    <div class="ticker-label">live</div>
+    <div class="ticker-track">
+      {
+        [...activity, ...activity].map((c) => (
+          <a href={href(`p/${c.data.plugin}`)} data-nav={`p/${c.data.plugin}`}>
+            <span class="cplug">{c.data.pluginName}</span>
+            <span class="ctype">{c.data.type ?? '·'}</span>
+            <span>{c.data.subject}</span>
+          </a>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="roster" aria-label="All plugins">
+    {
+      plugins.map((p, i) => (
+        <a class="m-card" href={href(`p/${p.id}`)} data-nav={`p/${p.id}`}>
+          <span class="m-card-head">
+            <span>{pad2(i + 1)}</span>
+            <span class="m-card-cat">{categoryLabel(p.data.category)}</span>
+          </span>
+          <strong class="m-card-name">{p.data.name}</strong>
+          <span class="m-card-tag">{p.data.tagline}</span>
+        </a>
+      ))
+    }
+  </section>
+
+  <section class="m-plugin" aria-label="Recent activity">
+    <h2 class="m-h2">Recent activity</h2>
+    <ol class="m-list">
+      {activity.map((c) => <CommitLine commit={c.data} skin="modern" />)}
+    </ol>
+    <p><a class="m-btn" href={href('activity')} data-nav="activity">Full stream</a></p>
+  </section>
+</Shell>

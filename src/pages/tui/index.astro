@@ -1,0 +1,51 @@
+---
+import { getCollection } from 'astro:content';
+import CommitLine from '../../components/CommitLine.astro';
+import { categoryLabel, pad2 } from '../../lib/format';
+import { href } from '../../lib/site';
+import Shell from '../../skins/tui/Shell.astro';
+
+const plugins = (await getCollection('plugins')).sort((a, b) =>
+  a.data.name.localeCompare(b.data.name),
+);
+const activity = (await getCollection('activity'))
+  .sort((a, b) => b.data.date.localeCompare(a.data.date))
+  .slice(0, 8);
+const commits = plugins.reduce((n, p) => n + p.data.commitCount, 0);
+// figlet -f Slant dotnvim
+const banner = [
+  '       __      __             _         ',
+  '  ____/ /___  / /_____ _   __(_)___ ___ ',
+  ' / __  / __ \\/ __/ __ \\ | / / / __ `__ \\',
+  '/ /_/ / /_/ / /_/ / / / |/ / / / / / / /',
+  '\\__,_/\\____/\\__/_/ /_/|___/_/_/ /_/ /_/',
+].join('\n');
+---
+
+<Shell page="" title=".nvim — a family of Neovim plugins" description={`${plugins.length} Neovim plugins, one family.`} cmd="ls">
+  <pre class="banner" aria-hidden="true">{banner}</pre>
+  <h1 class="tui-h1">{plugins.length} plugins · {commits.toLocaleString('en')} commits · one family</h1>
+  <p class="tui-p tui-dim">
+    Generated from the repositories. Taglines, status and commits are read from source at build time.
+  </p>
+
+  <h2 class="tui-h2">plugins</h2>
+  <div class="tui-table" role="list">
+    {
+      plugins.map((p, i) => (
+        <a role="listitem" href={href(`p/${p.id}`, 'tui')} data-nav={`p/${p.id}`}>
+          <span class="idx">{pad2(i + 1)}</span>
+          <span class="name">{p.data.name}</span>
+          <span class="stat" data-status={p.data.status}>{p.data.status}</span>
+          <span class="cat">{categoryLabel(p.data.category).toLowerCase()} — {p.data.tagline}</span>
+        </a>
+      ))
+    }
+  </div>
+
+  <h2 class="tui-h2">git log --all --oneline</h2>
+  <ol class="tui-list">
+    {activity.map((c) => <CommitLine commit={c.data} skin="tui" />)}
+  </ol>
+  <p class="tui-log"><b>:activity</b> for the full stream</p>
+</Shell>
