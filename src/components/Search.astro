@@ -1,6 +1,8 @@
 ---
 // One markup for both skins; each skin styles `.search*` in its own stylesheet.
-// Behaviour lives in src/scripts/search.ts (loaded from Base.astro).
+// Behaviour lives in src/scripts/search.ts (loaded from Base.astro). Without
+// scripting the whole form is hidden (html:not([data-js]) rule in tokens.css),
+// so nobody meets a field whose submit the CSP's form-action 'none' blocks.
 interface Props {
   placeholder?: string;
 }
@@ -20,7 +22,6 @@ const { placeholder = 'search' } = Astro.props;
     placeholder={placeholder}
     autocomplete="off"
     spellcheck="false"
-    aria-expanded="false"
     aria-controls="search-panel"
     aria-describedby="search-status"
   />

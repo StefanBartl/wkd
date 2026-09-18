@@ -8,6 +8,8 @@
     --muted: light-dark(#5f5e5a, #9c9a93);
     --acid: #c6ff3d;
     --acid-ink: #0b0b0c;
+    /* Focus rings: acid is 1.03:1 on light paper, so use ink there. */
+    --focus: light-dark(#0b0b0c, #c6ff3d);
     --line: 1px solid var(--ink);
 
     font-family: var(--font-display), "Arial Narrow", sans-serif;
@@ -60,7 +62,18 @@
     cursor: pointer;
   }
   .m-select select:focus-visible {
-    outline: 2px solid var(--acid);
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .m-hint a,
+  .m-hint button {
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
+  }
+  .m-hint a:focus-visible,
+  .m-hint button:focus-visible {
+    outline: 2px solid var(--acid-ink);
     outline-offset: 2px;
   }
 
@@ -94,8 +107,8 @@
     color: var(--muted);
   }
   .search-input:focus-visible {
-    outline: none;
-    border-bottom-color: var(--acid);
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
     border-bottom-width: 2px;
   }
   .search-input::-webkit-search-cancel-button {
@@ -198,7 +211,7 @@
     border-color: var(--ink);
   }
   .m-filter input:focus-visible + label {
-    outline: 2px solid var(--acid);
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
   .filter-n {
@@ -308,23 +321,24 @@
     margin-bottom: var(--s-4);
   }
 
-  /* Scroll-driven width animation on the variable font's wdth axis.
-     Progressive: no support -> static 88% stretch. */
+  /* Scroll-driven "widening" of the display headline. Done with a transform
+     (compositor only) rather than font-stretch: animating the wdth axis
+     reshapes and re-wraps a viewport-sized headline on every scroll frame and
+     can change its line count mid-scroll. Progressive: no support -> static. */
   @media (prefers-reduced-motion: no-preference) {
     @supports (animation-timeline: view()) {
       .display[data-kinetic] {
+        transform-origin: left center;
         animation: widen linear both;
         animation-timeline: view();
         animation-range: entry 0% cover 45%;
       }
       @keyframes widen {
         from {
-          font-stretch: 62%;
-          letter-spacing: -0.02em;
+          scale: 0.86 1;
         }
         to {
-          font-stretch: 100%;
-          letter-spacing: -0.05em;
+          scale: 1 1;
         }
       }
     }
@@ -392,8 +406,30 @@
     animation: marquee 70s linear infinite;
   }
   .ticker:hover .ticker-track,
-  .ticker:focus-within .ticker-track {
+  .ticker:focus-within .ticker-track,
+  .ticker:has(#ticker-pause:checked) .ticker-track {
     animation-play-state: paused;
+  }
+  /* Pause control for touch (WCAG 2.2.2); CSS-only via :has(). */
+  .ticker-pause {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5ch;
+    padding: 0 var(--s-3);
+    border-right: var(--line);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    user-select: none;
+  }
+  .ticker-pause input {
+    accent-color: var(--acid);
+  }
+  .ticker-pause:has(input:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
   }
   .ticker-track > a {
     white-space: nowrap;
@@ -422,6 +458,10 @@
     }
     .ticker-track {
       animation: none;
+    }
+    .ticker-pause,
+    .ticker-track > a[inert] {
+      display: none;
     }
   }
 
@@ -602,6 +642,9 @@
     display: grid;
     grid-template-columns: minmax(8rem, 12rem) 1fr;
     border-bottom: var(--line);
+    /* ~430 rows on the activity page: lay out days as they scroll into view. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 20rem;
   }
   .m-day > h2 {
     padding: var(--s-4) var(--gutter);

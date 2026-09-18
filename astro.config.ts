@@ -1,5 +1,7 @@
+import { createHash } from 'node:crypto';
 import { defineConfig, fontProviders } from 'astro/config';
 import { pagefindIntegration } from './src/integrations/pagefind';
+import { BOOT } from './src/lib/boot';
 
 // Deployed under a project sub-path on GitHub Pages for now. Moving to a
 // custom domain later means changing `site` and setting `base: '/'` -- nothing
@@ -10,7 +12,10 @@ export default defineConfig({
   trailingSlash: 'always',
   compressHTML: true,
   build: { format: 'directory' },
-  prefetch: { prefetchAll: true, defaultStrategy: 'hover' },
+  // Opt-in prefetch (data-astro-prefetch) on the links people actually click
+  // through -- cards, table rows, nav. Not on the 38-link TUI sidebar, where a
+  // keyboard pass would otherwise fetch every plugin page.
+  prefetch: { prefetchAll: false, defaultStrategy: 'hover' },
   // No markdown is rendered yet; Shiki's inline styles would break the hashed CSP.
   markdown: { syntaxHighlight: false },
   integrations: [pagefindIntegration()],
@@ -29,8 +34,13 @@ export default defineConfig({
         "form-action 'none'",
         'upgrade-insecure-requests',
       ],
-      // Pagefind runs a WebAssembly search core; the bundle itself is same-origin.
-      scriptDirective: { resources: ["'self'", "'wasm-unsafe-eval'"] },
+      scriptDirective: {
+        // Pagefind runs a WebAssembly search core; the bundle itself is same-origin.
+        resources: ["'self'", "'wasm-unsafe-eval'"],
+        // Astro only hashes the scripts it bundles; the is:inline bootstrap in
+        // Base.astro is hashed here so it does not depend on head ordering.
+        hashes: [`sha256-${createHash('sha256').update(BOOT).digest('base64')}`],
+      },
     },
   },
   fonts: [

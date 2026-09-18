@@ -1,9 +1,20 @@
 ---
 import { CATEGORIES } from '../lib/format';
+import filterCss from '../styles/filter.css?raw';
 
 // Pure-CSS filter: radio buttons + `:has()` rules in src/styles/filter.css.
 // No script, nothing to hydrate, works with the hashed CSP. The wrapping
 // element must carry class "home" and the filterable items `data-cat`.
+//
+// The rules are spelled out per category id, so a category added to the
+// registry without a rule would render a radio that filters nothing. Fail the
+// build instead (server-side only; ships no bytes).
+for (const id of Object.keys(CATEGORIES)) {
+  if (!filterCss.includes(`#cat-${id}:checked`)) {
+    throw new Error(`src/styles/filter.css has no rule for category "${id}" -- add one`);
+  }
+}
+
 interface Props {
   counts: Record<string, number>;
 }

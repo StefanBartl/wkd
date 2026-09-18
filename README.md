@@ -58,8 +58,19 @@ Requires Node ≥ 22.12 and pnpm ≥ 10.
   `src/styles/filter.css`. Adding a category to the registry means adding one rule there.
 - **Preferences** (all optional, all `localStorage`): skin, TUI colorscheme
   (`src/styles/themes.css`: tokyonight, gruvbox, catppuccin, kanagawa, nord) and the modern
-  skin's light/dark override. A tiny inline script in `Base.astro` applies theme and mode
-  before first paint; it is hashed into the CSP like everything else.
+  skin's light/dark override. A one-line inline bootstrap (`src/lib/boot.ts`, emitted
+  verbatim by `Base.astro`) applies theme and mode before first paint and marks `<html>`
+  with `data-js`, which is what hides the search field and the two selects when scripting
+  is off. Astro does not hash `is:inline` scripts, so `astro.config.ts` computes the
+  SHA-256 of that string itself and adds it to `script-src`.
+- **Prefetch** is opt-in per link (`data-astro-prefetch` on cards, table rows, nav and
+  commit links, hover strategy) rather than site-wide: the 38-link TUI sidebar sits on every
+  page, and a keyboard pass over it would otherwise fetch every plugin page.
+- **Accessibility** is part of the design, not a pass afterwards: skip links, visible focus
+  rings in both skins (the acid accent is 1.03:1 on light paper, so focus uses ink there),
+  decorative ASCII and generated text hidden from assistive tech (`aria-hidden`,
+  `content: "# " / ""`), the ticker's loop copy `inert`, a pause control for the marquee,
+  and the TUI sidebar moved below the content on phones.
 - **Native CSS**: cascade layers, `light-dark()`, container/scroll-driven animations,
   cross-document view transitions (`@view-transition`, no client router).
 - **Fonts** via Astro's Fonts API (Archivo variable, JetBrains Mono), self-hosted, preloaded.
@@ -77,8 +88,13 @@ Requires Node ≥ 22.12 and pnpm ≥ 10.
 
 `.github/workflows/deploy.yml` builds and publishes to GitHub Pages on push, on a 6-hour
 schedule, on manual dispatch, and on `repository_dispatch` events of type `plugin-push`.
-It clones every registry entry treeless (`--filter=blob:none`) so commit history is complete
-without downloading blobs. No token, no API rate limits.
+It clones every registry entry treeless (`--filter=blob:none`, six in parallel) so commit
+history is complete without downloading blobs. No token, no API rate limits. Clone failures
+are classified: a private or missing repository is skipped with a warning (the site is
+simply missing it), anything else -- 5xx, timeout, RPC failure -- is retried once and then
+fails the run, and the loader refuses to build an empty site under `CI`, so a degraded
+GitHub never replaces a good deployment with a partial one. Queued runs wait for the running
+one instead of cancelling it (a cancelled `deploy-pages` leaves the environment red).
 
 To rebuild the site on every plugin push, add this to each plugin repo's CI:
 

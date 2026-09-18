@@ -36,7 +36,7 @@ const [nameBase, nameSuffix] = d.name.endsWith('.nvim')
       <p class="m-actions" data-pagefind-ignore>
         <a class="m-btn" data-primary href={d.url} rel="noopener">Repository</a>
         <a class="m-btn" href={`${d.url}#readme`} rel="noopener">README</a>
-        {d.hasVimdoc ? <a class="m-btn" href={`${d.url}/tree/main/doc`} rel="noopener">:help</a> : null}
+        {d.hasVimdoc ? <a class="m-btn" href={`${d.url}/tree/HEAD/doc`} rel="noopener">:help</a> : null}
       </p>
     </header>
 
@@ -52,7 +52,7 @@ const [nameBase, nameSuffix] = d.name.endsWith('.nvim')
           {
             d.docs.map((f) => (
               <li>
-                <a href={`${d.url}/blob/main/docs/${f}`} rel="noopener">docs/{f}</a>
+                <a href={`${d.url}/blob/HEAD/docs/${encodeURIComponent(f)}`} rel="noopener">docs/{f}</a>
               </li>
             ))
           }
@@ -67,6 +67,6 @@ const [nameBase, nameSuffix] = d.name.endsWith('.nvim')
       </section>
     </div>
 
-    {d.banner ? <pre class="m-banner" aria-hidden="true" data-pagefind-ignore>{d.banner}</pre> : null}
+    {d.banner ? <pre class="m-banner" aria-hidden="true" tabindex="-1" data-pagefind-ignore>{d.banner}</pre> : null}
   </article>
 </Shell>

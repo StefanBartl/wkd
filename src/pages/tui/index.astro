@@ -26,7 +26,7 @@ const banner = [
 ---
 
 <Shell page="" title="wkd — a family of Neovim plugins" description={`${plugins.length} Neovim plugins, one family.`} cmd="ls">
-  <pre class="banner" aria-hidden="true">{banner}</pre>
+  <pre class="banner" aria-hidden="true" tabindex="-1">{banner}</pre>
   <h1 class="tui-h1">{plugins.length} plugins · {commits.toLocaleString('en')} commits · one family</h1>
   <p class="tui-p tui-dim">
     Generated from the repositories. Taglines, status and commits are read from source at build time.
@@ -38,10 +38,10 @@ const banner = [
       <span class="tui-dim" aria-hidden="true">:filter</span>
       <CategoryFilter counts={counts} />
     </div>
-    <div class="tui-table" role="list">
+    <div class="tui-table">
       {
         plugins.map((p, i) => (
-          <a role="listitem" href={href(`p/${p.id}`, 'tui')} data-nav={`p/${p.id}`} data-cat={p.data.category}>
+          <a href={href(`p/${p.id}`, 'tui')} data-nav={`p/${p.id}`} data-cat={p.data.category} data-astro-prefetch>
             <span class="idx">{pad2(i + 1)}</span>
             <span class="name">{p.data.name}</span>
             <span class="stat" data-status={p.data.status}>{p.data.status}</span>

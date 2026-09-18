@@ -38,8 +38,13 @@ export function pagefindIntegration(): AstroIntegration {
         server.middlewares.use((req, res, next) => {
           const url = (req.url ?? '').split('?')[0] ?? '';
           if (!url.startsWith(prefix)) return next();
-          const rel = normalize(decodeURIComponent(url.slice(prefix.length)));
-          if (rel.startsWith('..')) return next();
+          let rel: string;
+          try {
+            rel = normalize(decodeURIComponent(url.slice(prefix.length)));
+          } catch {
+            return next(); // malformed percent-encoding
+          }
+          if (rel.startsWith('..') || rel.includes('\0')) return next();
           const file = join(bundle, rel);
           readFile(file).then(
             (buf) => {

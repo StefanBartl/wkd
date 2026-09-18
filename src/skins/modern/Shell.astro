@@ -14,12 +14,13 @@ const tuiHref = href(page, 'tui');
 ---
 
 <Base skin="modern" page={page} title={title} description={description}>
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="m-header">
-    <a class="m-brand" href={href('')} data-nav="">wkd</a>
-    <Search placeholder="search  /" />
+    <a class="m-brand" href={href('')} data-nav="" data-astro-prefetch>wkd</a>
+    <Search placeholder="search" />
     <nav class="m-nav" aria-label="Site">
-      <a href={href('')} data-nav="">Plugins</a>
-      <a href={href('activity')} data-nav="activity">Activity</a>
+      <a href={href('')} data-nav="" data-astro-prefetch>Plugins</a>
+      <a href={href('activity')} data-nav="activity" data-astro-prefetch>Activity</a>
       <label class="m-select">
         <span class="visually-hidden">Color mode</span>
         <select data-mode-select>
@@ -29,10 +30,11 @@ const tuiHref = href(page, 'tui');
       <a class="m-switch" href={tuiHref} data-skin-switch title="Switch to the TUI skin">[ tui ]</a>
     </nav>
   </header>
-  <a class="m-hint" href={tuiHref} data-skin-hint hidden>
-    You usually use the TUI skin — switch back.
-  </a>
-  <main class="m-main"><slot /></main>
+  <div class="m-hint" data-skin-hint hidden>
+    You usually use the TUI skin — <a href={tuiHref}>switch back</a> or
+    <button type="button" data-skin-keep>stay here</button>.
+  </div>
+  <main class="m-main" id="main"><slot /></main>
   <footer class="m-footer">
     <span>A family of Neovim plugins. MIT licensed.</span>
     <a href="https://github.com/StefanBartl?tab=repositories&q=.nvim" rel="noopener">Source on GitHub</a>

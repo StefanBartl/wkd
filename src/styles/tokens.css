@@ -87,6 +87,28 @@
   [hidden] {
     display: none;
   }
+  /* Controls that only do something with scripting; the inline bootstrap
+     (src/lib/boot.ts) sets data-js before <body> parses, so no flash. */
+  html:not([data-js]) :is(.search, .m-select, .seg-select) {
+    display: none;
+  }
+  /* First focusable on every page; visible only while focused. Colours fall
+     through to whichever skin defines them. */
+  .skip-link {
+    position: absolute;
+    top: -100%;
+    left: var(--gutter, 1rem);
+    z-index: 100;
+    padding: 0.5rem 1rem;
+    background: var(--ink, var(--yellow));
+    color: var(--paper, var(--bg));
+    font-weight: 700;
+  }
+  .skip-link:focus {
+    top: 0.5rem;
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
   @media (prefers-reduced-motion: reduce) {
     ::view-transition-group(*),
     ::view-transition-old(*),

@@ -1,6 +1,7 @@
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { promisify } from 'node:util';
 import type { Loader, LoaderContext } from 'astro/loaders';
 import { z } from 'astro/zod';
 import registry from '../data/registry.json';
@@ -52,11 +53,33 @@ interface Scanned {
   commits: Commit[];
 }
 
-function git(dir: string, args: string[]): string {
-  return execFileSync('git', ['-C', dir, ...args], {
+const execFileAsync = promisify(execFile);
+const GIT_CONCURRENCY = 8;
+
+async function git(dir: string, args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync('git', ['-C', dir, ...args], {
     encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'ignore'],
-  }).trim();
+    windowsHide: true,
+  });
+  return stdout.trim();
+}
+
+/** Promise.all with at most `limit` tasks in flight; results keep input order. */
+async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i] as T);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
 }
 
 /** Strip inline markdown (links, emphasis, code, images) down to plain text. */
@@ -101,7 +124,9 @@ interface ReadmeFacts {
  *   [badges]
  *   First paragraph = pitch.
  * Nothing here is guessed from a fixed line number; each part is located by
- * its own marker so a README that drops one part still parses.
+ * its own marker so a README that drops one part still parses. The status
+ * quote must be the first non-blank content, though: a quote further down is
+ * prose, not status.
  */
 export function parseReadme(md: string): ReadmeFacts {
   const lines = md.split(/\r?\n/);
@@ -109,7 +134,7 @@ export function parseReadme(md: string): ReadmeFacts {
   const quote: string[] = [];
   for (const l of lines) {
     if (l.startsWith('>')) quote.push(l.replace(/^>\s?/, ''));
-    else if (quote.length) break;
+    else if (l.trim()) break;
   }
   const statusNote = quote.length ? plain(quote.join(' ')) : null;
   let status: PluginData['status'] = 'unknown';
@@ -169,71 +194,92 @@ function parseCommitLine(line: string, plugin: string, pluginName: string): Comm
   };
 }
 
-let cache: Scanned[] | null = null;
+type RegistryEntry = (typeof registry.plugins)[number] & { kind?: 'plugin' | 'desktop' };
 
-export function scanRepos(logger: Logger): Scanned[] {
-  if (cache) return cache;
-  const root = resolve(process.env.PLUGINS_DIR ?? '..');
-  const out: Scanned[] = [];
+async function scanOne(
+  root: string,
+  entry: RegistryEntry,
+  logger: Logger,
+): Promise<Scanned | null> {
+  const dir = join(root, entry.name);
+  if (!existsSync(join(dir, '.git'))) {
+    logger.warn(`skip ${entry.name}: no checkout at ${dir}`);
+    return null;
+  }
+  const readmePath = join(dir, 'README.md');
+  const facts = parseReadme(existsSync(readmePath) ? readFileSync(readmePath, 'utf8') : '');
 
-  for (const entry of registry.plugins) {
-    const dir = join(root, entry.name);
-    if (!existsSync(join(dir, '.git'))) {
-      logger.warn(`skip ${entry.name}: no checkout at ${dir}`);
-      continue;
-    }
-    const readmePath = join(dir, 'README.md');
-    const facts = parseReadme(existsSync(readmePath) ? readFileSync(readmePath, 'utf8') : '');
+  const slug = entry.name.replace(/\.nvim$/, '');
+  const docsDir = join(dir, 'docs');
+  const docs = existsSync(docsDir)
+    ? readdirSync(docsDir)
+        .filter((f) => f.endsWith('.md') && statSync(join(docsDir, f)).isFile())
+        .sort()
+    : [];
+  const docDir = join(dir, 'doc');
+  const hasVimdoc = existsSync(docDir) && readdirSync(docDir).some((f) => f.endsWith('.txt'));
 
-    const slug = entry.name.replace(/\.nvim$/, '');
-    const docsDir = join(dir, 'docs');
-    const docs = existsSync(docsDir)
-      ? readdirSync(docsDir)
-          .filter((f) => f.endsWith('.md') && statSync(join(docsDir, f)).isFile())
-          .sort()
-      : [];
-    const docDir = join(dir, 'doc');
-    const hasVimdoc = existsSync(docDir) && readdirSync(docDir).some((f) => f.endsWith('.txt'));
-
-    let commits: Commit[] = [];
-    let commitCount = 0;
-    try {
-      commitCount = Number(git(dir, ['rev-list', '--count', 'HEAD']));
-      commits = git(dir, ['log', `-n${RECENT_PER_REPO}`, '--format=%H%x1f%cI%x1f%s'])
-        .split('\n')
-        .map((l) => parseCommitLine(l, slug, entry.name))
-        .filter((c): c is Commit => c !== null);
-    } catch (e) {
-      logger.warn(`git failed for ${entry.name}: ${(e as Error).message}`);
-    }
-
-    out.push({
-      plugin: {
-        name: entry.name,
-        slug,
-        owner: OWNER,
-        url: `https://github.com/${OWNER}/${entry.name}`,
-        kind: (entry as { kind?: 'plugin' | 'desktop' }).kind ?? 'plugin',
-        category: entry.category,
-        tagline: facts.tagline,
-        description: facts.description,
-        banner: facts.banner,
-        status: facts.status,
-        statusNote: facts.statusNote,
-        nvimMin: facts.nvimMin,
-        hasVimdoc,
-        docs,
-        commitCount,
-        lastCommit: commits[0]?.date ?? null,
-        recent: commits,
-      },
-      commits,
-    });
+  let commits: Commit[] = [];
+  let commitCount = 0;
+  try {
+    const [count, log] = await Promise.all([
+      git(dir, ['rev-list', '--count', 'HEAD']),
+      git(dir, ['log', `-n${RECENT_PER_REPO}`, '--format=%H%x1f%cI%x1f%s']),
+    ]);
+    commitCount = Number(count);
+    commits = log
+      .split('\n')
+      .map((l) => parseCommitLine(l, slug, entry.name))
+      .filter((c): c is Commit => c !== null);
+  } catch (e) {
+    logger.warn(`git failed for ${entry.name}: ${(e as Error).message}`);
   }
 
+  return {
+    plugin: {
+      name: entry.name,
+      slug,
+      owner: OWNER,
+      url: `https://github.com/${OWNER}/${entry.name}`,
+      kind: entry.kind ?? 'plugin',
+      category: entry.category,
+      tagline: facts.tagline,
+      description: facts.description,
+      banner: facts.banner,
+      status: facts.status,
+      statusNote: facts.statusNote,
+      nvimMin: facts.nvimMin,
+      hasVimdoc,
+      docs,
+      commitCount,
+      lastCommit: commits[0]?.date ?? null,
+      recent: commits,
+    },
+    commits,
+  };
+}
+
+let cache: Promise<Scanned[]> | null = null;
+
+async function scanAll(logger: Logger): Promise<Scanned[]> {
+  const root = resolve(process.env.PLUGINS_DIR ?? '..');
+  const scanned = await mapLimit(registry.plugins as RegistryEntry[], GIT_CONCURRENCY, (entry) =>
+    scanOne(root, entry, logger),
+  );
+  const out = scanned.filter((s): s is Scanned => s !== null);
   logger.info(`scanned ${out.length}/${registry.plugins.length} repositories under ${root}`);
-  cache = out;
+  // A missing repo is skipped on purpose (see deploy.yml), but nothing at all
+  // means the checkout step failed -- never publish an empty site from CI.
+  if (process.env.CI && out.length === 0) {
+    throw new Error(`no plugin checkouts found under ${root} -- refusing to build an empty site`);
+  }
   return out;
+}
+
+/** One scan per process, shared by both collections; git runs in parallel. */
+export function scanRepos(logger: Logger): Promise<Scanned[]> {
+  cache ??= scanAll(logger);
+  return cache;
 }
 
 export function pluginsLoader(): Loader {
@@ -241,7 +287,7 @@ export function pluginsLoader(): Loader {
     name: 'wkd-plugins',
     async load({ store, parseData, generateDigest, logger }) {
       store.clear();
-      for (const { plugin } of scanRepos(logger)) {
+      for (const { plugin } of await scanRepos(logger)) {
         const data = await parseData({ id: plugin.slug, data: plugin });
         store.set({ id: plugin.slug, data, digest: generateDigest(data) });
       }
@@ -254,7 +300,7 @@ export function activityLoader(): Loader {
     name: 'wkd-activity',
     async load({ store, parseData, generateDigest, logger }) {
       store.clear();
-      for (const { commits } of scanRepos(logger)) {
+      for (const { commits } of await scanRepos(logger)) {
         for (const c of commits) {
           const id = `${c.plugin}-${c.sha.slice(0, 10)}`;
           const data = await parseData({ id, data: c });

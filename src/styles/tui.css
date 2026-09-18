@@ -64,13 +64,33 @@
   .tui-status a.seg:focus-visible {
     background: var(--bg-hl);
     color: var(--fg);
-    outline: none;
+  }
+  /* Focus rings: bg-hl on bg is ~1.3:1, so every focusable gets a yellow ring. */
+  .tui-status a.seg:focus-visible,
+  .tui-side .item:focus-visible,
+  .tui-list a:focus-visible,
+  .search-results a:focus-visible,
+  .tui-table > a:focus-visible,
+  .tui-hint a:focus-visible,
+  .tui-hint button:focus-visible {
+    outline: 1px solid var(--yellow);
+    outline-offset: -1px;
   }
   .tui-hint {
     background: var(--yellow);
     color: var(--bg);
     padding: 0 1ch;
     display: block;
+  }
+  .tui-hint a,
+  .tui-hint button {
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .tui-hint a:focus-visible,
+  .tui-hint button:focus-visible {
+    outline-color: var(--bg);
   }
 
   /* ---- body ------------------------------------------------------------- */
@@ -108,21 +128,23 @@
     padding-left: 3ch;
     color: var(--fg);
   }
+  /* Decorative generated text gets empty alt text (`/ ""`) so screen readers
+     skip it. Engines without the alt syntax (pre-2024) drop the declaration
+     and simply show no decoration. */
   .tui-side .item::before {
-    content: "· ";
+    content: "· " / "";
     color: var(--fg-dim);
   }
   .tui-side .item:hover,
   .tui-side .item:focus-visible {
     background: var(--bg-hl);
-    outline: none;
   }
   .tui-side .item.cur {
     background: var(--bg-hl);
     color: var(--cyan);
   }
   .tui-side .item.cur::before {
-    content: "▸ ";
+    content: "▸ " / "";
     color: var(--cyan);
   }
   .tui-main {
@@ -134,11 +156,14 @@
     .tui-body {
       grid-template-columns: 1fr;
     }
+    /* On phones the 38-link sidebar goes below the content (`order`), so a
+       page does not start with a full screen of navigation. */
     .tui-side {
+      order: 1;
       position: static;
       max-height: none;
       border-right: 0;
-      border-bottom: 1px solid var(--border);
+      border-top: 1px solid var(--border);
       display: flex;
       flex-wrap: wrap;
       gap: 0 1ch;
@@ -234,7 +259,6 @@
   .search-results a:hover,
   .search-results a:focus-visible {
     background: var(--bg-hl);
-    outline: none;
   }
   .s-title {
     color: var(--cyan);
@@ -343,7 +367,7 @@
     font-weight: 700;
   }
   .tui-h1::before {
-    content: "# ";
+    content: "# " / "";
     color: var(--fg-dim);
   }
   .tui-h2 {
@@ -353,7 +377,7 @@
     margin-top: 1lh;
   }
   .tui-h2::before {
-    content: "## ";
+    content: "## " / "";
     color: var(--fg-dim);
   }
   .tui-p {
@@ -391,7 +415,7 @@
     color: var(--green);
   }
   .tui-code::before {
-    content: "-- lazy.nvim";
+    content: "-- lazy.nvim" / "lazy.nvim spec";
     display: block;
     color: var(--fg-dim);
   }
@@ -402,10 +426,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  @media (width < 52rem) {
+    /* date + plugin + type already fill ~39ch; wrap the subject onto its own line. */
+    .tui-list li {
+      flex-wrap: wrap;
+      white-space: normal;
+    }
+    .tui-list .csubj {
+      flex-basis: 100%;
+      white-space: nowrap;
+    }
+  }
   .tui-list a:hover,
   .tui-list a:focus-visible {
     background: var(--bg-hl);
-    outline: none;
   }
   .tui-list time {
     color: var(--fg-dim);
@@ -455,8 +489,12 @@
     gap: 0 2ch;
     margin-block: 0.5lh;
   }
+  /* Each row is a real box (subgrid), not display:contents -- an anchor
+     without a box cannot take focus and is dropped from the link list. */
   .tui-table > a {
-    display: contents;
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
   }
   .tui-table > a > span {
     white-space: nowrap;
@@ -464,8 +502,8 @@
     text-overflow: ellipsis;
     padding: 0 0.5ch;
   }
-  .tui-table > a:hover > span,
-  .tui-table > a:focus-visible > span {
+  .tui-table > a:hover,
+  .tui-table > a:focus-visible {
     background: var(--bg-hl);
   }
   .tui-table .idx {
@@ -499,6 +537,11 @@
   .tui-log {
     color: var(--fg-dim);
     margin-top: 1lh;
+  }
+  /* Activity page: one <section> per day, ~430 rows in total. */
+  .tui-main > section {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 12lh;
   }
   .tui-log b {
     color: var(--fg);

@@ -28,9 +28,10 @@ const file = page ? `~/wkd/${page}` : '~/wkd';
 ---
 
 <Base skin="tui" page={page} title={title} description={description}>
+  <a class="skip-link" href="#main">Skip to content</a>
   <div class="tui">
     <header class="tui-status" aria-label="Statusline">
-      <span class="mode" aria-label="Mode">{mode}</span>
+      <span class="mode">{mode}</span>
       <span class="seg path">{file}</span>
       <span class="spacer"></span>
       <a class="seg" href={modernHref} data-skin-switch title="Switch to the modern skin">:set skin=modern</a>
@@ -43,16 +44,20 @@ const file = page ? `~/wkd/${page}` : '~/wkd';
       </label>
       <span class="seg">utf-8</span>
     </header>
-    <a class="tui-hint" href={modernHref} data-skin-hint hidden>
-      -- you usually use the modern skin: :set skin=modern --
-    </a>
+    <div class="tui-hint" data-skin-hint hidden>
+      -- you usually use the modern skin: <a href={modernHref}>:set skin=modern</a> ·
+      <button type="button" data-skin-keep>:set skin=tui</button> --
+    </div>
     <div class="tui-body">
       <nav class="tui-side" aria-label="Plugins">
         <a class="root" href={href('', 'tui')} data-nav="">~/wkd/</a>
         {
           groups.map((g) => (
             <div class="grp">
-              <div class="grp-h">▾ {g.label.toLowerCase()}/</div>
+              <div class="grp-h">
+                <span aria-hidden="true">▾ </span>
+                {g.label.toLowerCase()}/
+              </div>
               {g.items.map((p) => (
                 <a
                   class:list={['item', { cur: p.id === current }]}
@@ -66,12 +71,14 @@ const file = page ? `~/wkd/${page}` : '~/wkd';
             </div>
           ))
         }
-        <a class="grp-h" href={href('activity', 'tui')} data-nav="activity">▸ activity.log</a>
+        <a class="grp-h" href={href('activity', 'tui')} data-nav="activity">
+          <span aria-hidden="true">▸ </span>activity.log
+        </a>
       </nav>
-      <main class="tui-main"><slot /></main>
+      <main class="tui-main" id="main"><slot /></main>
     </div>
     <footer class="tui-cmd" aria-label="Command line">
-      <Search placeholder={`:${cmd}`} />
+      <Search placeholder={cmd} />
       <span class="pos">{plugins.length} plugins</span>
     </footer>
   </div>

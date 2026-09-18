@@ -16,7 +16,7 @@ const commitUrl = `https://github.com/StefanBartl/${c.pluginName}/commit/${c.sha
   <time datetime={c.date}>{isoDay(c.date)}</time>
   {
     showPlugin ? (
-      <a class="cplug" href={href(`p/${c.plugin}`, skin)} data-nav={`p/${c.plugin}`}>
+      <a class="cplug" href={href(`p/${c.plugin}`, skin)} data-nav={`p/${c.plugin}`} data-astro-prefetch>
         {c.pluginName}
       </a>
     ) : null

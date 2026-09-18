@@ -14,9 +14,11 @@ permissions:
   pages: write
   id-token: write
 
+# Newer runs wait for (not cancel) the running one: cancelling mid
+# deploy-pages leaves the environment on a failed deployment.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -26,16 +28,32 @@ jobs:
 
       # The content loader reads plugin checkouts from disk. Treeless clones
       # keep full commit history (for counts and the activity stream) while
-      # fetching blobs only for the checked-out tree. Anonymous clones: a
-      # private repo is skipped with a warning and simply missing from the site.
+      # fetching blobs only for the checked-out tree. Clones run in parallel;
+      # a private or missing repo is skipped with a warning (documented in
+      # the README), anything else -- 5xx, timeout, RPC failure -- fails the
+      # run after one retry so a partial site never replaces a good one.
       - name: Clone plugin repositories
         run: |
           mkdir -p "$RUNNER_TEMP/repos"
-          owner=$(jq -r .owner src/data/registry.json)
-          for name in $(jq -r '.plugins[].name' src/data/registry.json); do
-            git clone --quiet --filter=blob:none "https://github.com/$owner/$name.git" "$RUNNER_TEMP/repos/$name" \
-              || echo "::warning::$name could not be cloned (private or missing) -- skipped"
-          done
+          clone() {
+            local name="$1" err
+            for try in 1 2; do
+              if err=$(git clone --quiet --filter=blob:none "https://github.com/$OWNER/$name.git" "$RUNNER_TEMP/repos/$name" 2>&1); then
+                return 0
+              fi
+              if grep -qiE 'not found|authentication failed|could not read username' <<<"$err"; then
+                echo "::warning::$name could not be cloned (private or missing) -- skipped"
+                return 0
+              fi
+              rm -rf "$RUNNER_TEMP/repos/$name"
+              sleep 5
+            done
+            echo "::error::$name: clone failed: $err"
+            return 1
+          }
+          export -f clone
+          export OWNER="$(jq -r .owner src/data/registry.json)" RUNNER_TEMP
+          jq -r '.plugins[].name' src/data/registry.json | xargs -P 6 -I{} bash -c 'clone "$1"' _ {}
           echo "PLUGINS_DIR=$RUNNER_TEMP/repos" >> "$GITHUB_ENV"
 
       - name: Install, build and upload

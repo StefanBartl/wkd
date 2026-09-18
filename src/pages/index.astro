@@ -46,15 +46,29 @@ const description = `${plugins.length} Neovim plugins from one workshop: AI, edi
 
   <section class="ticker" aria-label="Latest commits across all plugins">
     <div class="ticker-label">live</div>
+    <label class="ticker-pause">
+      <input type="checkbox" id="ticker-pause" />
+      pause
+    </label>
     <div class="ticker-track">
       {
-        [...activity, ...activity].map((c) => (
-          <a href={href(`p/${c.data.plugin}`)} data-nav={`p/${c.data.plugin}`}>
-            <span class="cplug">{c.data.pluginName}</span>
-            <span class="ctype">{c.data.type ?? '·'}</span>
-            <span>{c.data.subject}</span>
-          </a>
-        ))
+        /* The second copy only exists for the seamless loop: inert + aria-hidden
+           keep it out of the tab order and the accessibility tree. */
+        [...activity, ...activity].map((c, i) => {
+          const dup = i >= activity.length;
+          return (
+            <a
+              href={href(`p/${c.data.plugin}`)}
+              data-nav={`p/${c.data.plugin}`}
+              inert={dup || undefined}
+              aria-hidden={dup ? 'true' : undefined}
+            >
+              <span class="cplug">{c.data.pluginName}</span>
+              <span class="ctype">{c.data.type ?? '·'}</span>
+              <span>{c.data.subject}</span>
+            </a>
+          );
+        })
       }
     </div>
   </section>
@@ -66,7 +80,13 @@ const description = `${plugins.length} Neovim plugins from one workshop: AI, edi
     <section class="roster" aria-label="All plugins">
       {
         plugins.map((p, i) => (
-          <a class="m-card" href={href(`p/${p.id}`)} data-nav={`p/${p.id}`} data-cat={p.data.category}>
+          <a
+            class="m-card"
+            href={href(`p/${p.id}`)}
+            data-nav={`p/${p.id}`}
+            data-cat={p.data.category}
+            data-astro-prefetch
+          >
             <span class="m-card-head">
               <span>{pad2(i + 1)}</span>
               <span class="m-card-cat">{categoryLabel(p.data.category)}</span>
@@ -84,6 +104,6 @@ const description = `${plugins.length} Neovim plugins from one workshop: AI, edi
     <ol class="m-list">
       {activity.map((c) => <CommitLine commit={c.data} skin="modern" />)}
     </ol>
-    <p><a class="m-btn" href={href('activity')} data-nav="activity">Full stream</a></p>
+    <p><a class="m-btn" href={href('activity')} data-nav="activity" data-astro-prefetch>Full stream</a></p>
   </section>
 </Shell>

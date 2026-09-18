@@ -2,7 +2,8 @@
 import { Font } from 'astro:assets';
 import '../styles/tokens.css';
 import '../styles/filter.css';
-import { href, otherSkin, type Skin } from '../lib/site';
+import { BOOT } from '../lib/boot';
+import { BASE, href, otherSkin, type Skin } from '../lib/site';
 
 interface Props {
   skin: Skin;
@@ -23,21 +24,24 @@ const canonical = new URL(href(page), Astro.site);
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <link rel="canonical" href={canonical} />
-    <link rel="icon" href={`${import.meta.env.BASE_URL.replace(/\/?$/, '/')}favicon.svg`} type="image/svg+xml" />
+    <link rel="icon" href={`${BASE}favicon.svg`} type="image/svg+xml" />
     <meta name="color-scheme" content={skin === 'tui' ? 'dark' : 'light dark'} />
-    <meta name="theme-color" content={skin === 'tui' ? '#1a1b26' : '#0b0b0c'} />
+    {
+      skin === 'tui' ? (
+        <meta name="theme-color" content="#1a1b26" />
+      ) : (
+        <>
+          <meta name="theme-color" content="#f1efe8" media="(prefers-color-scheme: light)" />
+          <meta name="theme-color" content="#0b0b0c" media="(prefers-color-scheme: dark)" />
+        </>
+      )
+    }
     {skin === 'modern' ? <Font cssVariable="--font-display" preload /> : null}
     <Font cssVariable="--font-mono" preload={skin === 'tui'} />
-    {/* Apply stored theme/mode before first paint. Keys mirror src/lib/site.ts. */}
-    <script is:inline>
-      try {
-        var t = localStorage.getItem('wkd:theme');
-        if (t && t !== 'tokyonight') document.documentElement.dataset.theme = t;
-        var m = localStorage.getItem('wkd:mode');
-        if (m === 'light' || m === 'dark') document.documentElement.dataset.mode = m;
-      } catch (e) {}
-    </script>
+    {/* Emitted byte-for-byte from src/lib/boot.ts; its hash is in the CSP (astro.config.ts). */}
+    <script is:inline set:html={BOOT}></script>
   </head>
   <body data-other-skin={other}>
     <slot />
