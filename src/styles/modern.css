@@ -330,15 +330,23 @@
       .display[data-kinetic] {
         transform-origin: left center;
         animation: widen linear both;
+      }
+      /* Separate rule on purpose: the CSS minifier would otherwise fold the
+         timeline into the `animation` shorthand, which browsers reject -- the
+         whole declaration was silently dropped. Higher specificity so the
+         shorthand's implicit `animation-timeline: auto` cannot win. */
+      /* The headline is above the fold, so it can only ever *leave* the
+         viewport: compress it horizontally while it scrolls out at the top. */
+      h1.display[data-kinetic] {
         animation-timeline: view();
-        animation-range: entry 0% cover 45%;
+        animation-range: exit 0% exit 100%;
       }
       @keyframes widen {
         from {
-          scale: 0.86 1;
+          scale: 1 1;
         }
         to {
-          scale: 1 1;
+          scale: 0.8 1;
         }
       }
     }
