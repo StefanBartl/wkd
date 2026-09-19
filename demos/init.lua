@@ -163,9 +163,11 @@ vim.api.nvim_create_user_command("DemoDump", function(o)
     local b = api.nvim_win_get_buf(w)
     local cfg = api.nvim_win_get_config(w)
     local ok, err = pcall(api.nvim_set_option_value, "diff", vim.wo[w].diff, { win = w, scope = "local" })
-    out[#out + 1] = ("win=%d%s rel=%q diff=%s number=%s bt=%q buf=%q cursor=%d,%d set_diff=%s"):format(
+    local first = (api.nvim_buf_get_lines(b, 0, 1, false)[1] or ""):sub(1, 40)
+    local title = type(cfg.title) == "table" and cfg.title[1] and tostring(cfg.title[1][1]) or ""
+    out[#out + 1] = ("win=%d%s rel=%q diff=%s number=%s bt=%q buf=%q title=%q first=%q cursor=%d,%d set_diff=%s"):format(
       w, w == cur and "*" or "", cfg.relative or "", tostring(vim.wo[w].diff), tostring(vim.wo[w].number),
-      vim.bo[b].buftype, vim.fn.fnamemodify(api.nvim_buf_get_name(b), ":t"),
+      vim.bo[b].buftype, vim.fn.fnamemodify(api.nvim_buf_get_name(b), ":t"), title, first,
       api.nvim_win_get_cursor(w)[1], api.nvim_win_get_cursor(w)[2], ok and "ok" or tostring(err))
   end
   for line in vim.fn.execute("messages"):gmatch("[^\n]+") do

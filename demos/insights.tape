@@ -15,9 +15,15 @@ Show
 Sleep 3500ms
 
 Hide
+Type ":DemoDump at-start"
+Enter
+Sleep 300ms
 Type ":Demo :Insights fileinfo - fs.stat of the buffer in a float"
 Enter
 Sleep 1500ms
+Type ":DemoDump before-fileinfo"
+Enter
+Sleep 300ms
 Show
 
 Type ":Insights fileinfo"
