@@ -17,22 +17,10 @@ Enter
 Sleep 1500ms
 Show
 
-Hide
-Type ":DemoDump before-diff"
-Enter
-Sleep 300ms
-Show
-
 Type ":Diff target=demos/fixtures/todo-done.md"
 Sleep 600ms
 Enter
 Sleep 3s
-
-Hide
-Type ":DemoDump after-diff"
-Enter
-Sleep 300ms
-Show
 
 Hide
 Type ":Demo ]c and [c - jump between hunks"
@@ -46,12 +34,6 @@ Type "]c"
 Sleep 900ms
 Type "[c"
 Sleep 1500ms
-
-Hide
-Type ":DemoDump after-jumps"
-Enter
-Sleep 300ms
-Show
 
 Hide
 Type ":qa!"

@@ -117,7 +117,10 @@ turns whatever it finds there into a `<video>` on the plugin page (both skins). 
 are therefore reproducible, never stale, and never part of main's history. For a local build
 with videos: `scripts/pull-demos.sh`. Adding a demo = one tape + one line in
 `demos/demos.json` (which checkouts it needs) + a `setup()` entry in `demos/init.lua` if the
-plugin needs one. A third aid, `:DemoDump [label]`, appends the window/option state to
+plugin needs one. lib.nvim's first-run panel for missing external tools is switched off in that
+config (`vim.g.lib_nvim_deps_disable_first_run`): in the container it would open on every
+recording and, being entered, become the window the demoed command runs from -- which is how
+the diff.nvim tape once recorded a diff of the panel's float. A third aid, `:DemoDump [label]`, appends the window/option state to
 `demos/out/_dump-<plugin>.txt`, which the workflow prints into the job log and drops before
 publishing -- for a recording that looks wrong in CI but right locally. VHS runs in its official container image, pinned to v0.11.0: v0.12.0 exits 0
 without writing any file ([charmbracelet/vhs#787](https://github.com/charmbracelet/vhs/issues/787)).

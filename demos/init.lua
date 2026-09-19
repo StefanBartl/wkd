@@ -24,6 +24,18 @@ if plugin ~= "" then
 end
 
 vim.g.mapleader = " "
+-- lib.nvim pops a first-run panel listing a plugin's missing external tools
+-- (curl, for diff.nvim's URL sources) -- and enters it. In the recording
+-- container that float would become the window the demoed command runs
+-- from. Tools a demo really needs are mounted by the workflow instead.
+vim.g.lib_nvim_deps_disable_first_run = true
+-- No clipboard tool in the container: a no-op provider keeps "clipboard: No
+-- provider" out of the cmdline when a plugin also yanks to "+.
+vim.g.clipboard = {
+  name = "demo-noop",
+  copy = { ["+"] = function() end, ["*"] = function() end },
+  paste = { ["+"] = function() return {} end, ["*"] = function() return {} end },
+}
 vim.o.number = true
 vim.o.termguicolors = true
 vim.o.laststatus = 2
