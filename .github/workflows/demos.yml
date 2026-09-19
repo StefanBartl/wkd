@@ -46,19 +46,48 @@ jobs:
           done
           echo "PLUGINS_DIR=$RUNNER_TEMP/repos" >> "$GITHUB_ENV"
 
-      - name: Diagnostics
+      # VHS prints "Creating …" even when its ffmpeg call fails, so probe with a
+      # tiny tape: first the ffmpeg the action installed (a nightly build), then
+      # the distribution's. The record step uses whichever produced a file.
+      - name: Probe VHS + ffmpeg
         run: |
           echo "workspace: $GITHUB_WORKSPACE"; pwd
           vhs --version
-          ffmpeg -hide_banner -version | head -1
-          ffmpeg -hide_banner -encoders 2>/dev/null | grep -E "libvpx-vp9|libx264" || echo "::warning::vp9/x264 encoders missing"
           nvim --headless -u demos/init.lua "+lua print(vim.o.rtp)" +q 2>&1 | tr "," "\n" | grep -E "repos/" || true
+          cat > /tmp/probe.tape <<'EOF'
+          Output /tmp/probe.webm
+          Output /tmp/probe.mp4
+          Set Width 400
+          Set Height 200
+          Type "echo probe"
+          Enter
+          Sleep 500ms
+          EOF
+          probe() {
+            rm -f /tmp/probe.webm /tmp/probe.mp4
+            echo "--- ffmpeg: $(command -v ffmpeg) :: $(ffmpeg -hide_banner -version 2>/dev/null | head -1)"
+            vhs /tmp/probe.tape 2>&1 | tail -5
+            ls -l /tmp/probe.* 2>/dev/null && return 0
+            echo "no output"; return 1
+          }
+          if probe; then
+            echo "VHS_PATH_PREFIX=" >> "$GITHUB_ENV"
+          else
+            sudo apt-get install -y -q ffmpeg >/dev/null 2>&1
+            if PATH="/usr/bin:$PATH" probe; then
+              echo "VHS_PATH_PREFIX=/usr/bin:" >> "$GITHUB_ENV"
+              echo "::warning::the action's ffmpeg produced no output; recording with /usr/bin/ffmpeg"
+            else
+              echo "::error::VHS produced no output with either ffmpeg"; exit 1
+            fi
+          fi
         env:
           DEMO_PLUGIN: cascade
           DEMO_DEPS: lib,ui
 
       - name: Record
         run: |
+          export PATH="${VHS_PATH_PREFIX}${PATH}"
           mkdir -p demos/out
           nvim --version | head -1
           for tape in demos/*.tape; do
