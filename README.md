@@ -116,10 +116,13 @@ single-commit orphan branch `demo-assets` -- weekly, on `workflow_dispatch`, and
 turns whatever it finds there into a `<video>` on the plugin page (both skins). Recordings
 are therefore reproducible, never stale, and never part of main's history. For a local build
 with videos: `scripts/pull-demos.sh`. Adding a demo = one tape + one line in
-`demos/demos.json` (which checkouts it needs; a bare slug is one of the family, `owner/repo`
-a third-party dependency such as telescope) + a `setup()` entry in `demos/init.lua` if the
+`demos/demos.json` (which checkouts it needs; a bare slug is one of the family, `owner/repo@sha`
+a third-party dependency such as telescope, pinned to a commit because its code runs in the
+container that produces what the site serves) + a `setup()` entry in `demos/init.lua` if the
 plugin needs one. External tools a plugin shells out to (ripgrep, fd) are downloaded by the
-workflow and mounted into the container. lib.nvim's first-run panel for missing external tools is switched off in that
+workflow (version and checksum pinned) and mounted into the container. The publish step
+refuses anything but `.webm`/`.mp4`/`.png`, since the deploy copies the branch verbatim under
+the site origin. lib.nvim's first-run panel for missing external tools is switched off in that
 config (`vim.g.lib_nvim_deps_disable_first_run`): in the container it would open on every
 recording and, being entered, become the window the demoed command runs from -- which is how
 the diff.nvim tape once recorded a diff of the panel's float. A third aid, `:DemoDump [label]`, appends the window/option state to

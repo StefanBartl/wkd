@@ -1,5 +1,5 @@
 {
-  "_comment": "Which checkouts a tape needs. A bare slug is one of the family (<owner>/<slug>.nvim); owner/repo names a third-party dependency. Read by .github/workflows/demos.yml; the tape itself sets DEMO_PLUGIN/DEMO_DEPS for demos/init.lua.",
+  "_comment": "Which checkouts a tape needs. A bare slug is one of the family (<owner>/<slug>.nvim); owner/repo@sha names a third-party dependency pinned to a commit. Read by .github/workflows/demos.yml; the tape itself sets DEMO_PLUGIN/DEMO_DEPS for demos/init.lua.",
   "tapes": [
     {
       "plugin": "cascade",
@@ -135,8 +135,8 @@
       "deps": [
         "lib",
         "ui",
-        "nvim-lua/plenary.nvim",
-        "nvim-telescope/telescope.nvim"
+        "nvim-lua/plenary.nvim@74b06c6c75e4eeb3108ec01852001636d85a932b",
+        "nvim-telescope/telescope.nvim@40aedd8a68c78a656a10a8d62d80c54af59420fb"
       ]
     },
     {
@@ -144,8 +144,8 @@
       "deps": [
         "lib",
         "ui",
-        "nvim-lua/plenary.nvim",
-        "nvim-telescope/telescope.nvim"
+        "nvim-lua/plenary.nvim@74b06c6c75e4eeb3108ec01852001636d85a932b",
+        "nvim-telescope/telescope.nvim@40aedd8a68c78a656a10a8d62d80c54af59420fb"
       ]
     }
   ]

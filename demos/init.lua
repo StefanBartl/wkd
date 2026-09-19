@@ -19,9 +19,9 @@ local plugin = vim.env.DEMO_PLUGIN or ""
 local deps = vim.split(vim.env.DEMO_DEPS or "lib,ui", ",", { trimempty = true })
 
 for _, dep in ipairs(deps) do
-  -- A bare slug is one of the family (<slug>.nvim); "owner/repo" is a
+  -- A bare slug is one of the family (<slug>.nvim); "owner/repo@sha" is a
   -- third-party dependency checked out under its own repository name.
-  local dir = dep:find("/", 1, true) and dep:match("([^/]+)$") or (dep .. ".nvim")
+  local dir = dep:find("/", 1, true) and dep:match("([^/@]+)@?[^/]*$") or (dep .. ".nvim")
   vim.opt.rtp:append(root .. "/" .. dir)
 end
 if plugin ~= "" then
@@ -142,6 +142,7 @@ vim.api.nvim_create_user_command("Demo", function(o)
   local text = vim.trim(o.args)
   if text ~= "" and text ~= "off" then
     title.buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[title.buf].bufhidden = "wipe"
     vim.api.nvim_buf_set_lines(title.buf, 0, -1, false, { " " .. text .. " " })
     title.win = vim.api.nvim_open_win(title.buf, false, {
       relative = "editor",
@@ -157,8 +158,11 @@ vim.api.nvim_create_user_command("Demo", function(o)
     vim.wo[title.win].winhighlight = "Normal:DemoTitle,NormalFloat:DemoTitle"
   end
   -- The typed command must not linger in the cmdline of the recording, nor
-  -- in the : history (cmdlog.nvim's demo lists that history).
-  vim.fn.histdel("cmd", -1)
+  -- in the : history (cmdlog.nvim's demo lists that history). Only when it
+  -- was typed: from the <C-t> map the last entry is somebody else's.
+  if vim.fn.histget("cmd", -1):match("^Demo%f[%s]") then
+    vim.fn.histdel("cmd", -1)
+  end
   vim.api.nvim_echo({}, false, {})
   vim.cmd.redraw()
 end, { nargs = "*", desc = "demo title float (recording aid)" })
@@ -219,7 +223,9 @@ vim.api.nvim_create_user_command("DemoDump", function(o)
   local dir = vim.fs.dirname(vim.fs.normalize(debug.getinfo(1, "S").source:sub(2))) .. "/out"
   vim.fn.mkdir(dir, "p")
   vim.fn.writefile(out, ("%s/_dump-%s.txt"):format(dir, plugin ~= "" and plugin or "nvim"), "a")
-  vim.fn.histdel("cmd", -1)
+  if vim.fn.histget("cmd", -1):match("^DemoDump") then
+    vim.fn.histdel("cmd", -1)
+  end
   api.nvim_echo({}, false, {})
   vim.cmd.redraw()
 end, { nargs = "?", desc = "append window state to demos/out/_dump-<plugin>.txt (recording aid)" })

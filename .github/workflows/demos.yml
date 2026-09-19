@@ -49,12 +49,19 @@ jobs:
       - name: External tools
         run: |
           mkdir -p "$RUNNER_TEMP/tools/bin"
-          curl -sSL "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz" \
-            | tar -xz -C "$RUNNER_TEMP/tools" --strip-components=1 --wildcards "*/rg"
-          mv "$RUNNER_TEMP/tools/rg" "$RUNNER_TEMP/tools/bin/rg"
+          # Pinned by version and checksum: these binaries run inside the container
+          # that produces what the site serves.
+          fetch() { # url sha256 binary
+            curl -sSL -o "$RUNNER_TEMP/tools/archive.tgz" "$1"
+            echo "$2  $RUNNER_TEMP/tools/archive.tgz" | sha256sum -c - >/dev/null
+            tar -xzf "$RUNNER_TEMP/tools/archive.tgz" -C "$RUNNER_TEMP/tools" --strip-components=1 --wildcards "*/$3"
+            mv "$RUNNER_TEMP/tools/$3" "$RUNNER_TEMP/tools/bin/$3"
+          }
+          fetch "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz" \
+            33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c rg
+          fetch "https://github.com/sharkdp/fd/releases/download/v10.5.0/fd-v10.5.0-x86_64-unknown-linux-musl.tar.gz" \
+            761c72dc8e120d85b22292063be8a796e2eeb20eb3e4f38b8fa2343ccf3514a7 fd
           "$RUNNER_TEMP/tools/bin/rg" --version | head -1
-          curl -sSL "https://github.com/sharkdp/fd/releases/download/v10.5.0/fd-v10.5.0-x86_64-unknown-linux-musl.tar.gz"             | tar -xz -C "$RUNNER_TEMP/tools" --strip-components=1 --wildcards "*/fd"
-          mv "$RUNNER_TEMP/tools/fd" "$RUNNER_TEMP/tools/bin/fd"
           "$RUNNER_TEMP/tools/bin/fd" --version
 
       - name: Clone the plugins the tapes need
@@ -64,9 +71,16 @@ jobs:
           # A bare slug is one of the family (<owner>/<slug>.nvim); "owner/repo"
           # names a third-party dependency such as nvim-telescope/telescope.nvim,
           # checked out under its own repository name.
+          # A third-party dependency is pinned to a commit (owner/repo@sha): its
+          # code runs in the container that writes what the site serves.
           for dep in $(jq -r '[.tapes[] | .plugin, .deps[]] | unique[]' demos/demos.json); do
             case "$dep" in
-              */*) git clone --quiet --depth 1 "https://github.com/$dep.git" "$RUNNER_TEMP/repos/${dep##*/}" ;;
+              */*@*)
+                repo="${dep%@*}"; sha="${dep##*@}"; dir="$RUNNER_TEMP/repos/${repo##*/}"
+                git init --quiet "$dir"
+                git -C "$dir" fetch --quiet --depth 1 "https://github.com/$repo.git" "$sha"
+                git -C "$dir" -c advice.detachedHead=false checkout --quiet FETCH_HEAD ;;
+              */*) echo "::error::third-party dependency '$dep' must be pinned as owner/repo@sha"; exit 1 ;;
               *)   git clone --quiet --depth 1 "https://github.com/$owner/$dep.nvim.git" "$RUNNER_TEMP/repos/$dep.nvim" ;;
             esac
           done
@@ -97,8 +111,9 @@ jobs:
           # The container runs as root: take the outputs back (VHS writes them
           # relative to its working directory, i.e. ./out).
           sudo chown -R "$(id -u):$(id -g)" demos out 2>/dev/null || true
-          # Collect the recordings into demos/out/ wherever they landed.
-          find . -path ./node_modules -prune -o -type f \( -name "*.webm" -o -name "*.mp4" \) -not -path "./demos/out/*" -print -exec mv -t demos/out/ {} +
+          # Collect the recordings into demos/out/ (VHS writes relative to its cwd,
+          # so ./out; older VHS wrote next to the tape).
+          find ./out ./demos -type f \( -name "*.webm" -o -name "*.mp4" \) -not -path "./demos/out/*" -print -exec mv -t demos/out/ {} + 2>/dev/null || true
           # Diagnostics written by :DemoDump (demos/init.lua): into the log, not the branch.
           for dump in demos/out/_dump-*.txt; do
             [ -f "$dump" ] || continue
@@ -118,6 +133,11 @@ jobs:
       - name: Publish demo-assets branch
         run: |
           cd demos/out
+          # Only recordings and posters leave this job: the deploy copies the
+          # branch verbatim under the site's origin, so nothing else may ride
+          # along from a container that ran third-party code.
+          stray=$(find . -type f -not \( -name "*.webm" -o -name "*.mp4" -o -name "*.png" \) | head -5)
+          if [ -n "$stray" ]; then echo "::error::unexpected files in demos/out: $stray"; exit 1; fi
           git init -q
           git checkout -q -b demo-assets
           git add .
