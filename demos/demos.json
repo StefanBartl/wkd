@@ -87,6 +87,26 @@
         "lib",
         "ui"
       ]
+    },
+    {
+      "plugin": "recommender",
+      "deps": [
+        "lib",
+        "ui"
+      ]
+    },
+    {
+      "plugin": "sessions",
+      "deps": [
+        "lib",
+        "ui"
+      ]
+    },
+    {
+      "plugin": "ui",
+      "deps": [
+        "lib"
+      ]
     }
   ]
 }

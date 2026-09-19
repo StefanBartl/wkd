@@ -66,6 +66,9 @@ local setups = {
   insights = {},
   fileops = {},
   ["buffer-ctx"] = {},
+  recommender = {},
+  sessions = { branch_aware = false, autosave = false },
+  ui = { usrcmds = true, notify = true },
 }
 local modules = { ["buffer-ctx"] = "buffer_ctx", dap = "wkddap" }
 -- Per-plugin editor tweaks for the recording.
