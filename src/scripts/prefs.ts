@@ -1,4 +1,15 @@
-import { href, MODE_KEY, MODES, SKIN_KEY, SKINS, type Skin, THEME_KEY, THEMES } from '../lib/site';
+import {
+  href,
+  MODE_COLORS,
+  MODE_KEY,
+  MODES,
+  readPref,
+  SKIN_KEY,
+  SKINS,
+  type Skin,
+  THEME_KEY,
+  THEMES,
+} from '../lib/site';
 
 // Visitor preferences, all client-side and all optional:
 //  - skin:  remembered on an explicit switch; on later visits internal links are
@@ -8,19 +19,10 @@ import { href, MODE_KEY, MODES, SKIN_KEY, SKINS, type Skin, THEME_KEY, THEMES } 
 //  - theme: TUI colorscheme, applied as data-theme on <html>.
 //  - mode:  modern skin light/dark override, applied as data-mode on <html>.
 // The inline bootstrap (src/lib/boot.ts) applies theme/mode before first
-// paint; this module only wires the controls.
+// paint; this module wires the controls and cleans up stale stored values.
 const root = document.documentElement;
 const currentSkin = root.dataset.skin as Skin;
 const otherSkin = document.body.dataset.otherSkin as Skin;
-
-function read<T extends string>(key: string, allowed: readonly T[]): T | null {
-  try {
-    const v = localStorage.getItem(key);
-    return allowed.includes(v as T) ? (v as T) : null;
-  } catch {
-    return null;
-  }
-}
 
 function write(key: string, value: string | null): void {
   try {
@@ -41,7 +43,7 @@ for (const a of document.querySelectorAll<HTMLAnchorElement>('a[data-skin-switch
   a.addEventListener('click', () => write(SKIN_KEY, otherSkin));
 }
 
-const preferredSkin = read(SKIN_KEY, SKINS);
+const preferredSkin = readPref(SKIN_KEY, SKINS);
 if (preferredSkin && preferredSkin !== currentSkin) {
   pointNavTo(preferredSkin);
   const hint = document.querySelector<HTMLElement>('[data-skin-hint]');
@@ -60,7 +62,14 @@ if (preferredSkin && preferredSkin !== currentSkin) {
 // ---- theme (tui) ----------------------------------------------------------
 const themeSelect = document.querySelector<HTMLSelectElement>('select[data-theme-select]');
 if (themeSelect) {
-  themeSelect.value = read(THEME_KEY, THEMES) ?? THEMES[0];
+  const stored = readPref(THEME_KEY, THEMES);
+  if (!stored) {
+    // A renamed/removed theme or a value written by another github.io project:
+    // the bootstrap already ignored it; drop it so it does not linger.
+    delete root.dataset.theme;
+    write(THEME_KEY, null);
+  }
+  themeSelect.value = stored ?? THEMES[0];
   themeSelect.addEventListener('change', () => {
     const theme = themeSelect.value;
     if (theme === THEMES[0]) {
@@ -76,7 +85,20 @@ if (themeSelect) {
 // ---- mode (modern) --------------------------------------------------------
 const modeSelect = document.querySelector<HTMLSelectElement>('select[data-mode-select]');
 if (modeSelect) {
-  modeSelect.value = read(MODE_KEY, MODES) ?? 'auto';
+  // The two media-gated <meta name="theme-color"> follow the OS; a forced mode
+  // overrides both so the browser chrome matches whichever branch the UA picks.
+  const colorMetas = [...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')];
+  const defaults = colorMetas.map((m) => m.content);
+  const applyModeColor = (mode: string): void => {
+    colorMetas.forEach((m, i) => {
+      m.content =
+        mode === 'light' || mode === 'dark' ? MODE_COLORS[mode] : (defaults[i] ?? m.content);
+    });
+  };
+
+  const stored = readPref(MODE_KEY, MODES) ?? 'auto';
+  modeSelect.value = stored;
+  applyModeColor(stored);
   modeSelect.addEventListener('change', () => {
     const mode = modeSelect.value;
     if (mode === 'auto') {
@@ -86,5 +108,16 @@ if (modeSelect) {
       root.dataset.mode = mode;
       write(MODE_KEY, mode);
     }
+    applyModeColor(mode);
   });
+}
+
+// ---- ticker -----------------------------------------------------------------
+// The marquee is compositor-only but still ticks at 60 fps while off-screen;
+// pause it when it is not visible.
+const track = document.querySelector<HTMLElement>('.ticker-track');
+if (track && 'IntersectionObserver' in window) {
+  new IntersectionObserver((entries) => {
+    for (const e of entries) track.classList.toggle('is-off', !e.isIntersecting);
+  }).observe(track);
 }

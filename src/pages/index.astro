@@ -2,16 +2,15 @@
 import { getCollection } from 'astro:content';
 import CategoryFilter from '../components/CategoryFilter.astro';
 import CommitLine from '../components/CommitLine.astro';
-import { categoryLabel, pad2 } from '../lib/format';
+import registry from '../data/registry.json';
+import { byDateDesc, categoryLabel, pad2 } from '../lib/format';
 import { href } from '../lib/site';
 import Shell from '../skins/modern/Shell.astro';
 
 const plugins = (await getCollection('plugins')).sort((a, b) =>
   a.data.name.localeCompare(b.data.name),
 );
-const activity = (await getCollection('activity'))
-  .sort((a, b) => b.data.date.localeCompare(a.data.date))
-  .slice(0, 10);
+const activity = (await getCollection('activity')).sort(byDateDesc).slice(0, 10);
 const commits = plugins.reduce((n, p) => n + p.data.commitCount, 0);
 const latest = activity[0]?.data;
 const counts: Record<string, number> = {};
@@ -23,7 +22,7 @@ const description = `${plugins.length} Neovim plugins from one workshop: AI, edi
 <Shell page="" title={title} description={description}>
   <section class="m-hero">
     <p class="m-kicker">
-      github.com/StefanBartl · <b>{plugins.length} repositories</b> · {commits.toLocaleString('en')} commits
+      github.com/{registry.owner} · <b>{plugins.length} repositories</b> · {commits.toLocaleString('en')} commits
     </p>
     <h1 class="display" data-kinetic>
       {plugins.length} plugins.<br />One <b>family</b>.

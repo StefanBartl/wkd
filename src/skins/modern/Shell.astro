@@ -2,6 +2,7 @@
 import Base from '../../components/Base.astro';
 import Search from '../../components/Search.astro';
 import '../../styles/modern.css';
+import registry from '../../data/registry.json';
 import { href, MODES } from '../../lib/site';
 
 interface Props {
@@ -37,7 +38,7 @@ const tuiHref = href(page, 'tui');
   <main class="m-main" id="main"><slot /></main>
   <footer class="m-footer">
     <span>A family of Neovim plugins. MIT licensed.</span>
-    <a href="https://github.com/StefanBartl?tab=repositories&q=.nvim" rel="noopener">Source on GitHub</a>
+    <a href={`https://github.com/${registry.owner}?tab=repositories&q=.nvim`} rel="noopener">Source on GitHub</a>
     <span>Generated from the plugin repositories — nothing here is written twice.</span>
   </footer>
 </Base>

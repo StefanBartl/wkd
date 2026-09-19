@@ -1,4 +1,4 @@
-import { BASE, href, pageOf, type Skin } from '../lib/site';
+import { BASE, href, pageOf, readPref, SKIN_KEY, SKINS, type Skin } from '../lib/site';
 
 // Static full-text search over the plugin pages. The index is produced by
 // Pagefind after the build (src/integrations/pagefind.ts) and loaded lazily on
@@ -38,7 +38,10 @@ function init(form: HTMLFormElement): void {
   const status = form.querySelector<HTMLElement>('[data-status]');
   if (!input || !panel || !list || !status) return;
 
-  const skin = document.documentElement.dataset.skin as Skin;
+  const currentSkin = document.documentElement.dataset.skin as Skin;
+  // Results follow the same skin the nav links point to (prefs.ts rewrites
+  // those to a stored preference; "stay here" stores the current skin).
+  const targetSkin = (): Skin => readPref(SKIN_KEY, SKINS) ?? currentSkin;
   let engine: Promise<Pagefind> | null = null;
   let attempt = 0;
   let seq = 0;
@@ -62,7 +65,11 @@ function init(form: HTMLFormElement): void {
     return engine;
   };
 
+  // Closing also invalidates any in-flight search (seq) and pending debounce,
+  // otherwise slow fragment loads would reopen the panel with stale results.
   const close = (): void => {
+    seq++;
+    clearTimeout(timer);
     panel.hidden = true;
     list.replaceChildren();
     status.textContent = '';
@@ -73,7 +80,8 @@ function init(form: HTMLFormElement): void {
   };
 
   const render = (items: PagefindData[], query: string): void => {
-    list.replaceChildren(...items.map(resultItem));
+    const skin = targetSkin();
+    list.replaceChildren(...items.map((d) => resultItem(d, skin)));
     status.textContent = items.length
       ? `${items.length} result${items.length === 1 ? '' : 's'} for “${query}”`
       : `no plugin matches “${query}”`;
@@ -99,7 +107,7 @@ function init(form: HTMLFormElement): void {
     return span;
   };
 
-  const resultItem = (d: PagefindData): HTMLLIElement => {
+  const resultItem = (d: PagefindData, skin: Skin): HTMLLIElement => {
     const li = document.createElement('li');
     const a = document.createElement('a');
     a.href = href(pageOf(d.url), skin);
@@ -180,6 +188,8 @@ function init(form: HTMLFormElement): void {
   });
 
   document.addEventListener('click', (e) => {
-    if (!panel.hidden && e.target instanceof Node && !form.contains(e.target)) close();
+    // Unconditional: a click elsewhere while the first search is still loading
+    // must cancel it too (close() is idempotent).
+    if (e.target instanceof Node && !form.contains(e.target)) close();
   });
 }

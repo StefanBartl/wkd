@@ -1,5 +1,6 @@
 ---
 import type { CollectionEntry } from 'astro:content';
+import registry from '../data/registry.json';
 import { isoDay } from '../lib/format';
 import { href, type Skin } from '../lib/site';
 
@@ -9,20 +10,22 @@ interface Props {
   showPlugin?: boolean;
 }
 const { commit: c, skin, showPlugin = true } = Astro.props;
-const commitUrl = `https://github.com/StefanBartl/${c.pluginName}/commit/${c.sha}`;
+// Abbreviated SHA: GitHub resolves it, and 432 full SHAs are ~10 KB gzip on
+// the activity page. 12 hex chars cannot collide in repos this size.
+const commitUrl = `https://github.com/${registry.owner}/${c.pluginName}/commit/${c.sha.slice(0, 12)}`;
 ---
 
 <li>
   <time datetime={c.date}>{isoDay(c.date)}</time>
   {
     showPlugin ? (
-      <a class="cplug" href={href(`p/${c.plugin}`, skin)} data-nav={`p/${c.plugin}`} data-astro-prefetch>
+      <a class="cplug" href={href(`p/${c.plugin}`, skin)} data-nav={`p/${c.plugin}`}>
         {c.pluginName}
       </a>
     ) : null
   }
   <span class="ctype" data-type={c.type ?? 'none'}>{c.type ?? '·'}</span>
-  <a class="csubj" href={commitUrl} rel="noopener" title={c.sha.slice(0, 10)}>
+  <a class="csubj" href={commitUrl} rel="noopener">
     {c.scope ? `${c.scope}: ` : ''}{c.subject}
   </a>
 </li>

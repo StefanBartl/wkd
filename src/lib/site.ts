@@ -4,17 +4,17 @@
 export type Skin = 'modern' | 'tui';
 export const SKINS: readonly Skin[] = ['modern', 'tui'];
 
-// TUI colorschemes; the palettes live in src/styles/themes.css. The first one
-// is the default (no data-theme attribute).
-export const THEMES = ['tokyonight', 'gruvbox', 'catppuccin', 'kanagawa', 'nord'] as const;
-export type Theme = (typeof THEMES)[number];
+export { THEMES, type Theme } from './themes';
 
 // Modern skin light/dark override; 'auto' follows prefers-color-scheme.
 export const MODES = ['auto', 'light', 'dark'] as const;
 export type Mode = (typeof MODES)[number];
 
-// localStorage keys. The inline bootstrap in Base.astro repeats the literal
-// strings because it cannot import modules; keep them in sync.
+// The modern skin's paper/ink pair, mirrored from modern.css for theme-color.
+export const MODE_COLORS = { light: '#f1efe8', dark: '#0b0b0c' } as const;
+
+// localStorage keys. src/lib/boot.ts repeats the literal strings because it
+// cannot import this module; keep them in sync.
 export const SKIN_KEY = 'wkd:skin';
 export const THEME_KEY = 'wkd:theme';
 export const MODE_KEY = 'wkd:mode';
@@ -36,4 +36,14 @@ export function pageOf(url: string): string {
 
 export function otherSkin(skin: Skin): Skin {
   return skin === 'modern' ? 'tui' : 'modern';
+}
+
+/** Validated read of a stored preference; null when absent, invalid or storage is blocked. */
+export function readPref<T extends string>(key: string, allowed: readonly T[]): T | null {
+  try {
+    const v = localStorage.getItem(key);
+    return allowed.includes(v as T) ? (v as T) : null;
+  } catch {
+    return null;
+  }
 }

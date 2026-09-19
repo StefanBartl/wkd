@@ -102,7 +102,12 @@ function firstSentence(s: string): string {
   if (sentence && sentence.length <= TAGLINE_MAX) return sentence;
   if (s.length <= TAGLINE_MAX) return s;
   const head = s.slice(0, TAGLINE_MAX);
-  const clause = Math.max(head.lastIndexOf(' — '), head.lastIndexOf('; '), head.lastIndexOf(': '));
+  const clause = Math.max(
+    head.lastIndexOf(' — '),
+    head.lastIndexOf(' -- '),
+    head.lastIndexOf('; '),
+    head.lastIndexOf(': '),
+  );
   if (clause > 30) return head.slice(0, clause).trimEnd();
   return `${head.slice(0, head.lastIndexOf(' ')).trimEnd()}…`;
 }
@@ -134,7 +139,7 @@ export function parseReadme(md: string): ReadmeFacts {
   const quote: string[] = [];
   for (const l of lines) {
     if (l.startsWith('>')) quote.push(l.replace(/^>\s?/, ''));
-    else if (l.trim()) break;
+    else if (l.trim() || quote.length) break; // first blank line ends the quote
   }
   const statusNote = quote.length ? plain(quote.join(' ')) : null;
   let status: PluginData['status'] = 'unknown';
@@ -259,7 +264,10 @@ async function scanOne(
   };
 }
 
-let cache: Promise<Scanned[]> | null = null;
+// Both loaders of one content sync share a scan; in dev a later refresh (a
+// README edit, a new commit) rescans instead of serving the process-old copy.
+const CACHE_MS = 5000;
+let cache: { at: number; result: Promise<Scanned[]> } | null = null;
 
 async function scanAll(logger: Logger): Promise<Scanned[]> {
   const root = resolve(process.env.PLUGINS_DIR ?? '..');
@@ -276,10 +284,13 @@ async function scanAll(logger: Logger): Promise<Scanned[]> {
   return out;
 }
 
-/** One scan per process, shared by both collections; git runs in parallel. */
+/** One scan per build (per sync in dev), shared by both collections; git runs in parallel. */
 export function scanRepos(logger: Logger): Promise<Scanned[]> {
-  cache ??= scanAll(logger);
-  return cache;
+  const now = Date.now();
+  if (!cache || (import.meta.env.DEV && now - cache.at > CACHE_MS)) {
+    cache = { at: now, result: scanAll(logger) };
+  }
+  return cache.result;
 }
 
 export function pluginsLoader(): Loader {

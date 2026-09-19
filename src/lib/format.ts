@@ -6,8 +6,16 @@ export function categoryLabel(id: string): string {
   return CATEGORIES[id] ?? id;
 }
 
+/** Calendar day in UTC. Committer dates carry mixed offsets (GitHub-side
+ *  commits are `Z`, local ones `+02:00`); grouping by the string's own day
+ *  would split a day around midnight once the list is in true time order. */
 export function isoDay(iso: string): string {
-  return iso.slice(0, 10);
+  return new Date(iso).toISOString().slice(0, 10);
+}
+
+/** Newest first by instant, not by string (offsets differ between commits). */
+export function byDateDesc<T extends { data: { date: string } }>(a: T, b: T): number {
+  return Date.parse(b.data.date) - Date.parse(a.data.date);
 }
 
 export function pad2(n: number): string {

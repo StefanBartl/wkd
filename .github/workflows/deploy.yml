@@ -9,10 +9,10 @@ on:
     - cron: '17 */6 * * *'
   workflow_dispatch:
 
+# Least privilege: the build job only reads; the Pages token is minted in
+# the deploy job alone. Actions are pinned to commits (the tag is a comment).
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # Newer runs wait for (not cancel) the running one: cancelling mid
 # deploy-pages leaves the environment on a failed deployment.
@@ -24,21 +24,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # The content loader reads plugin checkouts from disk. Treeless clones
-      # keep full commit history (for counts and the activity stream) while
-      # fetching blobs only for the checked-out tree. Clones run in parallel;
-      # a private or missing repo is skipped with a warning (documented in
-      # the README), anything else -- 5xx, timeout, RPC failure -- fails the
-      # run after one retry so a partial site never replaces a good one.
+      # (tree:0) keep full commit history -- for counts and the activity
+      # stream -- and fetch only HEAD's tree and blobs on checkout; nothing
+      # reads historical trees. Clones run in parallel; a private or missing
+      # repo is skipped with a warning (documented in the README), anything
+      # else -- 5xx, timeout, RPC failure -- fails the run after one retry so
+      # a partial site never replaces a good one.
       - name: Clone plugin repositories
         run: |
           mkdir -p "$RUNNER_TEMP/repos"
           clone() {
             local name="$1" err
             for try in 1 2; do
-              if err=$(git clone --quiet --filter=blob:none "https://github.com/$OWNER/$name.git" "$RUNNER_TEMP/repos/$name" 2>&1); then
+              if err=$(git clone --quiet --filter=tree:0 "https://github.com/$OWNER/$name.git" "$RUNNER_TEMP/repos/$name" 2>&1); then
                 return 0
               fi
               if grep -qiE 'not found|authentication failed|could not read username' <<<"$err"; then
@@ -57,14 +58,17 @@ jobs:
           echo "PLUGINS_DIR=$RUNNER_TEMP/repos" >> "$GITHUB_ENV"
 
       - name: Install, build and upload
-        uses: withastro/action@v6
+        uses: withastro/action@3eafd002e65cc31b4f0eae0bb05450d521562247 # v6.1.3
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

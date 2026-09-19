@@ -278,7 +278,6 @@
     text-transform: uppercase;
     text-wrap: balance;
     overflow-wrap: anywhere;
-    font-stretch: 88%;
   }
   .display b {
     color: var(--acid);
@@ -410,8 +409,14 @@
     display: flex;
     gap: var(--s-12);
     width: max-content;
-    padding: var(--s-2) 0 var(--s-2) var(--s-6);
+    /* Leading gap as margin (outside the translated box), trailing gap inside:
+       half the track then equals exactly one copy plus one gap -> seamless loop. */
+    padding: var(--s-2) var(--s-12) var(--s-2) 0;
+    margin-left: var(--s-6);
     animation: marquee 70s linear infinite;
+  }
+  .ticker-track.is-off {
+    animation-play-state: paused;
   }
   .ticker:hover .ticker-track,
   .ticker:focus-within .ticker-track,

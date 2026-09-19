@@ -1,12 +1,10 @@
 ---
 import { getCollection } from 'astro:content';
 import CommitLine from '../../components/CommitLine.astro';
-import { isoDay } from '../../lib/format';
+import { byDateDesc, isoDay } from '../../lib/format';
 import Shell from '../../skins/tui/Shell.astro';
 
-const activity = (await getCollection('activity')).sort((a, b) =>
-  b.data.date.localeCompare(a.data.date),
-);
+const activity = (await getCollection('activity')).sort(byDateDesc);
 const days = new Map<string, typeof activity>();
 for (const c of activity) {
   const day = isoDay(c.data.date);
