@@ -1,5 +1,8 @@
 {
-  "_comment": "Which checkouts a tape needs. A bare slug is one of the family (<owner>/<slug>.nvim); owner/repo@sha names a third-party dependency pinned to a commit. Read by .github/workflows/demos.yml; the tape itself sets DEMO_PLUGIN/DEMO_DEPS for demos/init.lua.",
+  "_comment": "Which checkouts a tape needs. A bare slug is one of the family (<owner>/<slug>.nvim); owner/repo@sha names a third-party dependency pinned to a commit. \"always\" is cloned for every tape (the colorscheme demos/init.lua picks up when present). Read by .github/workflows/demos.yml; the tape itself sets DEMO_PLUGIN/DEMO_DEPS for demos/init.lua.",
+  "always": [
+    "folke/tokyonight.nvim@cdc07ac78467a233fd62c493de29a17e0cf2b2b6"
+  ],
   "tapes": [
     {
       "plugin": "cascade",

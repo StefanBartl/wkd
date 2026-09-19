@@ -50,12 +50,21 @@ vim.o.signcolumn = "no"
 vim.o.swapfile = false
 vim.o.shortmess = vim.o.shortmess .. "I"
 vim.o.fillchars = "eob: "
-vim.cmd.colorscheme("habamax")
--- Diff colours that read on a recording (habamax keeps them faint).
-vim.api.nvim_set_hl(0, "DiffAdd", { bg = "#2a3d2f" })
-vim.api.nvim_set_hl(0, "DiffDelete", { bg = "#3d2a2e", fg = "#5a4a4e" })
-vim.api.nvim_set_hl(0, "DiffChange", { bg = "#33303a" })
-vim.api.nvim_set_hl(0, "DiffText", { bg = "#4a4530", bold = true })
+-- tokyonight-night when its checkout is there (demos.json "always"), the same
+-- family the terminal theme in demos/_settings.tape comes from; habamax
+-- otherwise, with a border colour that does not vanish into the float.
+if vim.uv.fs_stat(root .. "/tokyonight.nvim") then
+  vim.opt.rtp:append(root .. "/tokyonight.nvim")
+  vim.cmd.colorscheme("tokyonight-night")
+else
+  vim.cmd.colorscheme("habamax")
+  vim.api.nvim_set_hl(0, "FloatBorder", { fg = "#7aa2f7", bg = "#2c2c2c" })
+  -- Diff colours that read on a recording (habamax keeps them faint).
+  vim.api.nvim_set_hl(0, "DiffAdd", { bg = "#2a3d2f" })
+  vim.api.nvim_set_hl(0, "DiffDelete", { bg = "#3d2a2e", fg = "#5a4a4e" })
+  vim.api.nvim_set_hl(0, "DiffChange", { bg = "#33303a" })
+  vim.api.nvim_set_hl(0, "DiffText", { bg = "#4a4530", bold = true })
+end
 
 -- Per-plugin setup(); the Lua module name where it differs from the slug.
 local setups = {

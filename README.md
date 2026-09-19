@@ -104,7 +104,7 @@ Requires Node ≥ 22.12 and pnpm ≥ 10.
 ## Demos
 
 `demos/<plugin>.tape` is a [VHS](https://github.com/charmbracelet/vhs) script that drives a
-clean Neovim (`demos/init.lua`: only lib.nvim, ui.nvim and the demoed plugin on the
+clean Neovim (`demos/init.lua`: only lib.nvim, ui.nvim, the demoed plugin and the tokyonight colorscheme on the
 runtimepath, read from `$PLUGINS_DIR`) over a fixture in `demos/fixtures/`. Two recording
 aids come from that config: `:Demo <text>` shows a title float (top right) naming the feature
 currently demonstrated, and ui.nvim's screenkey HUD (bottom right) shows the keys behind

@@ -73,7 +73,7 @@ jobs:
           # checked out under its own repository name.
           # A third-party dependency is pinned to a commit (owner/repo@sha): its
           # code runs in the container that writes what the site serves.
-          for dep in $(jq -r '[.tapes[] | .plugin, .deps[]] | unique[]' demos/demos.json); do
+          for dep in $(jq -r '[(.always // [])[], (.tapes[] | .plugin, .deps[])] | unique[]' demos/demos.json); do
             case "$dep" in
               */*@*)
                 repo="${dep%@*}"; sha="${dep##*@}"; dir="$RUNNER_TEMP/repos/${repo##*/}"
