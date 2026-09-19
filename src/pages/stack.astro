@@ -31,7 +31,10 @@ const name = (slug: string): string => nodes.find((n) => n.slug === slug)?.name 
             <a href={href(`p/${n.slug}`)} data-nav={`p/${n.slug}`} data-astro-prefetch>
               {n.name}
             </a>
-            <span class="m-bar" style={`--w:${n.usedBy.length / (base[0]?.usedBy.length ?? 1)}`}></span>
+            {/* SVG attribute, not a style attribute: the hashed CSP forbids inline styles. */}
+            <svg class="m-bar" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden="true">
+              <rect width={Math.round((n.usedBy.length / (base[0]?.usedBy.length ?? 1)) * 100)} height="1" />
+            </svg>
             <b>{n.usedBy.length}</b>
           </li>
         ))

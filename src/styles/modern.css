@@ -807,8 +807,10 @@
   .m-bar {
     display: block;
     height: 1.1em;
-    width: calc(var(--w) * 100%);
-    background: var(--ink);
+    width: 100%;
+  }
+  .m-bar rect {
+    fill: var(--ink);
   }
   .m-stack-bars b {
     text-align: right;
