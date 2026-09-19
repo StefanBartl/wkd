@@ -1,11 +1,63 @@
 {
   "_comment": "Which plugin checkouts a tape needs. Read by .github/workflows/demos.yml; the tape itself sets DEMO_PLUGIN/DEMO_DEPS for demos/init.lua.",
   "tapes": [
-    { "plugin": "cascade", "deps": ["lib", "ui"] },
-    { "plugin": "emojis", "deps": ["lib", "ui", "cascade"] },
-    { "plugin": "replacer", "deps": ["lib", "ui"] },
-    { "plugin": "spotlight", "deps": ["lib", "ui"] },
-    { "plugin": "data", "deps": ["lib", "ui"] },
-    { "plugin": "diff", "deps": ["lib", "ui"] }
+    {
+      "plugin": "cascade",
+      "deps": [
+        "lib",
+        "ui"
+      ]
+    },
+    {
+      "plugin": "emojis",
+      "deps": [
+        "lib",
+        "ui",
+        "cascade"
+      ]
+    },
+    {
+      "plugin": "replacer",
+      "deps": [
+        "lib",
+        "ui"
+      ]
+    },
+    {
+      "plugin": "spotlight",
+      "deps": [
+        "lib",
+        "ui"
+      ]
+    },
+    {
+      "plugin": "data",
+      "deps": [
+        "lib",
+        "ui"
+      ]
+    },
+    {
+      "plugin": "diff",
+      "deps": [
+        "lib",
+        "ui"
+      ]
+    },
+    {
+      "plugin": "markdown",
+      "deps": [
+        "lib",
+        "ui",
+        "hover"
+      ]
+    },
+    {
+      "plugin": "color_my_ascii",
+      "deps": [
+        "lib",
+        "ui"
+      ]
+    }
   ]
 }

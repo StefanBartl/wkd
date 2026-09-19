@@ -117,7 +117,9 @@ turns whatever it finds there into a `<video>` on the plugin page (both skins). 
 are therefore reproducible, never stale, and never part of main's history. For a local build
 with videos: `scripts/pull-demos.sh`. Adding a demo = one tape + one line in
 `demos/demos.json` (which checkouts it needs) + a `setup()` entry in `demos/init.lua` if the
-plugin needs one. VHS runs in its official container image, pinned to v0.11.0: v0.12.0 exits 0
+plugin needs one. A third aid, `:DemoDump [label]`, appends the window/option state to
+`demos/out/_dump-<plugin>.txt`, which the workflow prints into the job log and drops before
+publishing -- for a recording that looks wrong in CI but right locally. VHS runs in its official container image, pinned to v0.11.0: v0.12.0 exits 0
 without writing any file ([charmbracelet/vhs#787](https://github.com/charmbracelet/vhs/issues/787)).
 
 ## Deployment
@@ -153,6 +155,6 @@ To rebuild the site on every plugin push, add this to each plugin repo's CI:
 | 0 | Scaffold, both skins, all plugin pages, activity stream from git | **done** |
 | 1 | Category filter, search (Pagefind), colorscheme presets in the TUI skin, light/dark in modern | **done** |
 | 2 | `repository_dispatch` hooks in the plugin repos, GitHub Pages live | Pages live; hooks open |
-| 3 | Demo pipeline: VHS `.tape` scripts recorded in CI → webm/mp4 + poster on the plugin pages | **pipeline done**; tapes: cascade, emojis, replacer, spotlight, data, diff |
+| 3 | Demo pipeline: VHS `.tape` scripts recorded in CI → webm/mp4 + poster on the plugin pages | **pipeline done**; tapes: cascade, emojis, replacer, spotlight, data, diff, markdown, color_my_ascii |
 | 4 | TUI skin: vim motions (`j`/`k`/`gg`/`G`), `:` command line with completion, `?` help | **done** |
 | 5 | Vimdoc renderer (`doc/*.txt` → HTML with `\|tag\|` links; `:help` opens it), `/stack` dependency graph | **done** |

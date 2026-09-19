@@ -48,6 +48,8 @@ local setups = {
   spotlight = {},
   data = {},
   diff = {},
+  markdown = {},
+  color_my_ascii = {},
 }
 local modules = { ["buffer-ctx"] = "buffer_ctx", dap = "wkddap" }
 -- Per-plugin editor tweaks for the recording.
