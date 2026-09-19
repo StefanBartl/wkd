@@ -131,6 +131,14 @@ the diff.nvim tape once recorded a diff of the panel's float. A third aid, `:Dem
 publishing -- for a recording that looks wrong in CI but right locally. VHS runs in its official container image, pinned to v0.11.0: v0.12.0 exits 0
 without writing any file ([charmbracelet/vhs#787](https://github.com/charmbracelet/vhs/issues/787)).
 
+### Screenshots
+
+What a recording cannot show -- an image drawn into a float, a rendered PDF page, anything that
+needs a graphics-capable terminal -- goes on the plugin page as a screenshot: `public/shots/<slug>/`
+holds the files plus a `shots.json` (an ordered list of `{ file, width, height, caption }`). The
+loader reads the manifest and fails the build on a missing file; both skins render the list under
+the demo. Keep them to the editor area and free of personal data, the page is public.
+
 ## Deployment
 
 `.github/workflows/deploy.yml` builds and publishes to GitHub Pages on push, on a 6-hour

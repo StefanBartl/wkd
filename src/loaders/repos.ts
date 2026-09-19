@@ -26,6 +26,14 @@ export const commitSchema = z.object({
 });
 export type Commit = z.infer<typeof commitSchema>;
 
+const shotSchema = z.object({
+  file: z.string(),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  caption: z.string(),
+});
+export type Shot = z.infer<typeof shotSchema>;
+
 export const pluginSchema = z.object({
   name: z.string(),
   slug: z.string(),
@@ -52,8 +60,32 @@ export const pluginSchema = z.object({
   usesOptional: z.array(z.string()),
   /** recording found in public/demos/ (fetched from the demo-assets branch) */
   demo: z.object({ webm: z.boolean(), mp4: z.boolean(), poster: z.boolean() }).nullable(),
+  /** hand-picked screenshots from public/shots/<slug>/shots.json, for what a recording cannot show */
+  shots: z.array(shotSchema),
 });
 export type PluginData = z.infer<typeof pluginSchema>;
+
+/**
+ * Screenshots a plugin page shows next to (or instead of) its recording:
+ * `public/shots/<slug>/shots.json`, an ordered list of `{ file, width, height,
+ * caption }` whose files sit in the same directory. Meant for features the VHS
+ * recording cannot capture (images drawn into a float, a PDF page). A manifest
+ * naming a file that is not there fails the build rather than shipping a
+ * broken image.
+ */
+function readShots(slug: string): Shot[] {
+  const dir = resolve(process.env.SHOTS_DIR ?? 'public/shots', slug);
+  const manifest = join(dir, 'shots.json');
+  if (!existsSync(manifest)) return [];
+  const parsed = z.array(shotSchema).safeParse(JSON.parse(readFileSync(manifest, 'utf8')));
+  if (!parsed.success) throw new Error(`${manifest}: ${parsed.error.message}`);
+  for (const shot of parsed.data) {
+    if (shot.file.includes('/') || shot.file.includes('\\') || !existsSync(join(dir, shot.file))) {
+      throw new Error(`${manifest}: no such file ${shot.file}`);
+    }
+  }
+  return parsed.data;
+}
 
 export const vimdocSchema = z.object({
   plugin: z.string(),
@@ -332,6 +364,7 @@ async function scanOne(
   const has = (ext: string): boolean => existsSync(join(demoDir, `${slug}.${ext}`));
   const demo =
     has('webm') || has('mp4') ? { webm: has('webm'), mp4: has('mp4'), poster: has('png') } : null;
+  const shots = readShots(slug);
 
   const uses: string[] = [];
   const usesOptional: string[] = [];
@@ -382,6 +415,7 @@ async function scanOne(
       uses,
       usesOptional,
       demo,
+      shots,
     },
     commits,
     vimdocs,

@@ -3,6 +3,7 @@ import { getCollection } from 'astro:content';
 import type { InferGetStaticPropsType } from 'astro';
 import CommitLine from '../../../components/CommitLine.astro';
 import Demo from '../../../components/Demo.astro';
+import Shots from '../../../components/Shots.astro';
 import { categoryLabel, lazySnippet } from '../../../lib/format';
 import { href } from '../../../lib/site';
 import Shell from '../../../skins/tui/Shell.astro';
@@ -38,6 +39,9 @@ const d = plugin.data;
 
   {d.demo ? <h2 class="tui-h2">demo</h2> : null}
   {d.demo ? <Demo slug={plugin.id} demo={d.demo} skin="tui" /> : null}
+
+  {d.shots.length > 0 ? <h2 class="tui-h2">screenshots</h2> : null}
+  {d.shots.length > 0 ? <Shots slug={plugin.id} shots={d.shots} skin="tui" /> : null}
 
   <h2 class="tui-h2">install</h2>
   <pre class="tui-code"><code>{lazySnippet(d.owner, d.name)}</code></pre>

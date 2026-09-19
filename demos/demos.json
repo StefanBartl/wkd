@@ -1,137 +1,78 @@
 {
   "_comment": "Which checkouts a tape needs. A bare slug is one of the family (<owner>/<slug>.nvim); owner/repo@sha names a third-party dependency pinned to a commit. \"always\" is cloned for every tape (the colorscheme demos/init.lua picks up when present). Read by .github/workflows/demos.yml; the tape itself sets DEMO_PLUGIN/DEMO_DEPS for demos/init.lua.",
-  "always": [
-    "folke/tokyonight.nvim@cdc07ac78467a233fd62c493de29a17e0cf2b2b6"
-  ],
+  "always": ["folke/tokyonight.nvim@cdc07ac78467a233fd62c493de29a17e0cf2b2b6"],
   "tapes": [
     {
       "plugin": "cascade",
-      "deps": [
-        "lib",
-        "ui"
-      ]
+      "deps": ["lib", "ui"]
     },
     {
       "plugin": "emojis",
-      "deps": [
-        "lib",
-        "ui",
-        "cascade"
-      ]
+      "deps": ["lib", "ui", "cascade"]
     },
     {
       "plugin": "replacer",
-      "deps": [
-        "lib",
-        "ui"
-      ]
+      "deps": ["lib", "ui"]
     },
     {
       "plugin": "spotlight",
-      "deps": [
-        "lib",
-        "ui"
-      ]
+      "deps": ["lib", "ui"]
     },
     {
       "plugin": "data",
-      "deps": [
-        "lib",
-        "ui"
-      ]
+      "deps": ["lib", "ui"]
     },
     {
       "plugin": "diff",
-      "deps": [
-        "lib",
-        "ui"
-      ]
+      "deps": ["lib", "ui"]
     },
     {
       "plugin": "markdown",
-      "deps": [
-        "lib",
-        "ui",
-        "hover"
-      ]
+      "deps": ["lib", "ui", "hover"]
     },
     {
       "plugin": "color_my_ascii",
-      "deps": [
-        "lib",
-        "ui"
-      ]
+      "deps": ["lib", "ui"]
     },
     {
       "plugin": "hover",
-      "deps": [
-        "lib",
-        "ui",
-        "markdown"
-      ]
+      "deps": ["lib", "ui", "markdown"]
     },
     {
       "plugin": "insights",
-      "deps": [
-        "lib",
-        "ui"
-      ]
+      "deps": ["lib", "ui"]
     },
     {
       "plugin": "fileops",
-      "deps": [
-        "lib",
-        "ui"
-      ]
+      "deps": ["lib", "ui"]
     },
     {
       "plugin": "buffer-ctx",
-      "deps": [
-        "lib",
-        "ui"
-      ]
+      "deps": ["lib", "ui"]
     },
     {
       "plugin": "recommender",
-      "deps": [
-        "lib",
-        "ui"
-      ]
+      "deps": ["lib", "ui"]
     },
     {
       "plugin": "sessions",
-      "deps": [
-        "lib",
-        "ui"
-      ]
+      "deps": ["lib", "ui"]
     },
     {
       "plugin": "ui",
-      "deps": [
-        "lib"
-      ]
+      "deps": ["lib"]
     },
     {
       "plugin": "gopath",
-      "deps": [
-        "lib",
-        "ui"
-      ]
+      "deps": ["lib", "ui"]
     },
     {
       "plugin": "runtime-analysis",
-      "deps": [
-        "lib",
-        "ui"
-      ]
+      "deps": ["lib", "ui"]
     },
     {
       "plugin": "documentation",
-      "deps": [
-        "lib",
-        "ui",
-        "cascade"
-      ]
+      "deps": ["lib", "ui", "cascade"]
     },
     {
       "plugin": "pickers",

@@ -738,4 +738,25 @@
   .tui-demo code {
     color: var(--green);
   }
+
+  /* ---- screenshots ----------------------------------------------------- */
+  .tui-shots {
+    margin: 0.5lh 0;
+    max-width: 100ch;
+    display: grid;
+    gap: 1lh;
+  }
+  .tui-shots figure {
+    margin: 0;
+  }
+  .tui-shots img {
+    width: 100%;
+    height: auto;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+  }
+  .tui-shots figcaption {
+    color: var(--fg-dim);
+    margin-top: 0.25lh;
+  }
 }

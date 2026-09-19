@@ -891,4 +891,26 @@
     text-transform: none;
     letter-spacing: 0;
   }
+
+  /* ---- screenshots ----------------------------------------------------- */
+  .m-shots {
+    display: grid;
+    gap: var(--s-4);
+  }
+  .m-shots figure {
+    margin: 0;
+    display: grid;
+    gap: var(--s-2);
+  }
+  .m-shots img {
+    width: 100%;
+    height: auto;
+    background: #1a1b26;
+    border: var(--line);
+  }
+  .m-shots figcaption {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
 }

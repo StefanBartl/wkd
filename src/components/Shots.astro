@@ -1,0 +1,31 @@
+---
+import { BASE, type Skin } from '../lib/site';
+import type { Shot } from '../loaders/repos';
+
+// Screenshots from public/shots/<slug>/ (see the loader's readShots): the
+// features a recording cannot show. Lazy, sized up front, one figure each.
+interface Props {
+  slug: string;
+  shots: Shot[];
+  skin: Skin;
+}
+const { slug, shots, skin } = Astro.props;
+---
+
+<div class:list={['shots', skin === 'tui' ? 'tui-shots' : 'm-shots']}>
+  {
+    shots.map((s) => (
+      <figure>
+        <img
+          src={`${BASE}shots/${slug}/${s.file}`}
+          width={s.width}
+          height={s.height}
+          loading="lazy"
+          decoding="async"
+          alt={`${slug}.nvim: ${s.caption}`}
+        />
+        <figcaption>{s.caption}</figcaption>
+      </figure>
+    ))
+  }
+</div>

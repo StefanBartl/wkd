@@ -1,0 +1,14 @@
+[
+  {
+    "file": "text-hover.webp",
+    "width": 1700,
+    "height": 822,
+    "caption": "A bare path in prose: the file it points at, in a float with the name in the border."
+  },
+  {
+    "file": "image-hover.webp",
+    "width": 1700,
+    "height": 822,
+    "caption": "An image link: with images.nvim in a graphics-capable terminal, the picture itself is drawn into the float. Not something a recording can show, hence a screenshot."
+  }
+]

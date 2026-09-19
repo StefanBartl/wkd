@@ -3,6 +3,7 @@ import { getCollection } from 'astro:content';
 import type { InferGetStaticPropsType } from 'astro';
 import CommitLine from '../../components/CommitLine.astro';
 import Demo from '../../components/Demo.astro';
+import Shots from '../../components/Shots.astro';
 import { categoryLabel, lazySnippet } from '../../lib/format';
 import { href } from '../../lib/site';
 import Shell from '../../skins/modern/Shell.astro';
@@ -43,6 +44,7 @@ const [nameBase, nameSuffix] = d.name.endsWith('.nvim')
     </header>
 
     {d.demo ? <Demo slug={plugin.id} demo={d.demo} skin="modern" /> : null}
+    {d.shots.length > 0 ? <Shots slug={plugin.id} shots={d.shots} skin="modern" /> : null}
 
     <div class="m-cols">
       <section data-pagefind-ignore>
