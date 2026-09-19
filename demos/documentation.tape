@@ -28,6 +28,10 @@ Enter
 Sleep 1500ms
 Show
 
+Type ":e #"
+Sleep 300ms
+Enter
+Sleep 600ms
 Type ":DocMap mermaid deps"
 Sleep 600ms
 Enter
