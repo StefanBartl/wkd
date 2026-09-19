@@ -54,9 +54,10 @@ jobs:
           echo "workspace: $GITHUB_WORKSPACE"; pwd
           vhs --version
           nvim --headless -u demos/init.lua "+lua print(vim.o.rtp)" +q 2>&1 | tr "," "\n" | grep -E "repos/" || true
-          cat > /tmp/probe.tape <<'EOF'
-          Output /tmp/probe.webm
-          Output /tmp/probe.mp4
+          # (VHS lexes a leading "/" as a regex, so Output paths stay relative.)
+          mkdir -p /tmp/probe && cat > /tmp/probe/probe.tape <<'EOF'
+          Output probe.webm
+          Output probe.mp4
           Set Width 400
           Set Height 200
           Type "echo probe"
@@ -64,10 +65,10 @@ jobs:
           Sleep 500ms
           EOF
           probe() {
-            rm -f /tmp/probe.webm /tmp/probe.mp4
+            rm -f /tmp/probe/probe.webm /tmp/probe/probe.mp4
             echo "--- ffmpeg: $(command -v ffmpeg) :: $(ffmpeg -hide_banner -version 2>/dev/null | head -1)"
-            vhs /tmp/probe.tape 2>&1 | tail -5
-            ls -l /tmp/probe.* 2>/dev/null && return 0
+            (cd /tmp/probe && vhs probe.tape 2>&1 | tail -5)
+            ls -l /tmp/probe/probe.webm /tmp/probe/probe.mp4 2>/dev/null && return 0
             echo "no output"; return 1
           }
           if probe; then
