@@ -6,7 +6,7 @@ Env DEMO_PLUGIN "cascade"
 Env DEMO_DEPS "lib,ui"
 
 Hide
-Type "cd \"${WKD_ROOT:-$GITHUB_WORKSPACE}\" && clear && nvim -u demos/init.lua demos/fixtures/todo.md"
+Type `cd "${WKD_ROOT:-$GITHUB_WORKSPACE}" && clear && nvim -u demos/init.lua demos/fixtures/todo.md`
 Enter
 Sleep 2s
 Show

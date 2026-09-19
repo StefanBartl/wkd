@@ -6,7 +6,7 @@ Env DEMO_PLUGIN "emojis"
 Env DEMO_DEPS "lib,ui,cascade"
 
 Hide
-Type "cd \"${WKD_ROOT:-$GITHUB_WORKSPACE}\" && clear && nvim -u demos/init.lua demos/fixtures/notes.md"
+Type `cd "${WKD_ROOT:-$GITHUB_WORKSPACE}" && clear && nvim -u demos/init.lua demos/fixtures/notes.md`
 Enter
 Sleep 2s
 Show
