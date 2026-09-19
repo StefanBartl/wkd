@@ -89,7 +89,7 @@ end, { nargs = "*", desc = "demo title float (recording aid)" })
 -- ---- screenkey HUD (ui.nvim) ----------------------------------------------------
 local ok_sk, err_sk = pcall(function()
   local sk = require("ui.screenkey")
-  sk.setup({ fade_ms = 1200, margin = 1 })
+  sk.setup({ fade_ms = 1200, margin = 1, width = 34 })
   ;(sk.enable or sk.toggle)()
 end)
 if not ok_sk then
