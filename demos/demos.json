@@ -73,6 +73,20 @@
         "lib",
         "ui"
       ]
+    },
+    {
+      "plugin": "fileops",
+      "deps": [
+        "lib",
+        "ui"
+      ]
+    },
+    {
+      "plugin": "buffer-ctx",
+      "deps": [
+        "lib",
+        "ui"
+      ]
     }
   ]
 }

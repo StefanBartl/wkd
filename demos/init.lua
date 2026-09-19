@@ -64,6 +64,8 @@ local setups = {
   color_my_ascii = {},
   hover = {},
   insights = {},
+  fileops = {},
+  ["buffer-ctx"] = {},
 }
 local modules = { ["buffer-ctx"] = "buffer_ctx", dap = "wkddap" }
 -- Per-plugin editor tweaks for the recording.
