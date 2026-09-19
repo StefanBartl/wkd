@@ -48,6 +48,8 @@ export const pluginSchema = z.object({
   vimdocs: z.array(z.object({ file: z.string(), title: z.string(), main: z.boolean() })),
   /** slugs of other registry plugins this one require()s from its lua/ tree */
   uses: z.array(z.string()),
+  /** like uses, but every require() is pcall-guarded: an optional integration */
+  usesOptional: z.array(z.string()),
   /** recording found in public/demos/ (fetched from the demo-assets branch) */
   demo: z.object({ webm: z.boolean(), mp4: z.boolean(), poster: z.boolean() }).nullable(),
 });
@@ -81,6 +83,9 @@ function vimdocTitle(text: string, fallback: string): string {
 }
 
 const REQUIRE = /require\(?\s*['"]([\w.-]+)/g;
+// Block comments and full-line comments (including `---` doc comments, whose
+// example code would otherwise count as dependencies).
+const LUA_COMMENT = /--\[(=*)\[[\s\S]*?\]\1\]|^[ \t]*--.*$/gm;
 const SKIP_PATH = /(^|[\\/])(tests?|spec|specs|fixtures?|TESTS)([\\/]|$)/i;
 
 function walkLua(dir: string, out: string[] = []): string[] {
@@ -94,14 +99,21 @@ function walkLua(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** Module roots require()d under lua/, e.g. "lib" from require("lib.nvim.fs"). */
-function requiredRoots(dir: string): Set<string> {
-  const roots = new Set<string>();
+/**
+ * Module roots require()d under lua/, e.g. "lib" from require("lib.nvim.fs"),
+ * mapped to whether every occurrence sits inside a pcall (an optional
+ * integration rather than a hard dependency).
+ */
+function requiredRoots(dir: string): Map<string, boolean> {
+  const roots = new Map<string, boolean>();
   for (const file of walkLua(join(dir, 'lua'))) {
-    const src = readFileSync(file, 'utf8');
+    const src = readFileSync(file, 'utf8').replace(LUA_COMMENT, '');
     for (const m of src.matchAll(REQUIRE)) {
       const root = m[1]?.split('.')[0];
-      if (root) roots.add(root);
+      if (!root) continue;
+      const at = m.index ?? 0;
+      const guarded = /pcall\s*\(/.test(src.slice(Math.max(0, at - 160), at));
+      roots.set(root, (roots.get(root) ?? true) && guarded);
     }
   }
   return roots;
@@ -321,10 +333,15 @@ async function scanOne(
   const demo =
     has('webm') || has('mp4') ? { webm: has('webm'), mp4: has('mp4'), poster: has('png') } : null;
 
-  const uses = [...requiredRoots(dir)]
-    .map((m) => modules.get(m))
-    .filter((s): s is string => Boolean(s) && s !== slug)
-    .sort();
+  const uses: string[] = [];
+  const usesOptional: string[] = [];
+  for (const [mod, optional] of requiredRoots(dir)) {
+    const target = modules.get(mod);
+    if (!target || target === slug) continue;
+    (optional ? usesOptional : uses).push(target);
+  }
+  uses.sort();
+  usesOptional.sort();
 
   let commits: Commit[] = [];
   let commitCount = 0;
@@ -363,6 +380,7 @@ async function scanOne(
       recent: commits,
       vimdocs: vimdocs.map(({ file, title, main }) => ({ file, title, main })),
       uses,
+      usesOptional,
       demo,
     },
     commits,

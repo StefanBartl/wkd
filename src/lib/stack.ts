@@ -3,11 +3,17 @@ import type { CollectionEntry } from 'astro:content';
 // The dependency picture of the family, from the require() edges the loader
 // found under each plugin's lua/ tree (tests and fixtures excluded).
 
+export interface Edge {
+  slug: string;
+  /** every require() of it is pcall-guarded: an optional integration */
+  optional: boolean;
+}
+
 export interface StackNode {
   slug: string;
   name: string;
   category: string;
-  uses: string[];
+  uses: Edge[];
   usedBy: string[];
 }
 
@@ -18,12 +24,17 @@ export function buildStack(plugins: CollectionEntry<'plugins'>[]): StackNode[] {
       slug: p.id,
       name: p.data.name,
       category: p.data.category,
-      uses: p.data.uses.filter((u) => plugins.some((q) => q.id === u)),
+      uses: [
+        ...p.data.uses.map((slug) => ({ slug, optional: false })),
+        ...p.data.usesOptional.map((slug) => ({ slug, optional: true })),
+      ]
+        .filter((e) => plugins.some((q) => q.id === e.slug))
+        .sort((a, b) => a.slug.localeCompare(b.slug)),
       usedBy: [],
     });
   }
   for (const n of nodes.values()) {
-    for (const u of n.uses) nodes.get(u)?.usedBy.push(n.slug);
+    for (const u of n.uses) nodes.get(u.slug)?.usedBy.push(n.slug);
   }
   for (const n of nodes.values()) n.usedBy.sort();
   return [...nodes.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -71,7 +82,8 @@ export function renderTuiStack(
     .map((n) => {
       const kids = n.uses.map((u, i) => {
         const branch = i === n.uses.length - 1 ? '└── ' : '├── ';
-        return `<span class="tui-dim">${branch}</span>${link(u)}`;
+        const opt = u.optional ? ' <span class="tui-dim">(optional)</span>' : '';
+        return `<span class="tui-dim">${branch}</span>${link(u.slug)}${opt}`;
       });
       return [link(n.slug, 'node'), ...kids].join('\n');
     })

@@ -4,16 +4,20 @@ Output out/cascade.webm
 Output out/cascade.mp4
 Env DEMO_PLUGIN "cascade"
 Env DEMO_DEPS "lib,ui"
-
 Hide
 Type `cd "${WKD_ROOT:-$GITHUB_WORKSPACE}" && clear && nvim -u demos/init.lua demos/fixtures/todo.md`
 Enter
 Sleep 2s
 Show
-Sleep 1s
+Sleep 800ms
 
-# rotate the numbered list through its forms: 1. -> 1. [ ] -> - [ ]
-# (the cursor has to be on the list block)
+Hide
+Type ":Demo :Cascade rotate - cycle the list form"
+Enter
+Sleep 1500ms
+Show
+
+# the cursor has to be on the list block
 Type "3G"
 Sleep 600ms
 Type ":Cascade rotate"
@@ -24,7 +28,12 @@ Type ":Cascade rotate"
 Enter
 Sleep 1500ms
 
-# cycle words: true -> false, 3 -> 4 (<C-y> / +)
+Hide
+Type ":Demo <C-y> and + cycle words and numbers"
+Enter
+Sleep 1500ms
+Show
+
 Type "/true"
 Enter
 Sleep 800ms
@@ -40,8 +49,12 @@ Sleep 600ms
 Type "+"
 Sleep 900ms
 
-# list continuation: `o` opens the next item (renumbering the rest), Enter
-# continues the list
+Hide
+Type ":Demo o and Enter continue the list"
+Enter
+Sleep 1500ms
+Show
+
 Type "4G"
 Sleep 500ms
 Type "o"
@@ -54,7 +67,12 @@ Sleep 600ms
 Escape
 Sleep 1200ms
 
-# sort the block
+Hide
+Type ":Demo :Cascade sort"
+Enter
+Sleep 1500ms
+Show
+
 Type ":Cascade sort"
 Sleep 400ms
 Enter

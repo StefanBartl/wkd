@@ -19,6 +19,8 @@ const name = (slug: string): string => nodes.find((n) => n.slug === slug)?.name 
     <p class="m-lede">
       What a plugin <code>require()</code>s from another plugin of the family. Most of it is one
       direction: everything stands on {base[0] ? name(base[0].slug) : 'the foundation'}.
+      <em>optional</em> marks a require inside <code>pcall</code> — an integration that is used
+      when the other plugin is installed, not a hard dependency.
     </p>
   </section>
 
@@ -57,9 +59,10 @@ const name = (slug: string): string => nodes.find((n) => n.slug === slug)?.name 
             <ul class="m-stack-uses">
               {n.uses.map((u) => (
                 <li>
-                  <a href={href(`p/${u}`)} data-nav={`p/${u}`}>
-                    {name(u)}
+                  <a href={href(`p/${u.slug}`)} data-nav={`p/${u.slug}`}>
+                    {name(u.slug)}
                   </a>
+                  {u.optional ? <span class="m-opt">optional</span> : null}
                 </li>
               ))}
             </ul>

@@ -405,6 +405,13 @@
     letter-spacing: 0.12em;
     font-weight: 700;
   }
+  /* The track scrolls inside its own clipped box, so it never runs under
+     the label or the pause control. */
+  .ticker-viewport {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
   .ticker-track {
     display: flex;
     gap: var(--s-12);
@@ -466,7 +473,7 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .ticker {
+    .ticker-viewport {
       overflow-x: auto;
     }
     .ticker-track {
@@ -844,6 +851,13 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--s-1) var(--s-3);
+  }
+  .m-stack-uses .m-opt {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-left: 0.5ch;
   }
   .m-stack-uses a::before {
     content: "↳ ";

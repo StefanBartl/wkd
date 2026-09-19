@@ -67,7 +67,8 @@ Requires Node ≥ 22.12 and pnpm ≥ 10.
   code blocks, `~` headings, `'option'`, `<Key>`; everything HTML-escaped first. Help pages are
   in the search index, so `:help`-style searches work site-wide.
 - **Stack** (`/stack`): the `require()` edges between the plugins, read from each `lua/` tree
-  (tests and fixtures excluded); "depended on" ranking plus a per-plugin tree.
+  (tests, fixtures and Lua comments excluded); a require inside `pcall` counts as *optional*.
+  "Depended on" ranking plus a per-plugin tree.
 - **Category filter** on the home pages is pure CSS: radio inputs plus `:has()` rules in
   `src/styles/filter.css`. Adding a category to the registry means adding one rule there.
 - **Preferences** (all optional, all `localStorage`): skin, TUI colorscheme
@@ -104,7 +105,10 @@ Requires Node ≥ 22.12 and pnpm ≥ 10.
 
 `demos/<plugin>.tape` is a [VHS](https://github.com/charmbracelet/vhs) script that drives a
 clean Neovim (`demos/init.lua`: only lib.nvim, ui.nvim and the demoed plugin on the
-runtimepath, read from `$PLUGINS_DIR`) over a fixture in `demos/fixtures/`. The
+runtimepath, read from `$PLUGINS_DIR`) over a fixture in `demos/fixtures/`. Two recording
+aids come from that config: `:Demo <text>` shows a title float (top right) naming the feature
+currently demonstrated, and ui.nvim's screenkey HUD (bottom right) shows the keys behind
+every action. The
 `Record demos` workflow runs every tape on a Linux runner (Neovim stable, VHS pinned), turns
 the recordings into `<plugin>.webm` + `.mp4` + a `.png` poster and force-pushes them as the
 single-commit orphan branch `demo-assets` -- weekly, on `workflow_dispatch`, and whenever
