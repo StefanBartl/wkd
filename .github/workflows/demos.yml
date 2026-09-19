@@ -5,6 +5,10 @@ name: Record demos
 # the deploy workflow copies that branch into public/demos/. Recordings are
 # therefore reproducible, never stale, and never in main's history.
 #
+# One job per tape (a matrix read from demos/demos.json), so a run takes
+# about as long as the slowest tape rather than the sum of all of them; the
+# publish job collects the artifacts and pushes the branch once.
+#
 # VHS runs in its own container image: Chromium, ttyd, ffmpeg and the fonts
 # there are the combination VHS is released against. Neovim stable and the
 # plugin checkouts are mounted in.
@@ -19,7 +23,7 @@ on:
       - '.github/workflows/demos.yml'
 
 permissions:
-  contents: write # force-pushes the demo-assets branch
+  contents: read
 
 concurrency:
   group: demos
@@ -31,8 +35,39 @@ env:
   VHS_IMAGE: ghcr.io/charmbracelet/vhs:v0.11.0
 
 jobs:
-  record:
+  plan:
     runs-on: ubuntu-latest
+    outputs:
+      tapes: ${{ steps.list.outputs.tapes }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - id: list
+        name: One matrix entry per tape
+        run: |
+          # Every tape file must be in the manifest (and the other way round):
+          # a tape without an entry would silently never be recorded.
+          for tape in demos/*.tape; do
+            case "$tape" in demos/_*) continue ;; esac
+            slug=$(basename "$tape" .tape)
+            jq -e --arg s "$slug" '.tapes[] | select(.plugin == $s)' demos/demos.json >/dev/null \
+              || { echo "::error::$tape has no entry in demos/demos.json"; exit 1; }
+          done
+          for slug in $(jq -r '.tapes[].plugin' demos/demos.json); do
+            [ -f "demos/$slug.tape" ] || { echo "::error::demos/demos.json lists $slug but demos/$slug.tape is missing"; exit 1; }
+          done
+          tapes=$(jq -c '[.tapes[] | { plugin: .plugin, deps: (.deps | join(" ")) }]' demos/demos.json)
+          echo "tapes=$tapes" >> "$GITHUB_OUTPUT"
+          echo "$tapes" | jq -r '.[] | "\(.plugin): \(.deps)"'
+
+  record:
+    needs: plan
+    runs-on: ubuntu-latest
+    name: ${{ matrix.tape.plugin }}
+    strategy:
+      fail-fast: false
+      matrix:
+        tape: ${{ fromJSON(needs.plan.outputs.tapes) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -44,8 +79,8 @@ jobs:
           tar -xzf "$RUNNER_TEMP/nvim.tar.gz" -C "$RUNNER_TEMP/nvim" --strip-components=1
           "$RUNNER_TEMP/nvim/bin/nvim" --version | head -1
 
-      # Tools the plugins shell out to (ripgrep for replacer.nvim and insights.nvim, fd for pickers.nvim), mounted
-      # into the container; without them a plugin shows its dependency panel.
+      # Tools the plugins shell out to (ripgrep for replacer.nvim and
+      # insights.nvim, fd for pickers.nvim), mounted into the container.
       - name: External tools
         run: |
           mkdir -p "$RUNNER_TEMP/tools/bin"
@@ -64,16 +99,18 @@ jobs:
           "$RUNNER_TEMP/tools/bin/rg" --version | head -1
           "$RUNNER_TEMP/tools/bin/fd" --version
 
-      - name: Clone the plugins the tapes need
+      - name: Clone the checkouts this tape needs
+        env:
+          PLUGIN: ${{ matrix.tape.plugin }}
+          DEPS: ${{ matrix.tape.deps }}
         run: |
           mkdir -p "$RUNNER_TEMP/repos"
           owner=$(jq -r .owner src/data/registry.json)
-          # A bare slug is one of the family (<owner>/<slug>.nvim); "owner/repo"
-          # names a third-party dependency such as nvim-telescope/telescope.nvim,
-          # checked out under its own repository name.
-          # A third-party dependency is pinned to a commit (owner/repo@sha): its
-          # code runs in the container that writes what the site serves.
-          for dep in $(jq -r '[(.always // [])[], (.tapes[] | .plugin, .deps[])] | unique[]' demos/demos.json); do
+          always=$(jq -r '(.always // []) | join(" ")' demos/demos.json)
+          # A bare slug is one of the family (<owner>/<slug>.nvim). A third-party
+          # dependency is pinned to a commit (owner/repo@sha): its code runs in
+          # the container that writes what the site serves.
+          for dep in $always $PLUGIN $DEPS; do
             case "$dep" in
               */*@*)
                 repo="${dep%@*}"; sha="${dep##*@}"; dir="$RUNNER_TEMP/repos/${repo##*/}"
@@ -84,35 +121,27 @@ jobs:
               *)   git clone --quiet --depth 1 "https://github.com/$owner/$dep.nvim.git" "$RUNNER_TEMP/repos/$dep.nvim" ;;
             esac
           done
+          ls "$RUNNER_TEMP/repos"
 
       - name: Record
+        env:
+          PLUGIN: ${{ matrix.tape.plugin }}
         run: |
           docker pull -q "$VHS_IMAGE"
-          docker run --rm --entrypoint vhs "$VHS_IMAGE" --version
           mkdir -p demos/out
           # The container sees the repo at /vhs (its WORKDIR), Neovim at
           # /opt/nvim and the checkouts at /opt/repos; the tapes cd to $WKD_ROOT.
-          vhs_run() {
-            docker run --rm \
-              -v "$PWD:/vhs" \
-              -v "$RUNNER_TEMP/nvim:/opt/nvim:ro" \
-              -v "$RUNNER_TEMP/repos:/opt/repos:ro" \
-              -v "$RUNNER_TEMP/tools:/opt/tools:ro" \
-              -e PATH="/opt/nvim/bin:/opt/tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
-              -e PLUGINS_DIR=/opt/repos -e WKD_ROOT=/vhs -e TERM=xterm-256color \
-              "$VHS_IMAGE" "$@"
-          }
-          for tape in demos/*.tape; do
-            case "$tape" in demos/_*) continue ;; esac
-            echo "::group::$tape"
-            vhs_run "$tape"
-            echo "::endgroup::"
-          done
+          docker run --rm \
+            -v "$PWD:/vhs" \
+            -v "$RUNNER_TEMP/nvim:/opt/nvim:ro" \
+            -v "$RUNNER_TEMP/repos:/opt/repos:ro" \
+            -v "$RUNNER_TEMP/tools:/opt/tools:ro" \
+            -e PATH="/opt/nvim/bin:/opt/tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            -e PLUGINS_DIR=/opt/repos -e WKD_ROOT=/vhs -e TERM=xterm-256color \
+            "$VHS_IMAGE" "demos/$PLUGIN.tape"
           # The container runs as root: take the outputs back (VHS writes them
           # relative to its working directory, i.e. ./out).
           sudo chown -R "$(id -u):$(id -g)" demos out 2>/dev/null || true
-          # Collect the recordings into demos/out/ (VHS writes relative to its cwd,
-          # so ./out; older VHS wrote next to the tape).
           find ./out ./demos -type f \( -name "*.webm" -o -name "*.mp4" \) -not -path "./demos/out/*" -print -exec mv -t demos/out/ {} + 2>/dev/null || true
           # Diagnostics written by :DemoDump (demos/init.lua): into the log, not the branch.
           for dump in demos/out/_dump-*.txt; do
@@ -120,24 +149,44 @@ jobs:
             echo "::group::$dump"; cat "$dump"; echo "::endgroup::"
             rm -f "$dump"
           done
-          ls -l demos/out
-          test -n "$(ls demos/out/*.webm 2>/dev/null)" || { echo "::error::no recordings produced"; exit 1; }
-          # Posters: one frame from each recording, with the container's ffmpeg.
-          for webm in demos/out/*.webm; do
-            docker run --rm -v "$PWD:/vhs" --entrypoint ffmpeg "$VHS_IMAGE" \
-              -y -loglevel error -ss 1.5 -i "/vhs/$webm" -frames:v 1 "/vhs/${webm%.webm}.png"
-          done
+          test -f "demos/out/$PLUGIN.webm" || { echo "::error::demos/$PLUGIN.tape produced no recording"; exit 1; }
+          # Poster: one frame, with the container's ffmpeg.
+          docker run --rm -v "$PWD:/vhs" --entrypoint ffmpeg "$VHS_IMAGE" \
+            -y -loglevel error -ss 1.5 -i "/vhs/demos/out/$PLUGIN.webm" -frames:v 1 "/vhs/demos/out/$PLUGIN.png"
           sudo chown -R "$(id -u):$(id -g)" demos
           ls -l demos/out
 
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: demo-${{ matrix.tape.plugin }}
+          path: |
+            demos/out/${{ matrix.tape.plugin }}.webm
+            demos/out/${{ matrix.tape.plugin }}.mp4
+            demos/out/${{ matrix.tape.plugin }}.png
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: record
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # force-pushes the demo-assets branch
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: demo-*
+          path: out
+          merge-multiple: true
+
       - name: Publish demo-assets branch
         run: |
-          cd demos/out
-          # Only recordings and posters leave this job: the deploy copies the
-          # branch verbatim under the site's origin, so nothing else may ride
-          # along from a container that ran third-party code.
+          cd out
+          # Only recordings and posters leave this workflow: the deploy copies
+          # the branch verbatim under the site's origin, so nothing else may
+          # ride along from a container that ran third-party code.
           stray=$(find . -type f -not \( -name "*.webm" -o -name "*.mp4" -o -name "*.png" \) | head -5)
-          if [ -n "$stray" ]; then echo "::error::unexpected files in demos/out: $stray"; exit 1; fi
+          if [ -n "$stray" ]; then echo "::error::unexpected files: $stray"; exit 1; fi
+          ls -l
           git init -q
           git checkout -q -b demo-assets
           git add .

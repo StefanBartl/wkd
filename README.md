@@ -109,9 +109,10 @@ runtimepath, read from `$PLUGINS_DIR`) over a fixture in `demos/fixtures/`. Two 
 aids come from that config: `:Demo <text>` shows a title float (top right) naming the feature
 currently demonstrated, and ui.nvim's screenkey HUD (bottom right) shows the keys behind
 every action. The
-`Record demos` workflow runs every tape on a Linux runner (Neovim stable, VHS pinned), turns
-the recordings into `<plugin>.webm` + `.mp4` + a `.png` poster and force-pushes them as the
-single-commit orphan branch `demo-assets` -- weekly, on `workflow_dispatch`, and whenever
+`Record demos` workflow records every tape in its own job (a matrix read from `demos/demos.json`,
+so a run takes about as long as the slowest tape, roughly five minutes, instead of the sum of
+all of them), turns each recording into `<plugin>.webm` + `.mp4` + a `.png` poster and, once
+every job succeeded, force-pushes them as the single-commit orphan branch `demo-assets` -- weekly, on `workflow_dispatch`, and whenever
 `demos/**` changes. The deploy workflow copies that branch into `public/demos/`; the loader
 turns whatever it finds there into a `<video>` on the plugin page (both skins). Recordings
 are therefore reproducible, never stale, and never part of main's history. For a local build
