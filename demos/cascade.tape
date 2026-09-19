@@ -13,6 +13,9 @@ Show
 Sleep 1s
 
 # rotate the numbered list through its forms: 1. -> 1. [ ] -> - [ ]
+# (the cursor has to be on the list block)
+Type "3G"
+Sleep 600ms
 Type ":Cascade rotate"
 Sleep 600ms
 Enter
@@ -37,10 +40,9 @@ Sleep 600ms
 Type "+"
 Sleep 900ms
 
-# list continuation: `o` opens the next item, Enter continues, Enter on an
-# empty item ends the list
-Type "gg"
-Type "3j"
+# list continuation: `o` opens the next item (renumbering the rest), Enter
+# continues the list
+Type "4G"
 Sleep 500ms
 Type "o"
 Sleep 300ms
@@ -48,15 +50,13 @@ Type "record the tape"
 Sleep 400ms
 Enter
 Type "publish the site"
-Sleep 400ms
-Enter
 Sleep 600ms
-Enter
 Escape
 Sleep 1200ms
 
 # sort the block
 Type ":Cascade sort"
+Sleep 400ms
 Enter
 Sleep 2500ms
 
