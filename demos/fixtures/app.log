@@ -1,0 +1,12 @@
+2026-09-19T08:00:01Z INFO  server started on :8080
+2026-09-19T08:00:04Z INFO  user=42 login ok
+2026-09-19T08:00:09Z WARN  user=42 slow query 1.9s
+2026-09-19T08:00:12Z ERROR user=17 upstream timeout after 5s
+2026-09-19T08:00:13Z INFO  user=17 retry 1/3
+2026-09-19T08:00:19Z ERROR user=17 upstream timeout after 5s
+2026-09-19T08:00:20Z INFO  user=42 logout
+2026-09-19T08:00:25Z INFO  user=17 retry 2/3
+2026-09-19T08:00:31Z ERROR user=17 upstream timeout after 5s
+2026-09-19T08:00:32Z WARN  user=17 giving up
+2026-09-19T08:00:40Z INFO  user=99 login ok
+2026-09-19T08:00:41Z INFO  user=99 fetched 12 items

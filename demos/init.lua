@@ -34,6 +34,11 @@ vim.o.swapfile = false
 vim.o.shortmess = vim.o.shortmess .. "I"
 vim.o.fillchars = "eob: "
 vim.cmd.colorscheme("habamax")
+-- Diff colours that read on a recording (habamax keeps them faint).
+vim.api.nvim_set_hl(0, "DiffAdd", { bg = "#2a3d2f" })
+vim.api.nvim_set_hl(0, "DiffDelete", { bg = "#3d2a2e", fg = "#5a4a4e" })
+vim.api.nvim_set_hl(0, "DiffChange", { bg = "#33303a" })
+vim.api.nvim_set_hl(0, "DiffText", { bg = "#4a4530", bold = true })
 
 -- Per-plugin setup(); the Lua module name where it differs from the slug.
 local setups = {
@@ -45,6 +50,13 @@ local setups = {
   diff = {},
 }
 local modules = { ["buffer-ctx"] = "buffer_ctx", dap = "wkddap" }
+-- Per-plugin editor tweaks for the recording.
+local tweaks = {
+  -- data.nvim rewrites through a substitute; its search register would light
+  -- up every key in the result.
+  data = function() vim.o.hlsearch = false end,
+}
+if tweaks[plugin] then tweaks[plugin]() end
 
 if setups[plugin] then
   local ok, err = pcall(function()

@@ -44,6 +44,16 @@ jobs:
           tar -xzf "$RUNNER_TEMP/nvim.tar.gz" -C "$RUNNER_TEMP/nvim" --strip-components=1
           "$RUNNER_TEMP/nvim/bin/nvim" --version | head -1
 
+      # Tools the plugins shell out to (ripgrep for replacer.nvim), mounted
+      # into the container; without them a plugin shows its dependency panel.
+      - name: External tools
+        run: |
+          mkdir -p "$RUNNER_TEMP/tools/bin"
+          curl -sSL "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP/tools" --strip-components=1 --wildcards "*/rg"
+          mv "$RUNNER_TEMP/tools/rg" "$RUNNER_TEMP/tools/bin/rg"
+          "$RUNNER_TEMP/tools/bin/rg" --version | head -1
+
       - name: Clone the plugins the tapes need
         run: |
           mkdir -p "$RUNNER_TEMP/repos"
@@ -64,7 +74,8 @@ jobs:
               -v "$PWD:/vhs" \
               -v "$RUNNER_TEMP/nvim:/opt/nvim:ro" \
               -v "$RUNNER_TEMP/repos:/opt/repos:ro" \
-              -e PATH="/opt/nvim/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+              -v "$RUNNER_TEMP/tools:/opt/tools:ro" \
+              -e PATH="/opt/nvim/bin:/opt/tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
               -e PLUGINS_DIR=/opt/repos -e WKD_ROOT=/vhs -e TERM=xterm-256color \
               "$VHS_IMAGE" "$@"
           }
