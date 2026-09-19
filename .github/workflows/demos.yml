@@ -6,7 +6,7 @@ name: Record demos
 # therefore reproducible, never stale, and never in main's history.
 #
 # VHS runs in its own container image: Chromium, ttyd, ffmpeg and the fonts
-# there are the combination VHS is released against. (On the bare runner the
+# there are the combination VHS is released against.
 # 2026 Chrome + a nightly ffmpeg captured frames but encoded nothing.) Neovim
 # stable and the plugin checkouts are mounted in.
 on:
@@ -27,7 +27,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  VHS_IMAGE: ghcr.io/charmbracelet/vhs:v0.12.0
+  # v0.12.0 (2026-09-09) exits 0 without writing any output on Linux runners,
+  # charmbracelet/vhs#787; stay on v0.11.0 until that is fixed.
+  VHS_IMAGE: ghcr.io/charmbracelet/vhs:v0.11.0
 
 jobs:
   record:
