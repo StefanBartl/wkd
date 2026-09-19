@@ -54,7 +54,12 @@ local modules = { ["buffer-ctx"] = "buffer_ctx", dap = "wkddap" }
 local tweaks = {
   -- data.nvim rewrites through a substitute; its search register would light
   -- up every key in the result.
-  data = function() vim.o.hlsearch = false end,
+  -- After `lines` / `to yaml` the buffer still has filetype json, whose
+  -- syntax file paints unquoted keys as errors.
+  data = function()
+    vim.o.hlsearch = false
+    vim.g.vim_json_warnings = 0
+  end,
 }
 if tweaks[plugin] then tweaks[plugin]() end
 
