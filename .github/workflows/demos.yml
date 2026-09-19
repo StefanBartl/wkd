@@ -6,9 +6,8 @@ name: Record demos
 # therefore reproducible, never stale, and never in main's history.
 #
 # VHS runs in its own container image: Chromium, ttyd, ffmpeg and the fonts
-# there are the combination VHS is released against.
-# 2026 Chrome + a nightly ffmpeg captured frames but encoded nothing.) Neovim
-# stable and the plugin checkouts are mounted in.
+# there are the combination VHS is released against. Neovim stable and the
+# plugin checkouts are mounted in.
 on:
   workflow_dispatch:
   schedule:
