@@ -107,6 +107,28 @@
       "deps": [
         "lib"
       ]
+    },
+    {
+      "plugin": "gopath",
+      "deps": [
+        "lib",
+        "ui"
+      ]
+    },
+    {
+      "plugin": "runtime-analysis",
+      "deps": [
+        "lib",
+        "ui"
+      ]
+    },
+    {
+      "plugin": "documentation",
+      "deps": [
+        "lib",
+        "ui",
+        "cascade"
+      ]
     }
   ]
 }
