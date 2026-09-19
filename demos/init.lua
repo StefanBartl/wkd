@@ -39,12 +39,19 @@ vim.cmd.colorscheme("habamax")
 local setups = {
   cascade = { keymaps = { preset = true } },
   emojis = {},
+  replacer = {},
+  spotlight = {},
+  data = {},
+  diff = {},
 }
 local modules = { ["buffer-ctx"] = "buffer_ctx", dap = "wkddap" }
 
 if setups[plugin] then
   local ok, err = pcall(function()
-    require(modules[plugin] or plugin).setup(setups[plugin])
+    local m = require(modules[plugin] or plugin)
+    if type(m.setup) == "function" then
+      m.setup(setups[plugin])
+    end
   end)
   if not ok then
     vim.notify("demo setup failed: " .. tostring(err), vim.log.levels.ERROR)

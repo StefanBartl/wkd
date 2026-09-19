@@ -1,0 +1,1 @@
+{"server":{"port":8080,"host":"0.0.0.0","tls":false},"log":{"level":"info","file":"app.log"},"retries":3,"features":{"search":true,"demos":true,"vimdoc":true},"name":"wkd"}
