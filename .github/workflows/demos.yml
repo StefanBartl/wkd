@@ -4,6 +4,11 @@ name: Record demos
 # and publishes the videos as the single-commit orphan branch `demo-assets`;
 # the deploy workflow copies that branch into public/demos/. Recordings are
 # therefore reproducible, never stale, and never in main's history.
+#
+# VHS runs in its own container image: Chromium, ttyd, ffmpeg and the fonts
+# there are the combination VHS is released against. (On the bare runner the
+# 2026 Chrome + a nightly ffmpeg captured frames but encoded nothing.) Neovim
+# stable and the plugin checkouts are mounted in.
 on:
   workflow_dispatch:
   schedule:
@@ -21,21 +26,22 @@ concurrency:
   group: demos
   cancel-in-progress: false
 
+env:
+  VHS_IMAGE: ghcr.io/charmbracelet/vhs:v0.12.0
+
 jobs:
   record:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7 # v1.6.1
-        with:
-          neovim: true
-          version: stable
-
-      # Installs vhs, ttyd and ffmpeg (and JetBrains Mono); no tape is run here.
-      - uses: charmbracelet/vhs-action@f6d7db07a432fcd3b06772628d36a57f96d95dcf # v2.1.1
-        with:
-          version: v0.12.0
+      - name: Neovim stable
+        run: |
+          mkdir -p "$RUNNER_TEMP/nvim"
+          curl -sSL -o "$RUNNER_TEMP/nvim.tar.gz" \
+            https://github.com/neovim/neovim/releases/download/stable/nvim-linux-x86_64.tar.gz
+          tar -xzf "$RUNNER_TEMP/nvim.tar.gz" -C "$RUNNER_TEMP/nvim" --strip-components=1
+          "$RUNNER_TEMP/nvim/bin/nvim" --version | head -1
 
       - name: Clone the plugins the tapes need
         run: |
@@ -44,66 +50,41 @@ jobs:
           for slug in $(jq -r '[.tapes[] | .plugin, .deps[]] | unique[]' demos/demos.json); do
             git clone --quiet --depth 1 "https://github.com/$owner/$slug.nvim.git" "$RUNNER_TEMP/repos/$slug.nvim"
           done
-          echo "PLUGINS_DIR=$RUNNER_TEMP/repos" >> "$GITHUB_ENV"
-
-      # VHS renders the terminal in a headless Chromium (go-rod) and encodes the
-      # frames with ffmpeg; it prints "Creating …" even when no frame was ever
-      # captured. Probe with a tiny tape that also writes raw frames and a
-      # screenshot, so the log shows which stage is empty.
-      - name: Probe VHS
-        run: |
-          echo "workspace: $GITHUB_WORKSPACE"; pwd
-          vhs --version
-          echo "--- ffmpeg: $(command -v ffmpeg) :: $(ffmpeg -hide_banner -version 2>/dev/null | head -1)"
-          echo "--- browsers: $(command -v google-chrome chromium chromium-browser 2>/dev/null | tr '\n' ' ')"
-          ls -la ~/.cache/rod 2>/dev/null || echo "no ~/.cache/rod"
-          nvim --headless -u demos/init.lua "+lua print(vim.o.rtp)" +q 2>&1 | tr "," "\n" | grep -E "repos/" || true
-          mkdir -p /tmp/probe && cat > /tmp/probe/probe.tape <<'EOF'
-          Output probe.webm
-          Output probe.gif
-          Output frames/
-          Set Width 400
-          Set Height 200
-          Type "echo probe"
-          Enter
-          Sleep 500ms
-          Screenshot shot.png
-          EOF
-          cd /tmp/probe
-          echo "--- vhs (default):"
-          vhs probe.tape 2>&1 || echo "vhs exit $?"
-          ls -laR /tmp/probe | head -30
-          if [ ! -s probe.webm ]; then
-            echo "--- vhs (VHS_NO_SANDBOX=true):"
-            rm -rf probe.webm probe.gif frames shot.png
-            VHS_NO_SANDBOX=true vhs probe.tape 2>&1 || echo "vhs exit $?"
-            ls -laR /tmp/probe | head -30
-            [ -s probe.webm ] && echo "VHS_NO_SANDBOX=true" >> "$GITHUB_ENV"
-          fi
-          test -s probe.webm || { echo "::error::VHS produced no output"; exit 1; }
-        env:
-          DEMO_PLUGIN: cascade
-          DEMO_DEPS: lib,ui
 
       - name: Record
         run: |
+          docker pull -q "$VHS_IMAGE"
+          docker run --rm --entrypoint vhs "$VHS_IMAGE" --version
           mkdir -p demos/out
-          nvim --version | head -1
+          # The container sees the repo at /vhs (its WORKDIR), Neovim at
+          # /opt/nvim and the checkouts at /opt/repos; the tapes cd to $WKD_ROOT.
+          vhs_run() {
+            docker run --rm \
+              -v "$PWD:/vhs" \
+              -v "$RUNNER_TEMP/nvim:/opt/nvim:ro" \
+              -v "$RUNNER_TEMP/repos:/opt/repos:ro" \
+              -e PATH="/opt/nvim/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+              -e PLUGINS_DIR=/opt/repos -e WKD_ROOT=/vhs -e TERM=xterm-256color \
+              "$VHS_IMAGE" "$@"
+          }
           for tape in demos/*.tape; do
             case "$tape" in demos/_*) continue ;; esac
             echo "::group::$tape"
-            vhs "$tape"
+            vhs_run "$tape"
             echo "::endgroup::"
           done
+          sudo chown -R "$(id -u):$(id -g)" demos
           # Output paths are relative to the tape (demos/), i.e. demos/out/; collect
           # from the repo root as well in case a VHS version resolves them there.
           find . -path ./node_modules -prune -o -type f \( -name "*.webm" -o -name "*.mp4" \) -not -path "./demos/out/*" -print -exec mv -t demos/out/ {} +
           ls -l demos/out
           test -n "$(ls demos/out/*.webm 2>/dev/null)" || { echo "::error::no recordings produced"; exit 1; }
-          # Posters: one frame from each recording.
+          # Posters: one frame from each recording, with the container's ffmpeg.
           for webm in demos/out/*.webm; do
-            ffmpeg -y -loglevel error -ss 1.5 -i "$webm" -frames:v 1 "${webm%.webm}.png"
+            docker run --rm -v "$PWD:/vhs" --entrypoint ffmpeg "$VHS_IMAGE" \
+              -y -loglevel error -ss 1.5 -i "/vhs/$webm" -frames:v 1 "/vhs/${webm%.webm}.png"
           done
+          sudo chown -R "$(id -u):$(id -g)" demos
           ls -l demos/out
 
       - name: Publish demo-assets branch
