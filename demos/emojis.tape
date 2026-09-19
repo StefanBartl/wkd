@@ -1,12 +1,12 @@
 # emojis.nvim -- count, replace with :name: placeholders, restore, list.
 Source demos/_settings.tape
-Output demos/out/emojis.webm
-Output demos/out/emojis.mp4
+Output out/emojis.webm
+Output out/emojis.mp4
 Env DEMO_PLUGIN "emojis"
 Env DEMO_DEPS "lib,ui,cascade"
 
 Hide
-Type "nvim -u demos/init.lua demos/fixtures/notes.md"
+Type "cd \"${WKD_ROOT:-$GITHUB_WORKSPACE}\" && clear && nvim -u demos/init.lua demos/fixtures/notes.md"
 Enter
 Sleep 2s
 Show

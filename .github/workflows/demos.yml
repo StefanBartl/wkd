@@ -46,6 +46,17 @@ jobs:
           done
           echo "PLUGINS_DIR=$RUNNER_TEMP/repos" >> "$GITHUB_ENV"
 
+      - name: Diagnostics
+        run: |
+          echo "workspace: $GITHUB_WORKSPACE"; pwd
+          vhs --version
+          ffmpeg -hide_banner -version | head -1
+          ffmpeg -hide_banner -encoders 2>/dev/null | grep -E "libvpx-vp9|libx264" || echo "::warning::vp9/x264 encoders missing"
+          nvim --headless -u demos/init.lua "+lua print(vim.o.rtp)" +q 2>&1 | tr "," "\n" | grep -E "repos/" || true
+        env:
+          DEMO_PLUGIN: cascade
+          DEMO_DEPS: lib,ui
+
       - name: Record
         run: |
           mkdir -p demos/out
@@ -56,9 +67,9 @@ jobs:
             vhs "$tape"
             echo "::endgroup::"
           done
-          # VHS resolves Output paths relative to the tape file, so collect the
-          # recordings from wherever they landed.
-          find demos -type f \( -name "*.webm" -o -name "*.mp4" \) -not -path "demos/out/*" -exec mv -t demos/out/ {} +
+          # Output paths are relative to the tape (demos/), i.e. demos/out/; collect
+          # from the repo root as well in case a VHS version resolves them there.
+          find . -path ./node_modules -prune -o -type f \( -name "*.webm" -o -name "*.mp4" \) -not -path "./demos/out/*" -print -exec mv -t demos/out/ {} +
           ls -l demos/out
           test -n "$(ls demos/out/*.webm 2>/dev/null)" || { echo "::error::no recordings produced"; exit 1; }
           # Posters: one frame from each recording.

@@ -1,12 +1,12 @@
 # cascade.nvim -- list transforms, checkbox rotation, word cycling, continuation.
 Source demos/_settings.tape
-Output demos/out/cascade.webm
-Output demos/out/cascade.mp4
+Output out/cascade.webm
+Output out/cascade.mp4
 Env DEMO_PLUGIN "cascade"
 Env DEMO_DEPS "lib,ui"
 
 Hide
-Type "nvim -u demos/init.lua demos/fixtures/todo.md"
+Type "cd \"${WKD_ROOT:-$GITHUB_WORKSPACE}\" && clear && nvim -u demos/init.lua demos/fixtures/todo.md"
 Enter
 Sleep 2s
 Show
