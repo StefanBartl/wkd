@@ -682,4 +682,173 @@
       position: static;
     }
   }
+
+  /* ---- vimdoc --------------------------------------------------------- */
+  .vd-files,
+  .vd-toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1) var(--s-3);
+    font-family: var(--font-mono), monospace;
+    font-size: 0.8rem;
+    margin-bottom: var(--s-4);
+  }
+  .vd-files a[aria-current],
+  .vd-toc a:hover {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .vd-source {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+  .vd-source a {
+    text-decoration: underline;
+  }
+  .vd-body {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    max-width: 82ch;
+  }
+  .vd-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    margin-block: var(--s-3);
+  }
+  .vd-code {
+    white-space: pre;
+    overflow-x: auto;
+    background: var(--ink);
+    color: var(--paper);
+    padding: var(--s-3) var(--s-4);
+    margin-block: var(--s-3);
+    tab-size: 4;
+  }
+  .vd-hr {
+    border: 0;
+    border-top: var(--line);
+    margin-block: var(--s-8) var(--s-4);
+  }
+  .vd-h2 {
+    font-family: var(--font-display), sans-serif;
+    font-size: clamp(1.4rem, 2.4vw, 2rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+    align-items: baseline;
+  }
+  .vd-h3 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 700;
+    margin-top: var(--s-6);
+  }
+  .vd-tags {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 400;
+  }
+  .vd-tag {
+    color: var(--muted);
+  }
+  .vd-tag:target,
+  .vd-h2:has(:target) {
+    background: var(--acid);
+    color: var(--acid-ink);
+  }
+  .vd-ref {
+    text-decoration: underline;
+    text-decoration-color: var(--muted);
+    text-underline-offset: 0.15em;
+  }
+  .vd-ref:hover {
+    background: var(--acid);
+    color: var(--acid-ink);
+  }
+  .vd-ref--ext {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .vd-body code,
+  .vd-body kbd,
+  .vd-body var {
+    font-family: inherit;
+    font-style: normal;
+    font-weight: 700;
+  }
+  .vd-url {
+    text-decoration: underline;
+  }
+
+  /* ---- stack ---------------------------------------------------------- */
+  .m-stack-bars li {
+    display: grid;
+    grid-template-columns: minmax(10rem, 14rem) 1fr 3ch;
+    gap: var(--s-3);
+    align-items: center;
+    padding: var(--s-1) 0;
+    font-family: var(--font-mono), monospace;
+    font-size: 0.9rem;
+  }
+  .m-stack-bars a:hover {
+    background: var(--acid);
+    color: var(--acid-ink);
+  }
+  .m-bar {
+    display: block;
+    height: 1.1em;
+    width: calc(var(--w) * 100%);
+    background: var(--ink);
+  }
+  .m-stack-bars b {
+    text-align: right;
+  }
+  .m-stack {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+    border-top: var(--line);
+    border-bottom: var(--line);
+  }
+  .m-stack-card {
+    padding: var(--s-4);
+    border-right: var(--line);
+    border-bottom: var(--line);
+    display: grid;
+    gap: var(--s-2);
+    align-content: start;
+  }
+  .m-stack-name {
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+  .m-stack-name:hover {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .m-stack-uses {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.85rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1) var(--s-3);
+  }
+  .m-stack-uses a::before {
+    content: "↳ ";
+    color: var(--muted);
+  }
+  .m-stack-uses a:hover {
+    background: var(--acid);
+    color: var(--acid-ink);
+  }
 }

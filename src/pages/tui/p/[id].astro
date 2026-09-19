@@ -3,6 +3,7 @@ import { getCollection } from 'astro:content';
 import type { InferGetStaticPropsType } from 'astro';
 import CommitLine from '../../../components/CommitLine.astro';
 import { categoryLabel, lazySnippet } from '../../../lib/format';
+import { href } from '../../../lib/site';
 import Shell from '../../../skins/tui/Shell.astro';
 
 export async function getStaticPaths() {
@@ -31,7 +32,7 @@ const d = plugin.data;
     <dt>commits</dt>
     <dd>{d.commitCount}</dd>
     {d.hasVimdoc ? <dt>help</dt> : null}
-    {d.hasVimdoc ? <dd><a href={`${d.url}/tree/HEAD/doc`} rel="noopener">:help {plugin.id}</a></dd> : null}
+    {d.hasVimdoc ? <dd><a href={href(`p/${plugin.id}/help`, 'tui')} data-nav={`p/${plugin.id}/help`}>:help {plugin.id}</a></dd> : null}
   </dl>
 
   <h2 class="tui-h2">install</h2>

@@ -23,7 +23,8 @@ the same page in the other skin; `src/scripts/prefs.ts` remembers the choice in
 ../<plugin>/                 (sibling checkouts locally; cloned in CI)
   README.md   → banner (first code block), status (first blockquote), tagline (first paragraph)
   docs/*.md   → documentation list
-  doc/*.txt   → "has vimdoc"
+  doc/*.txt   → rendered help pages (+ cross-plugin tag index)
+  lua/**      → require() edges for /stack
   .git        → commit count, last 12 commits (conventional-commit parsed)
 ```
 
@@ -60,6 +61,13 @@ Requires Node ≥ 22.12 and pnpm ≥ 10.
   `:ls`, `:log`, `:colorscheme x`, `:set skin=modern|tui`, `:q`; `Tab` completes plugin
   names and themes), `?` opens the key help, and the statusline shows NORMAL / INSERT /
   COMMAND.
+- **Vimdoc** (`src/lib/vimdoc.ts`): every `doc/*.txt` is rendered to HTML at `/p/<plugin>/help/`
+  (further files at `/p/<plugin>/help/<file>/`, lib.nvim has 17). Line-oriented on the help
+  conventions -- `*tag*` anchors, `|tag|` links resolved across all plugins' docs, `>lua … <`
+  code blocks, `~` headings, `'option'`, `<Key>`; everything HTML-escaped first. Help pages are
+  in the search index, so `:help`-style searches work site-wide.
+- **Stack** (`/stack`): the `require()` edges between the plugins, read from each `lua/` tree
+  (tests and fixtures excluded); "depended on" ranking plus a per-plugin tree.
 - **Category filter** on the home pages is pure CSS: radio inputs plus `:has()` rules in
   `src/styles/filter.css`. Adding a category to the registry means adding one rule there.
 - **Preferences** (all optional, all `localStorage`): skin, TUI colorscheme
@@ -127,4 +135,4 @@ To rebuild the site on every plugin push, add this to each plugin repo's CI:
 | 2 | `repository_dispatch` hooks in the plugin repos, GitHub Pages live | |
 | 3 | Demo pipeline: VHS `.tape` scripts → `.cast` text player + AV1 video, 6 flagship plugins | |
 | 4 | TUI skin: vim motions (`j`/`k`/`gg`/`G`), `:` command line with completion, `?` help | **done** |
-| 5 | Vimdoc renderer (`doc/*.txt` → HTML with `\|tag\|` links; `:help` opens it), `/stack` dependency graph | |
+| 5 | Vimdoc renderer (`doc/*.txt` → HTML with `\|tag\|` links; `:help` opens it), `/stack` dependency graph | **done** |

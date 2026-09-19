@@ -44,13 +44,65 @@ export const pluginSchema = z.object({
   commitCount: z.number().int().nonnegative(),
   lastCommit: z.string().nullable(),
   recent: z.array(commitSchema),
+  /** doc/*.txt files: file = basename without .txt; main = the plugin's primary help file */
+  vimdocs: z.array(z.object({ file: z.string(), title: z.string(), main: z.boolean() })),
+  /** slugs of other registry plugins this one require()s from its lua/ tree */
+  uses: z.array(z.string()),
 });
 export type PluginData = z.infer<typeof pluginSchema>;
+
+export const vimdocSchema = z.object({
+  plugin: z.string(),
+  pluginName: z.string(),
+  file: z.string(),
+  title: z.string(),
+  main: z.boolean(),
+  text: z.string(),
+});
+export type VimdocData = z.infer<typeof vimdocSchema>;
 
 type Logger = LoaderContext['logger'];
 interface Scanned {
   plugin: PluginData;
   commits: Commit[];
+  vimdocs: VimdocData[];
+}
+
+/** First line of a help file: `*name.txt*  Description  *tag*` -> description. */
+function vimdocTitle(text: string, fallback: string): string {
+  const first = text.split(/\r?\n/, 1)[0] ?? '';
+  const t = first
+    .replace(/\*[^\s*]+\*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return t || fallback;
+}
+
+const REQUIRE = /require\(?\s*['"]([\w.-]+)/g;
+const SKIP_PATH = /(^|[\\/])(tests?|spec|specs|fixtures?|TESTS)([\\/]|$)/i;
+
+function walkLua(dir: string, out: string[] = []): string[] {
+  if (!existsSync(dir)) return out;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, entry.name);
+    if (SKIP_PATH.test(p)) continue;
+    if (entry.isDirectory()) walkLua(p, out);
+    else if (entry.name.endsWith('.lua')) out.push(p);
+  }
+  return out;
+}
+
+/** Module roots require()d under lua/, e.g. "lib" from require("lib.nvim.fs"). */
+function requiredRoots(dir: string): Set<string> {
+  const roots = new Set<string>();
+  for (const file of walkLua(join(dir, 'lua'))) {
+    const src = readFileSync(file, 'utf8');
+    for (const m of src.matchAll(REQUIRE)) {
+      const root = m[1]?.split('.')[0];
+      if (root) roots.add(root);
+    }
+  }
+  return roots;
 }
 
 const execFileAsync = promisify(execFile);
@@ -201,9 +253,26 @@ function parseCommitLine(line: string, plugin: string, pluginName: string): Comm
 
 type RegistryEntry = (typeof registry.plugins)[number] & { kind?: 'plugin' | 'desktop' };
 
+/** lua/<module>/ directory name -> plugin slug, for directories unique to one plugin. */
+function moduleMap(root: string): Map<string, string> {
+  const owners = new Map<string, string[]>();
+  for (const entry of registry.plugins) {
+    const luaDir = join(root, entry.name, 'lua');
+    if (!existsSync(luaDir)) continue;
+    const slug = entry.name.replace(/\.nvim$/, '');
+    for (const d of readdirSync(luaDir, { withFileTypes: true })) {
+      if (d.isDirectory()) owners.set(d.name, [...(owners.get(d.name) ?? []), slug]);
+    }
+  }
+  const map = new Map<string, string>();
+  for (const [mod, slugs] of owners) if (slugs.length === 1 && slugs[0]) map.set(mod, slugs[0]);
+  return map;
+}
+
 async function scanOne(
   root: string,
   entry: RegistryEntry,
+  modules: Map<string, string>,
   logger: Logger,
 ): Promise<Scanned | null> {
   const dir = join(root, entry.name);
@@ -222,7 +291,33 @@ async function scanOne(
         .sort()
     : [];
   const docDir = join(dir, 'doc');
-  const hasVimdoc = existsSync(docDir) && readdirSync(docDir).some((f) => f.endsWith('.txt'));
+  const txtFiles = existsSync(docDir)
+    ? readdirSync(docDir)
+        .filter((f) => f.endsWith('.txt'))
+        .sort()
+    : [];
+  const hasVimdoc = txtFiles.length > 0;
+  // The primary help file is the one named after the plugin (cascade.txt,
+  // lib.nvim.txt); otherwise the first one.
+  const mainFile =
+    txtFiles.find((f) => f === `${slug}.txt` || f === `${entry.name}.txt`) ?? txtFiles[0];
+  const vimdocs: VimdocData[] = txtFiles.map((f) => {
+    const text = readFileSync(join(docDir, f), 'utf8').replace(/\r\n/g, '\n');
+    const file = f.replace(/\.txt$/, '');
+    return {
+      plugin: slug,
+      pluginName: entry.name,
+      file,
+      title: vimdocTitle(text, file),
+      main: f === mainFile,
+      text,
+    };
+  });
+
+  const uses = [...requiredRoots(dir)]
+    .map((m) => modules.get(m))
+    .filter((s): s is string => Boolean(s) && s !== slug)
+    .sort();
 
   let commits: Commit[] = [];
   let commitCount = 0;
@@ -259,8 +354,11 @@ async function scanOne(
       commitCount,
       lastCommit: commits[0]?.date ?? null,
       recent: commits,
+      vimdocs: vimdocs.map(({ file, title, main }) => ({ file, title, main })),
+      uses,
     },
     commits,
+    vimdocs,
   };
 }
 
@@ -271,8 +369,9 @@ let cache: { at: number; result: Promise<Scanned[]> } | null = null;
 
 async function scanAll(logger: Logger): Promise<Scanned[]> {
   const root = resolve(process.env.PLUGINS_DIR ?? '..');
+  const modules = moduleMap(root);
   const scanned = await mapLimit(registry.plugins as RegistryEntry[], GIT_CONCURRENCY, (entry) =>
-    scanOne(root, entry, logger),
+    scanOne(root, entry, modules, logger),
   );
   const out = scanned.filter((s): s is Scanned => s !== null);
   logger.info(`scanned ${out.length}/${registry.plugins.length} repositories under ${root}`);
@@ -301,6 +400,22 @@ export function pluginsLoader(): Loader {
       for (const { plugin } of await scanRepos(logger)) {
         const data = await parseData({ id: plugin.slug, data: plugin });
         store.set({ id: plugin.slug, data, digest: generateDigest(data) });
+      }
+    },
+  };
+}
+
+export function vimdocsLoader(): Loader {
+  return {
+    name: 'wkd-vimdocs',
+    async load({ store, parseData, generateDigest, logger }) {
+      store.clear();
+      for (const { vimdocs } of await scanRepos(logger)) {
+        for (const d of vimdocs) {
+          const id = `${d.plugin}/${d.file}`;
+          const data = await parseData({ id, data: d });
+          store.set({ id, data, digest: generateDigest(data) });
+        }
       }
     },
   };

@@ -1,0 +1,40 @@
+---
+import { getCollection } from 'astro:content';
+import type { InferGetStaticPropsType } from 'astro';
+import Vimdoc from '../../../../components/Vimdoc.astro';
+import { categoryLabel } from '../../../../lib/format';
+import { href } from '../../../../lib/site';
+import Shell from '../../../../skins/modern/Shell.astro';
+
+// /p/<plugin>/help/          the plugin's main help file
+// /p/<plugin>/help/<file>/   any further doc/*.txt (lib.nvim has 17)
+export async function getStaticPaths() {
+  const plugins = await getCollection('plugins');
+  const docs = await getCollection('vimdocs');
+  return docs.map((doc) => ({
+    params: { id: doc.data.plugin, file: doc.data.main ? undefined : doc.data.file },
+    props: {
+      doc: doc.data,
+      plugin: plugins.find((p) => p.id === doc.data.plugin)?.data,
+    },
+  }));
+}
+type Props = InferGetStaticPropsType<typeof getStaticPaths>;
+const { doc, plugin } = Astro.props as Props;
+if (!plugin) throw new Error(`vimdoc without plugin: ${doc.plugin}/${doc.file}`);
+const page = doc.main ? `p/${doc.plugin}/help` : `p/${doc.plugin}/help/${doc.file}`;
+---
+
+<Shell page={page} title={`:help ${doc.file} — ${plugin.name} — wkd`} description={doc.title}>
+  <article class="m-plugin">
+    <header class="m-plugin-head">
+      <p class="m-kicker">
+        <a href={href(`p/${doc.plugin}`)} data-nav={`p/${doc.plugin}`}><b>{plugin.name}</b></a> ·
+        <span data-pagefind-filter="category">{categoryLabel(plugin.category)}</span> · vimdoc
+      </p>
+      <h1 class="display display--name" data-kinetic>:help<wbr /><span class="m-suffix"> {doc.file}</span></h1>
+      <p class="m-lede">{doc.title}</p>
+    </header>
+    <Vimdoc doc={doc} siblings={plugin.vimdocs} skin="modern" />
+  </article>
+</Shell>

@@ -602,4 +602,121 @@
   .tui-log b {
     color: var(--fg);
   }
+
+  /* ---- vimdoc --------------------------------------------------------- */
+  .tui-link,
+  .vd-files a,
+  .vd-toc a {
+    color: var(--cyan);
+    text-decoration: underline;
+    text-decoration-color: var(--border);
+  }
+  .vd-files,
+  .vd-toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 2ch;
+    margin-block: 0.5lh;
+  }
+  .vd-files a[aria-current] {
+    color: var(--yellow);
+    text-decoration: none;
+  }
+  .vd-source {
+    color: var(--fg-dim);
+    margin-block: 0.5lh;
+  }
+  .vd-source a {
+    color: var(--cyan);
+  }
+  .vd-body {
+    max-width: 82ch;
+  }
+  .vd-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    margin-block: 0.5lh;
+  }
+  .vd-code {
+    white-space: pre;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    padding: 0.5lh 1ch;
+    margin-block: 0.5lh;
+    color: var(--green);
+  }
+  .vd-hr {
+    border: 0;
+    border-top: 1px solid var(--border);
+    margin-block: 1lh 0.5lh;
+  }
+  .vd-h2 {
+    color: var(--yellow);
+    font-size: inherit;
+    font-weight: 700;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0 2ch;
+  }
+  .vd-h3 {
+    color: var(--blue);
+    font-size: inherit;
+    font-weight: 700;
+    margin-top: 0.5lh;
+  }
+  .vd-tags {
+    font-weight: 400;
+  }
+  .vd-tag {
+    color: var(--magenta);
+  }
+  .vd-tag:target,
+  .vd-h2:has(:target) {
+    background: var(--bg-hl);
+  }
+  .vd-ref {
+    color: var(--cyan);
+  }
+  .vd-ref--ext {
+    color: var(--fg-dim);
+  }
+  .vd-body code {
+    color: var(--green);
+  }
+  .vd-opt {
+    color: var(--magenta);
+  }
+  .vd-body kbd {
+    color: var(--orange);
+  }
+  .vd-body var {
+    color: var(--yellow);
+    font-style: normal;
+  }
+  .vd-url {
+    color: var(--cyan);
+    text-decoration: underline;
+  }
+
+  /* ---- stack ---------------------------------------------------------- */
+  .tui-tree {
+    white-space: pre;
+    overflow-x: auto;
+    margin-block: 0.5lh;
+  }
+  .tui-tree a {
+    color: var(--cyan);
+  }
+  .tui-tree a.node {
+    color: var(--yellow);
+    font-weight: 700;
+  }
+  .tui-tree a:hover,
+  .tui-tree a:focus-visible {
+    background: var(--bg-hl);
+  }
+  .tui-tree .bar {
+    color: var(--blue);
+  }
 }

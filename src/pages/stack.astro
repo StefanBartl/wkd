@@ -1,0 +1,68 @@
+---
+import { getCollection } from 'astro:content';
+import { categoryLabel } from '../lib/format';
+import { href } from '../lib/site';
+import { buildStack, foundations } from '../lib/stack';
+import Shell from '../skins/modern/Shell.astro';
+
+const plugins = await getCollection('plugins');
+const nodes = buildStack(plugins);
+const base = foundations(nodes);
+const edges = nodes.reduce((n, p) => n + p.uses.length, 0);
+const name = (slug: string): string => nodes.find((n) => n.slug === slug)?.name ?? slug;
+---
+
+<Shell page="stack" title="Stack — wkd" description="Which plugins build on which: the require() graph of the family.">
+  <section class="m-hero">
+    <p class="m-kicker"><b>{edges} require() edges</b> · {nodes.length} plugins · read from lua/, tests excluded</p>
+    <h1 class="display" data-kinetic>One <b>stack</b>.</h1>
+    <p class="m-lede">
+      What a plugin <code>require()</code>s from another plugin of the family. Most of it is one
+      direction: everything stands on {base[0] ? name(base[0].slug) : 'the foundation'}.
+    </p>
+  </section>
+
+  <section class="m-plugin" aria-label="Foundations">
+    <h2 class="m-h2">Depended on</h2>
+    <ol class="m-stack-bars">
+      {
+        base.map((n) => (
+          <li>
+            <a href={href(`p/${n.slug}`)} data-nav={`p/${n.slug}`} data-astro-prefetch>
+              {n.name}
+            </a>
+            <span class="m-bar" style={`--w:${n.usedBy.length / (base[0]?.usedBy.length ?? 1)}`}></span>
+            <b>{n.usedBy.length}</b>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  <section class="m-stack" aria-label="Dependencies per plugin">
+    {
+      nodes.map((n) => (
+        <div class="m-stack-card" data-cat={n.category}>
+          <p class="m-card-head">
+            <span class="m-card-cat">{categoryLabel(n.category)}</span>
+            <span>{n.uses.length ? `uses ${n.uses.length}` : 'standalone'}</span>
+          </p>
+          <a class="m-stack-name" href={href(`p/${n.slug}`)} data-nav={`p/${n.slug}`}>
+            {n.name}
+          </a>
+          {n.uses.length ? (
+            <ul class="m-stack-uses">
+              {n.uses.map((u) => (
+                <li>
+                  <a href={href(`p/${u}`)} data-nav={`p/${u}`}>
+                    {name(u)}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ))
+    }
+  </section>
+</Shell>

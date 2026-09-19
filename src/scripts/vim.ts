@@ -84,19 +84,34 @@ function init(): void {
     return includes.length === 1 ? (includes[0]?.slug ?? null) : null;
   };
 
-  const openPlugin = (arg: string): void => {
+  const openPlugin = (arg: string, suffix = ''): void => {
     if (!arg) {
-      go('');
+      // :help on a plugin page opens that plugin's help; elsewhere the list.
+      const m = currentPage.match(/^p\/([^/]+)/);
+      go(m?.[1] ? `p/${m[1]}${suffix}` : '');
       return;
     }
     const slug = resolvePlugin(arg);
-    if (slug) go(`p/${slug}`);
+    if (slug) go(`p/${slug}${suffix}`);
     else fail(`E149: Sorry, no plugin matches "${arg}"`);
   };
 
   const commands: Command[] = [
-    { name: 'help', aliases: ['h'], arg: 'plugin', desc: 'open a plugin page', run: openPlugin },
-    { name: 'edit', aliases: ['e'], arg: 'plugin', desc: 'open a plugin page', run: openPlugin },
+    {
+      name: 'help',
+      aliases: ['h'],
+      arg: 'plugin',
+      desc: 'vimdoc of a plugin',
+      run: (arg) => openPlugin(arg, '/help'),
+    },
+    { name: 'stack', aliases: [], arg: null, desc: 'dependency graph', run: () => go('stack') },
+    {
+      name: 'edit',
+      aliases: ['e'],
+      arg: 'plugin',
+      desc: 'open a plugin page',
+      run: (arg) => openPlugin(arg),
+    },
     { name: 'ls', aliases: ['plugins'], arg: null, desc: 'all plugins', run: () => go('') },
     {
       name: 'log',

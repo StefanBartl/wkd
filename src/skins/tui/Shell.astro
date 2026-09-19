@@ -74,6 +74,9 @@ const file = page ? `~/wkd/${page}` : '~/wkd';
         <a class="grp-h" href={href('activity', 'tui')} data-nav="activity">
           <span aria-hidden="true">▸ </span>activity.log
         </a>
+        <a class="grp-h" href={href('stack', 'tui')} data-nav="stack">
+          <span aria-hidden="true">▸ </span>stack.txt
+        </a>
       </nav>
       <main class="tui-main" id="main"><slot /></main>
     </div>
@@ -97,9 +100,9 @@ const file = page ? `~/wkd/${page}` : '~/wkd';
       <dt>:</dt>
       <dd>command line — <kbd>Tab</kbd> completes</dd>
       <dt>:help x</dt>
-      <dd>plugin page (also <code>:e</code>)</dd>
-      <dt>:ls · :log</dt>
-      <dd>plugin list · activity stream</dd>
+      <dd>vimdoc of a plugin (<code>:e x</code> = plugin page)</dd>
+      <dt>:ls · :log · :stack</dt>
+      <dd>plugin list · activity stream · dependency graph</dd>
       <dt>:colo x</dt>
       <dd>colorscheme</dd>
       <dt>:set skin=</dt>

@@ -1,0 +1,24 @@
+---
+import { getCollection } from 'astro:content';
+import { href } from '../../lib/site';
+import { buildStack, renderTuiStack } from '../../lib/stack';
+import Shell from '../../skins/tui/Shell.astro';
+
+const plugins = await getCollection('plugins');
+const nodes = buildStack(plugins);
+const edges = nodes.reduce((n, p) => n + p.uses.length, 0);
+const { bars, tree } = renderTuiStack(nodes, (slug) => href(`p/${slug}`, 'tui'));
+---
+
+<Shell page="stack" title="Stack — wkd" description="Which plugins build on which: the require() graph of the family." cmd="stack">
+  <h1 class="tui-h1">stack — {edges} require() edges · {nodes.length} plugins</h1>
+  <p class="tui-p tui-dim">
+    What a plugin require()s from another plugin of the family, read from lua/ (tests excluded).
+  </p>
+
+  <h2 class="tui-h2">depended on</h2>
+  <pre class="tui-tree" set:html={bars} />
+
+  <h2 class="tui-h2">tree</h2>
+  <pre class="tui-tree" set:html={tree} />
+</Shell>

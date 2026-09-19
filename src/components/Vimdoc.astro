@@ -1,0 +1,48 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import registry from '../data/registry.json';
+import { helpPage, renderHelp } from '../lib/help';
+import { href, type Skin } from '../lib/site';
+
+// One help file rendered for either skin; the skins style `.vd-*`.
+interface Props {
+  doc: CollectionEntry<'vimdocs'>['data'];
+  siblings: { file: string; title: string; main: boolean }[];
+  skin: Skin;
+}
+const { doc, siblings, skin } = Astro.props;
+const self = helpPage(doc.plugin, doc.file, doc.main);
+const { html, headings } = await renderHelp(doc.text, self, skin);
+const raw = `https://github.com/${registry.owner}/${doc.pluginName}/blob/HEAD/doc/${encodeURIComponent(doc.file)}.txt`;
+const toc = headings.filter((h) => h.level === 2 && h.id);
+---
+
+{
+  siblings.length > 1 ? (
+    <nav class="vd-files" aria-label="Help files">
+      {siblings.map((s) => {
+        const page = helpPage(doc.plugin, s.file, s.main);
+        return (
+          <a href={href(page, skin)} data-nav={page} aria-current={s.file === doc.file ? 'page' : undefined}>
+            {s.file}.txt
+          </a>
+        );
+      })}
+    </nav>
+  ) : null
+}
+{
+  toc.length > 1 ? (
+    <nav class="vd-toc" aria-label="Sections">
+      {toc.map((h) => (
+        <a href={`#${encodeURIComponent(h.id ?? '')}`}>{h.text}</a>
+      ))}
+    </nav>
+  ) : null
+}
+<article class="vd" data-pagefind-body data-pagefind-meta={`title:${doc.pluginName} :help ${doc.file}`}>
+  <p class="vd-source" data-pagefind-ignore>
+    <a href={raw} rel="noopener">doc/{doc.file}.txt</a> — rendered from the plugin's own vimdoc
+  </p>
+  <div class="vd-body" set:html={html} />
+</article>

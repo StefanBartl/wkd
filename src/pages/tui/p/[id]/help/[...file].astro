@@ -1,0 +1,36 @@
+---
+import { getCollection } from 'astro:content';
+import type { InferGetStaticPropsType } from 'astro';
+import Vimdoc from '../../../../../components/Vimdoc.astro';
+import { href } from '../../../../../lib/site';
+import Shell from '../../../../../skins/tui/Shell.astro';
+
+export async function getStaticPaths() {
+  const plugins = await getCollection('plugins');
+  const docs = await getCollection('vimdocs');
+  return docs.map((doc) => ({
+    params: { id: doc.data.plugin, file: doc.data.main ? undefined : doc.data.file },
+    props: {
+      doc: doc.data,
+      plugin: plugins.find((p) => p.id === doc.data.plugin)?.data,
+    },
+  }));
+}
+type Props = InferGetStaticPropsType<typeof getStaticPaths>;
+const { doc, plugin } = Astro.props as Props;
+if (!plugin) throw new Error(`vimdoc without plugin: ${doc.plugin}/${doc.file}`);
+const page = doc.main ? `p/${doc.plugin}/help` : `p/${doc.plugin}/help/${doc.file}`;
+---
+
+<Shell
+  page={page}
+  title={`:help ${doc.file} — ${plugin.name} — wkd`}
+  description={doc.title}
+  cmd={`help ${doc.main ? doc.plugin : doc.file}`}
+>
+  <h1 class="tui-h1">{doc.file}.txt</h1>
+  <p class="tui-p tui-dim">
+    {doc.title} — <a class="tui-link" href={href(`p/${doc.plugin}`, 'tui')} data-nav={`p/${doc.plugin}`}>{plugin.name}</a>
+  </p>
+  <Vimdoc doc={doc} siblings={plugin.vimdocs} skin="tui" />
+</Shell>
