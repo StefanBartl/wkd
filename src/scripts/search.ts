@@ -149,11 +149,13 @@ function init(form: HTMLFormElement): void {
     load().catch(() => {});
   });
   input.addEventListener('input', () => {
+    if (form.dataset.mode === 'cmd') return; // the TUI command line owns the field
     clearTimeout(timer);
     timer = setTimeout(() => void run(), DEBOUNCE_MS);
   });
   form.addEventListener('submit', (e) => {
     e.preventDefault();
+    if (form.dataset.mode === 'cmd') return;
     list.querySelector('a')?.click();
   });
 
@@ -165,12 +167,14 @@ function init(form: HTMLFormElement): void {
   document.addEventListener('keydown', (e) => {
     if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !isEditable(e.target)) {
       e.preventDefault();
+      delete form.dataset.mode;
       input.focus();
       input.select();
     }
   });
 
   form.addEventListener('keydown', (e) => {
+    if (form.dataset.mode === 'cmd') return;
     if (e.key === 'Escape') {
       input.value = '';
       close();

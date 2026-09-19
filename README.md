@@ -54,6 +54,12 @@ Requires Node ≥ 22.12 and pnpm ≥ 10.
   `src/integrations/pagefind.ts` (which also serves that bundle in `astro dev` once a build
   exists). Only the modern-skin plugin pages carry `data-pagefind-body`, so each plugin is
   indexed once; results are mapped onto whichever skin the visitor is in. Press `/` anywhere.
+- **Vim operation** of the TUI skin (`src/scripts/vim.ts`, progressive — everything is a
+  plain link underneath): `j`/`k`/`gg`/`G` move a cursor line over the links in `<main>`,
+  `:` opens a command line in the footer that shares the search field (`:help x`, `:e x`,
+  `:ls`, `:log`, `:colorscheme x`, `:set skin=modern|tui`, `:q`; `Tab` completes plugin
+  names and themes), `?` opens the key help, and the statusline shows NORMAL / INSERT /
+  COMMAND.
 - **Category filter** on the home pages is pure CSS: radio inputs plus `:has()` rules in
   `src/styles/filter.css`. Adding a category to the registry means adding one rule there.
 - **Preferences** (all optional, all `localStorage`): skin, TUI colorscheme
@@ -120,5 +126,5 @@ To rebuild the site on every plugin push, add this to each plugin repo's CI:
 | 1 | Category filter, search (Pagefind), colorscheme presets in the TUI skin, light/dark in modern | **done** |
 | 2 | `repository_dispatch` hooks in the plugin repos, GitHub Pages live | |
 | 3 | Demo pipeline: VHS `.tape` scripts → `.cast` text player + AV1 video, 6 flagship plugins | |
-| 4 | TUI skin: vim motions, `:` command line, `:help` opens rendered vimdoc | |
-| 5 | Vimdoc renderer (`doc/*.txt` → HTML with `|tag|` links), `/stack` dependency graph | |
+| 4 | TUI skin: vim motions (`j`/`k`/`gg`/`G`), `:` command line with completion, `?` help | **done** |
+| 5 | Vimdoc renderer (`doc/*.txt` → HTML with `\|tag\|` links; `:help` opens it), `/stack` dependency graph | |

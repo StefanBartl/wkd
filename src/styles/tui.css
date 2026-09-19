@@ -209,6 +209,62 @@
     content: "/";
     color: var(--yellow);
   }
+  .search[data-mode="cmd"]:focus-within .search-prefix::before {
+    content: ":";
+  }
+  .search-status.is-error {
+    color: var(--red);
+  }
+  /* Command-line completion (src/scripts/vim.ts) shares the results panel. */
+  .search-results button {
+    display: grid;
+    grid-template-columns: 24ch 1fr;
+    gap: 0 2ch;
+    width: 100%;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    padding: 0 1ch;
+    cursor: pointer;
+  }
+  .search-results button:hover,
+  .search-results button.is-active {
+    background: var(--bg-hl);
+  }
+  /* Cursor line for j/k (src/scripts/vim.ts). */
+  .vim-cur {
+    background: var(--bg-hl);
+  }
+  .tui-cmd kbd {
+    font: inherit;
+    color: var(--yellow);
+  }
+  /* Key help, a native <dialog> opened by `?`. */
+  .tui-help {
+    background: var(--bg-alt);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    padding: 1lh 2ch;
+    font: inherit;
+    max-width: min(60ch, calc(100vw - 4ch));
+  }
+  .tui-help::backdrop {
+    background: rgb(0 0 0 / 0.55);
+  }
+  .tui-help kbd,
+  .tui-help code {
+    font: inherit;
+    color: var(--cyan);
+  }
+  .tui-help-close {
+    margin-top: 1lh;
+    color: var(--yellow);
+    cursor: pointer;
+  }
+  .tui-help-close:focus-visible {
+    outline: 1px solid var(--yellow);
+    outline-offset: -1px;
+  }
   .search-input {
     flex: 1;
     min-width: 0;

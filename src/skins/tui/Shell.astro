@@ -79,7 +79,36 @@ const file = page ? `~/wkd/${page}` : '~/wkd';
     </div>
     <footer class="tui-cmd" aria-label="Command line">
       <Search placeholder={cmd} />
-      <span class="pos">{plugins.length} plugins</span>
+      <span class="pos"><kbd>?</kbd> keys · {plugins.length} plugins</span>
     </footer>
   </div>
+  {/* Opened by `?` (src/scripts/vim.ts); a native <dialog>, Esc closes it. */}
+  <dialog class="tui-help" data-help aria-labelledby="help-title">
+    <h2 class="tui-h1" id="help-title">keys</h2>
+    <dl class="tui-kv">
+      <dt>j / k</dt>
+      <dd>next / previous line</dd>
+      <dt>gg / G</dt>
+      <dd>first / last line</dd>
+      <dt>⏎</dt>
+      <dd>open the line under the cursor</dd>
+      <dt>/</dt>
+      <dd>search the plugins</dd>
+      <dt>:</dt>
+      <dd>command line — <kbd>Tab</kbd> completes</dd>
+      <dt>:help x</dt>
+      <dd>plugin page (also <code>:e</code>)</dd>
+      <dt>:ls · :log</dt>
+      <dd>plugin list · activity stream</dd>
+      <dt>:colo x</dt>
+      <dd>colorscheme</dd>
+      <dt>:set skin=</dt>
+      <dd>modern | tui</dd>
+      <dt>?</dt>
+      <dd>this help</dd>
+      <dt>esc</dt>
+      <dd>close</dd>
+    </dl>
+    <form method="dialog"><button class="tui-help-close">:q</button></form>
+  </dialog>
 </Base>

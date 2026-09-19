@@ -2,3 +2,4 @@
 // (two requests, no import waterfall) instead of a separate module.
 import './prefs';
 import './search';
+import './vim';
