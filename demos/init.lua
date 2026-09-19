@@ -142,7 +142,15 @@ end, { nargs = "*", desc = "demo title float (recording aid)" })
 -- ---- screenkey HUD (ui.nvim) ----------------------------------------------------
 local ok_sk, err_sk = pcall(function()
   local sk = require("ui.screenkey")
-  sk.setup({ fade_ms = 1200, margin = 1, width = 34 })
+  sk.setup({
+    fade_ms = 1200,
+    margin = 1,
+    width = 34,
+    -- Typed text reads as text ("todo-done.md" + one return glyph) instead
+    -- of one chip per key; <Esc> and <C-…> keep their bracketed form.
+    join_chars = true,
+    labels = { ["<Space>"] = "\xE2\x90\xA3", ["<CR>"] = "\xE2\x8F\x8E", ["<BS>"] = "\xE2\x8C\xAB" },
+  })
   ;(sk.enable or sk.toggle)()
 end)
 if not ok_sk then
