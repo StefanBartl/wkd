@@ -9,7 +9,8 @@
 --
 -- Recording aids (both from this config, not from the plugin under demo):
 --   :Demo <text>   a title float in the top-right corner naming the feature
---                  currently shown; `:Demo off` removes it
+--                  currently shown; `:Demo off` removes it. <C-t> shows the
+--                  next one from $DEMO_TITLES instead of typing a command.
 --   screenkey      ui.nvim's keystroke HUD in the bottom-right corner, so the
 --                  keys behind every action are visible
 
@@ -161,6 +162,16 @@ vim.api.nvim_create_user_command("Demo", function(o)
   vim.api.nvim_echo({}, false, {})
   vim.cmd.redraw()
 end, { nargs = "*", desc = "demo title float (recording aid)" })
+
+-- <C-t> shows the next title from $DEMO_TITLES ("first|second|..."), for a
+-- tape whose plugin records every typed : command (cmdlog.nvim), where a
+-- typed :Demo would show up in the demo itself.
+local titles = vim.split(vim.env.DEMO_TITLES or "", "|", { trimempty = true })
+local title_i = 0
+vim.keymap.set("n", "<C-t>", function()
+  title_i = title_i + 1
+  vim.cmd.Demo(titles[title_i] or "off")
+end, { desc = "next demo title from $DEMO_TITLES (recording aid)" })
 
 -- ---- screenkey HUD (ui.nvim) ----------------------------------------------------
 local ok_sk, err_sk = pcall(function()
