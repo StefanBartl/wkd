@@ -46,49 +46,47 @@ jobs:
           done
           echo "PLUGINS_DIR=$RUNNER_TEMP/repos" >> "$GITHUB_ENV"
 
-      # VHS prints "Creating …" even when its ffmpeg call fails, so probe with a
-      # tiny tape: first the ffmpeg the action installed (a nightly build), then
-      # the distribution's. The record step uses whichever produced a file.
-      - name: Probe VHS + ffmpeg
+      # VHS renders the terminal in a headless Chromium (go-rod) and encodes the
+      # frames with ffmpeg; it prints "Creating …" even when no frame was ever
+      # captured. Probe with a tiny tape that also writes raw frames and a
+      # screenshot, so the log shows which stage is empty.
+      - name: Probe VHS
         run: |
           echo "workspace: $GITHUB_WORKSPACE"; pwd
           vhs --version
+          echo "--- ffmpeg: $(command -v ffmpeg) :: $(ffmpeg -hide_banner -version 2>/dev/null | head -1)"
+          echo "--- browsers: $(command -v google-chrome chromium chromium-browser 2>/dev/null | tr '\n' ' ')"
+          ls -la ~/.cache/rod 2>/dev/null || echo "no ~/.cache/rod"
           nvim --headless -u demos/init.lua "+lua print(vim.o.rtp)" +q 2>&1 | tr "," "\n" | grep -E "repos/" || true
-          # (VHS lexes a leading "/" as a regex, so Output paths stay relative.)
           mkdir -p /tmp/probe && cat > /tmp/probe/probe.tape <<'EOF'
           Output probe.webm
-          Output probe.mp4
+          Output probe.gif
+          Output frames/
           Set Width 400
           Set Height 200
           Type "echo probe"
           Enter
           Sleep 500ms
+          Screenshot shot.png
           EOF
-          probe() {
-            rm -f /tmp/probe/probe.webm /tmp/probe/probe.mp4
-            echo "--- ffmpeg: $(command -v ffmpeg) :: $(ffmpeg -hide_banner -version 2>/dev/null | head -1)"
-            (cd /tmp/probe && vhs probe.tape 2>&1 | tail -5)
-            ls -l /tmp/probe/probe.webm /tmp/probe/probe.mp4 2>/dev/null && return 0
-            echo "no output"; return 1
-          }
-          if probe; then
-            echo "VHS_PATH_PREFIX=" >> "$GITHUB_ENV"
-          else
-            sudo apt-get install -y -q ffmpeg >/dev/null 2>&1
-            if PATH="/usr/bin:$PATH" probe; then
-              echo "VHS_PATH_PREFIX=/usr/bin:" >> "$GITHUB_ENV"
-              echo "::warning::the action's ffmpeg produced no output; recording with /usr/bin/ffmpeg"
-            else
-              echo "::error::VHS produced no output with either ffmpeg"; exit 1
-            fi
+          cd /tmp/probe
+          echo "--- vhs (default):"
+          vhs probe.tape 2>&1 || echo "vhs exit $?"
+          ls -laR /tmp/probe | head -30
+          if [ ! -s probe.webm ]; then
+            echo "--- vhs (VHS_NO_SANDBOX=true):"
+            rm -rf probe.webm probe.gif frames shot.png
+            VHS_NO_SANDBOX=true vhs probe.tape 2>&1 || echo "vhs exit $?"
+            ls -laR /tmp/probe | head -30
+            [ -s probe.webm ] && echo "VHS_NO_SANDBOX=true" >> "$GITHUB_ENV"
           fi
+          test -s probe.webm || { echo "::error::VHS produced no output"; exit 1; }
         env:
           DEMO_PLUGIN: cascade
           DEMO_DEPS: lib,ui
 
       - name: Record
         run: |
-          export PATH="${VHS_PATH_PREFIX}${PATH}"
           mkdir -p demos/out
           nvim --version | head -1
           for tape in demos/*.tape; do
