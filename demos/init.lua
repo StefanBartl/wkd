@@ -119,3 +119,31 @@ end)
 if not ok_sk then
   vim.notify("screenkey unavailable: " .. tostring(err_sk), vim.log.levels.WARN)
 end
+
+-- ---- :DemoDump (recording diagnostics) ---------------------------------------
+-- Appends the window/option state to demos/out/_dump-<plugin>.txt; the Record
+-- workflow prints those files into the job log and drops them before
+-- publishing. Hidden in a tape (`Hide` / `Show`), it is how a recording that
+-- looks wrong in CI but right locally gets explained.
+vim.api.nvim_create_user_command("DemoDump", function(o)
+  local api = vim.api
+  local out = { ("== %s  nvim %s  %dx%d  diffopt=%s"):format(
+    o.args ~= "" and o.args or "dump", tostring(vim.version()), vim.o.columns, vim.o.lines, vim.o.diffopt) }
+  local cur = api.nvim_get_current_win()
+  for _, w in ipairs(api.nvim_list_wins()) do
+    local b = api.nvim_win_get_buf(w)
+    local cfg = api.nvim_win_get_config(w)
+    local ok, err = pcall(api.nvim_set_option_value, "diff", vim.wo[w].diff, { win = w, scope = "local" })
+    out[#out + 1] = ("win=%d%s rel=%q diff=%s number=%s bt=%q buf=%q cursor=%d,%d set_diff=%s"):format(
+      w, w == cur and "*" or "", cfg.relative or "", tostring(vim.wo[w].diff), tostring(vim.wo[w].number),
+      vim.bo[b].buftype, vim.fn.fnamemodify(api.nvim_buf_get_name(b), ":t"),
+      api.nvim_win_get_cursor(w)[1], api.nvim_win_get_cursor(w)[2], ok and "ok" or tostring(err))
+  end
+  for line in vim.fn.execute("messages"):gmatch("[^\n]+") do
+    out[#out + 1] = "msg: " .. line
+  end
+  vim.fn.mkdir("demos/out", "p")
+  vim.fn.writefile(out, ("demos/out/_dump-%s.txt"):format(plugin ~= "" and plugin or "nvim"), "a")
+  api.nvim_echo({}, false, {})
+  vim.cmd.redraw()
+end, { nargs = "?", desc = "append window state to demos/out/_dump-<plugin>.txt (recording aid)" })
