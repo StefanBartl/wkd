@@ -17,7 +17,7 @@ Enter
 Sleep 1500ms
 Show
 
-Type ":vsplit demos/fixtures/config.json"
+Type ":vsplit demos/fixtures/notes.md"
 Sleep 400ms
 Enter
 Sleep 900ms
