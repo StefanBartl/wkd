@@ -78,6 +78,15 @@ local tweaks = {
     vim.o.hlsearch = false
     vim.g.vim_json_warnings = 0
   end,
+  -- `o` on a comment line would auto-insert a second `--` before the typed one.
+  ["buffer-ctx"] = function()
+    vim.api.nvim_create_autocmd("FileType", {
+      pattern = "lua",
+      callback = function()
+        vim.opt_local.formatoptions:remove({ "o", "r" })
+      end,
+    })
+  end,
 }
 if tweaks[plugin] then tweaks[plugin]() end
 
@@ -181,8 +190,10 @@ vim.api.nvim_create_user_command("DemoDump", function(o)
   for line in vim.fn.execute("messages"):gmatch("[^\n]+") do
     out[#out + 1] = "msg: " .. line
   end
-  vim.fn.mkdir("demos/out", "p")
-  vim.fn.writefile(out, ("demos/out/_dump-%s.txt"):format(plugin ~= "" and plugin or "nvim"), "a")
+  -- Next to this file, not relative to the cwd: a tape may cd elsewhere.
+  local dir = vim.fs.dirname(vim.fs.normalize(debug.getinfo(1, "S").source:sub(2))) .. "/out"
+  vim.fn.mkdir(dir, "p")
+  vim.fn.writefile(out, ("%s/_dump-%s.txt"):format(dir, plugin ~= "" and plugin or "nvim"), "a")
   api.nvim_echo({}, false, {})
   vim.cmd.redraw()
 end, { nargs = "?", desc = "append window state to demos/out/_dump-<plugin>.txt (recording aid)" })

@@ -10,6 +10,8 @@ Enter
 Sleep 2s
 Show
 Sleep 800ms
+Type "2G"
+Sleep 400ms
 
 Hide
 Type ":Demo :Insert location - path:line, at the cursor"
@@ -17,35 +19,37 @@ Enter
 Sleep 1500ms
 Show
 
-Type "2G"
-Sleep 300ms
 Type "o"
 Sleep 200ms
-Type "-- "
-Sleep 200ms
 Escape
-Sleep 400ms
+Sleep 300ms
 Type ":Insert location"
 Sleep 600ms
 Enter
-Sleep 2200ms
+Sleep 1200ms
+Type "I-- see "
+Sleep 300ms
+Escape
+Sleep 1800ms
 
 Hide
-Type ":Demo :Insert timestamp - and date, uuid, env, linecount ..."
+Type ":Demo :Insert timestamp - and date, env, uuid, linecount ..."
 Enter
 Sleep 1500ms
 Show
 
 Type "o"
 Sleep 200ms
-Type "-- reviewed "
-Sleep 200ms
 Escape
-Sleep 400ms
+Sleep 300ms
 Type ":Insert timestamp"
 Sleep 600ms
 Enter
-Sleep 2200ms
+Sleep 1200ms
+Type "I-- reviewed "
+Sleep 300ms
+Escape
+Sleep 1800ms
 
 Hide
 Type ":Demo :Insert uuid - a v4 uuid where you type"
@@ -55,31 +59,35 @@ Show
 
 Type "o"
 Sleep 200ms
-Type "-- trace "
-Sleep 200ms
 Escape
-Sleep 400ms
+Sleep 300ms
 Type ":Insert uuid"
 Sleep 600ms
 Enter
-Sleep 2200ms
+Sleep 1200ms
+Type "I-- trace "
+Sleep 300ms
+Escape
+Sleep 1800ms
 
 Hide
-Type ":Demo :Insert git short - the revision this buffer belongs to"
+Type ":Demo :Insert linecount - and filename, filepath, module ..."
 Enter
 Sleep 1500ms
 Show
 
 Type "o"
 Sleep 200ms
-Type "-- built from "
-Sleep 200ms
 Escape
-Sleep 400ms
-Type ":Insert git short"
+Sleep 300ms
+Type ":Insert linecount"
 Sleep 600ms
 Enter
-Sleep 3s
+Sleep 1200ms
+Type "I-- lines: "
+Sleep 300ms
+Escape
+Sleep 1800ms
 
 Hide
 Type ":qa!"
