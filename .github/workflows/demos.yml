@@ -73,9 +73,10 @@ jobs:
             vhs_run "$tape"
             echo "::endgroup::"
           done
-          sudo chown -R "$(id -u):$(id -g)" demos
-          # Output paths are relative to the tape (demos/), i.e. demos/out/; collect
-          # from the repo root as well in case a VHS version resolves them there.
+          # The container runs as root: take the outputs back (VHS writes them
+          # relative to its working directory, i.e. ./out).
+          sudo chown -R "$(id -u):$(id -g)" demos out 2>/dev/null || true
+          # Collect the recordings into demos/out/ wherever they landed.
           find . -path ./node_modules -prune -o -type f \( -name "*.webm" -o -name "*.mp4" \) -not -path "./demos/out/*" -print -exec mv -t demos/out/ {} +
           ls -l demos/out
           test -n "$(ls demos/out/*.webm 2>/dev/null)" || { echo "::error::no recordings produced"; exit 1; }
