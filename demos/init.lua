@@ -155,7 +155,9 @@ vim.api.nvim_create_user_command("Demo", function(o)
     })
     vim.wo[title.win].winhighlight = "Normal:DemoTitle,NormalFloat:DemoTitle"
   end
-  -- The typed command must not linger in the cmdline of the recording.
+  -- The typed command must not linger in the cmdline of the recording, nor
+  -- in the : history (cmdlog.nvim's demo lists that history).
+  vim.fn.histdel("cmd", -1)
   vim.api.nvim_echo({}, false, {})
   vim.cmd.redraw()
 end, { nargs = "*", desc = "demo title float (recording aid)" })
@@ -206,6 +208,7 @@ vim.api.nvim_create_user_command("DemoDump", function(o)
   local dir = vim.fs.dirname(vim.fs.normalize(debug.getinfo(1, "S").source:sub(2))) .. "/out"
   vim.fn.mkdir(dir, "p")
   vim.fn.writefile(out, ("%s/_dump-%s.txt"):format(dir, plugin ~= "" and plugin or "nvim"), "a")
+  vim.fn.histdel("cmd", -1)
   api.nvim_echo({}, false, {})
   vim.cmd.redraw()
 end, { nargs = "?", desc = "append window state to demos/out/_dump-<plugin>.txt (recording aid)" })

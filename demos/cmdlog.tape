@@ -17,9 +17,9 @@ Enter
 Type "q"
 Type ":g/^function/p"
 Enter
-Type ":vsplit demos/fixtures/config.json"
+Type ":split demos/fixtures/todo.md"
 Enter
-Type ":only"
+Type ":close"
 Enter
 Sleep 500ms
 Show
