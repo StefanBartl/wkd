@@ -58,6 +58,21 @@
         "lib",
         "ui"
       ]
+    },
+    {
+      "plugin": "hover",
+      "deps": [
+        "lib",
+        "ui",
+        "markdown"
+      ]
+    },
+    {
+      "plugin": "insights",
+      "deps": [
+        "lib",
+        "ui"
+      ]
     }
   ]
 }

@@ -50,6 +50,8 @@ local setups = {
   diff = {},
   markdown = {},
   color_my_ascii = {},
+  hover = {},
+  insights = {},
 }
 local modules = { ["buffer-ctx"] = "buffer_ctx", dap = "wkddap" }
 -- Per-plugin editor tweaks for the recording.
@@ -65,17 +67,28 @@ local tweaks = {
 }
 if tweaks[plugin] then tweaks[plugin]() end
 
-if setups[plugin] then
+-- Dependencies that must be set up as well for the demoed feature to exist
+-- (hover.nvim's link scanner is contributed by markdown.nvim's setup()).
+local also = { hover = { "markdown" } }
+
+local function setup_plugin(slug)
+  if not setups[slug] then
+    return
+  end
   local ok, err = pcall(function()
-    local m = require(modules[plugin] or plugin)
+    local m = require(modules[slug] or slug)
     if type(m.setup) == "function" then
-      m.setup(setups[plugin])
+      m.setup(setups[slug])
     end
   end)
   if not ok then
-    vim.notify("demo setup failed: " .. tostring(err), vim.log.levels.ERROR)
+    vim.notify("demo setup failed for " .. slug .. ": " .. tostring(err), vim.log.levels.ERROR)
   end
 end
+for _, slug in ipairs(also[plugin] or {}) do
+  setup_plugin(slug)
+end
+setup_plugin(plugin)
 
 -- ---- :Demo title float --------------------------------------------------------
 vim.api.nvim_set_hl(0, "DemoTitle", { fg = "#1a1b26", bg = "#e0af68", bold = true })
