@@ -4,7 +4,8 @@
 -- all read from $PLUGINS_DIR (the CI checkout directory).
 --
 --   DEMO_PLUGIN  slug of the plugin to set up, e.g. "cascade"
---   DEMO_DEPS    comma-separated slugs to add to the rtp first (default lib,ui)
+--   DEMO_DEPS    comma-separated slugs (or owner/repo for third-party
+--                checkouts) to add to the rtp first (default lib,ui)
 --
 -- Recording aids (both from this config, not from the plugin under demo):
 --   :Demo <text>   a title float in the top-right corner naming the feature
@@ -16,8 +17,11 @@ local root = vim.env.PLUGINS_DIR or vim.fs.normalize(vim.fn.getcwd() .. "/..")
 local plugin = vim.env.DEMO_PLUGIN or ""
 local deps = vim.split(vim.env.DEMO_DEPS or "lib,ui", ",", { trimempty = true })
 
-for _, slug in ipairs(deps) do
-  vim.opt.rtp:append(root .. "/" .. slug .. ".nvim")
+for _, dep in ipairs(deps) do
+  -- A bare slug is one of the family (<slug>.nvim); "owner/repo" is a
+  -- third-party dependency checked out under its own repository name.
+  local dir = dep:find("/", 1, true) and dep:match("([^/]+)$") or (dep .. ".nvim")
+  vim.opt.rtp:append(root .. "/" .. dir)
 end
 if plugin ~= "" then
   vim.opt.rtp:append(root .. "/" .. plugin .. ".nvim")
@@ -72,6 +76,8 @@ local setups = {
   gopath = {},
   ["runtime-analysis"] = {},
   documentation = {},
+  pickers = {},
+  cmdlog = {},
 }
 local modules = { ["buffer-ctx"] = "buffer_ctx", dap = "wkddap" }
 -- Per-plugin editor tweaks for the recording.

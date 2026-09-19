@@ -44,7 +44,7 @@ jobs:
           tar -xzf "$RUNNER_TEMP/nvim.tar.gz" -C "$RUNNER_TEMP/nvim" --strip-components=1
           "$RUNNER_TEMP/nvim/bin/nvim" --version | head -1
 
-      # Tools the plugins shell out to (ripgrep for replacer.nvim), mounted
+      # Tools the plugins shell out to (ripgrep for replacer.nvim and insights.nvim, fd for pickers.nvim), mounted
       # into the container; without them a plugin shows its dependency panel.
       - name: External tools
         run: |
@@ -53,13 +53,22 @@ jobs:
             | tar -xz -C "$RUNNER_TEMP/tools" --strip-components=1 --wildcards "*/rg"
           mv "$RUNNER_TEMP/tools/rg" "$RUNNER_TEMP/tools/bin/rg"
           "$RUNNER_TEMP/tools/bin/rg" --version | head -1
+          curl -sSL "https://github.com/sharkdp/fd/releases/download/v10.5.0/fd-v10.5.0-x86_64-unknown-linux-musl.tar.gz"             | tar -xz -C "$RUNNER_TEMP/tools" --strip-components=1 --wildcards "*/fd"
+          mv "$RUNNER_TEMP/tools/fd" "$RUNNER_TEMP/tools/bin/fd"
+          "$RUNNER_TEMP/tools/bin/fd" --version
 
       - name: Clone the plugins the tapes need
         run: |
           mkdir -p "$RUNNER_TEMP/repos"
           owner=$(jq -r .owner src/data/registry.json)
-          for slug in $(jq -r '[.tapes[] | .plugin, .deps[]] | unique[]' demos/demos.json); do
-            git clone --quiet --depth 1 "https://github.com/$owner/$slug.nvim.git" "$RUNNER_TEMP/repos/$slug.nvim"
+          # A bare slug is one of the family (<owner>/<slug>.nvim); "owner/repo"
+          # names a third-party dependency such as nvim-telescope/telescope.nvim,
+          # checked out under its own repository name.
+          for dep in $(jq -r '[.tapes[] | .plugin, .deps[]] | unique[]' demos/demos.json); do
+            case "$dep" in
+              */*) git clone --quiet --depth 1 "https://github.com/$dep.git" "$RUNNER_TEMP/repos/${dep##*/}" ;;
+              *)   git clone --quiet --depth 1 "https://github.com/$owner/$dep.nvim.git" "$RUNNER_TEMP/repos/$dep.nvim" ;;
+            esac
           done
 
       - name: Record

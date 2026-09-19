@@ -1,5 +1,5 @@
 {
-  "_comment": "Which plugin checkouts a tape needs. Read by .github/workflows/demos.yml; the tape itself sets DEMO_PLUGIN/DEMO_DEPS for demos/init.lua.",
+  "_comment": "Which checkouts a tape needs. A bare slug is one of the family (<owner>/<slug>.nvim); owner/repo names a third-party dependency. Read by .github/workflows/demos.yml; the tape itself sets DEMO_PLUGIN/DEMO_DEPS for demos/init.lua.",
   "tapes": [
     {
       "plugin": "cascade",
@@ -128,6 +128,24 @@
         "lib",
         "ui",
         "cascade"
+      ]
+    },
+    {
+      "plugin": "pickers",
+      "deps": [
+        "lib",
+        "ui",
+        "nvim-lua/plenary.nvim",
+        "nvim-telescope/telescope.nvim"
+      ]
+    },
+    {
+      "plugin": "cmdlog",
+      "deps": [
+        "lib",
+        "ui",
+        "nvim-lua/plenary.nvim",
+        "nvim-telescope/telescope.nvim"
       ]
     }
   ]

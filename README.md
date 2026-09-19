@@ -116,8 +116,10 @@ single-commit orphan branch `demo-assets` -- weekly, on `workflow_dispatch`, and
 turns whatever it finds there into a `<video>` on the plugin page (both skins). Recordings
 are therefore reproducible, never stale, and never part of main's history. For a local build
 with videos: `scripts/pull-demos.sh`. Adding a demo = one tape + one line in
-`demos/demos.json` (which checkouts it needs) + a `setup()` entry in `demos/init.lua` if the
-plugin needs one. lib.nvim's first-run panel for missing external tools is switched off in that
+`demos/demos.json` (which checkouts it needs; a bare slug is one of the family, `owner/repo`
+a third-party dependency such as telescope) + a `setup()` entry in `demos/init.lua` if the
+plugin needs one. External tools a plugin shells out to (ripgrep, fd) are downloaded by the
+workflow and mounted into the container. lib.nvim's first-run panel for missing external tools is switched off in that
 config (`vim.g.lib_nvim_deps_disable_first_run`): in the container it would open on every
 recording and, being entered, become the window the demoed command runs from -- which is how
 the diff.nvim tape once recorded a diff of the panel's float. A third aid, `:DemoDump [label]`, appends the window/option state to
@@ -158,6 +160,6 @@ To rebuild the site on every plugin push, add this to each plugin repo's CI:
 | 0 | Scaffold, both skins, all plugin pages, activity stream from git | **done** |
 | 1 | Category filter, search (Pagefind), colorscheme presets in the TUI skin, light/dark in modern | **done** |
 | 2 | `repository_dispatch` hooks in the plugin repos, GitHub Pages live | Pages live; hooks open |
-| 3 | Demo pipeline: VHS `.tape` scripts recorded in CI → webm/mp4 + poster on the plugin pages | **pipeline done**; tapes: cascade, emojis, replacer, spotlight, data, diff, markdown, color_my_ascii, hover, insights, fileops, buffer-ctx, recommender, sessions, ui, gopath, runtime-analysis, documentation |
+| 3 | Demo pipeline: VHS `.tape` scripts recorded in CI → webm/mp4 + poster on the plugin pages | **pipeline done**; tapes: cascade, emojis, replacer, spotlight, data, diff, markdown, color_my_ascii, hover, insights, fileops, buffer-ctx, recommender, sessions, ui, gopath, runtime-analysis, documentation, pickers, cmdlog |
 | 4 | TUI skin: vim motions (`j`/`k`/`gg`/`G`), `:` command line with completion, `?` help | **done** |
 | 5 | Vimdoc renderer (`doc/*.txt` → HTML with `\|tag\|` links; `:help` opens it), `/stack` dependency graph | **done** |
