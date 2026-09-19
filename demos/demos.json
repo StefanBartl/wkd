@@ -1,0 +1,7 @@
+{
+  "_comment": "Which plugin checkouts a tape needs. Read by .github/workflows/demos.yml; the tape itself sets DEMO_PLUGIN/DEMO_DEPS for demos/init.lua.",
+  "tapes": [
+    { "plugin": "cascade", "deps": ["lib", "ui"] },
+    { "plugin": "emojis", "deps": ["lib", "ui", "cascade"] }
+  ]
+}

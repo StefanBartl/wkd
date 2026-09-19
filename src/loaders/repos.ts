@@ -48,6 +48,8 @@ export const pluginSchema = z.object({
   vimdocs: z.array(z.object({ file: z.string(), title: z.string(), main: z.boolean() })),
   /** slugs of other registry plugins this one require()s from its lua/ tree */
   uses: z.array(z.string()),
+  /** recording found in public/demos/ (fetched from the demo-assets branch) */
+  demo: z.object({ webm: z.boolean(), mp4: z.boolean(), poster: z.boolean() }).nullable(),
 });
 export type PluginData = z.infer<typeof pluginSchema>;
 
@@ -314,6 +316,11 @@ async function scanOne(
     };
   });
 
+  const demoDir = resolve(process.env.DEMOS_DIR ?? 'public/demos');
+  const has = (ext: string): boolean => existsSync(join(demoDir, `${slug}.${ext}`));
+  const demo =
+    has('webm') || has('mp4') ? { webm: has('webm'), mp4: has('mp4'), poster: has('png') } : null;
+
   const uses = [...requiredRoots(dir)]
     .map((m) => modules.get(m))
     .filter((s): s is string => Boolean(s) && s !== slug)
@@ -356,6 +363,7 @@ async function scanOne(
       recent: commits,
       vimdocs: vimdocs.map(({ file, title, main }) => ({ file, title, main })),
       uses,
+      demo,
     },
     commits,
     vimdocs,

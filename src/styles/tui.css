@@ -719,4 +719,23 @@
   .tui-tree .bar {
     color: var(--blue);
   }
+
+  /* ---- demo recording ------------------------------------------------- */
+  .tui-demo {
+    margin: 0.5lh 0;
+    max-width: 100ch;
+  }
+  .tui-demo video {
+    width: 100%;
+    height: auto;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+  }
+  .tui-demo figcaption {
+    color: var(--fg-dim);
+    margin-top: 0.25lh;
+  }
+  .tui-demo code {
+    color: var(--green);
+  }
 }

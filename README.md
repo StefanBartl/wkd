@@ -100,6 +100,21 @@ Requires Node ≥ 22.12 and pnpm ≥ 10.
 - **Lint/format**: Biome. `.astro` templates are not analysed for unused imports (Biome does
   not read the template part yet).
 
+## Demos
+
+`demos/<plugin>.tape` is a [VHS](https://github.com/charmbracelet/vhs) script that drives a
+clean Neovim (`demos/init.lua`: only lib.nvim, ui.nvim and the demoed plugin on the
+runtimepath, read from `$PLUGINS_DIR`) over a fixture in `demos/fixtures/`. The
+`Record demos` workflow runs every tape on a Linux runner (Neovim stable, VHS pinned), turns
+the recordings into `<plugin>.webm` + `.mp4` + a `.png` poster and force-pushes them as the
+single-commit orphan branch `demo-assets` -- weekly, on `workflow_dispatch`, and whenever
+`demos/**` changes. The deploy workflow copies that branch into `public/demos/`; the loader
+turns whatever it finds there into a `<video>` on the plugin page (both skins). Recordings
+are therefore reproducible, never stale, and never part of main's history. For a local build
+with videos: `scripts/pull-demos.sh`. Adding a demo = one tape + one line in
+`demos/demos.json` (which checkouts it needs) + a `setup()` entry in `demos/init.lua` if the
+plugin needs one.
+
 ## Deployment
 
 `.github/workflows/deploy.yml` builds and publishes to GitHub Pages on push, on a 6-hour
@@ -132,7 +147,7 @@ To rebuild the site on every plugin push, add this to each plugin repo's CI:
 |---|---|---|
 | 0 | Scaffold, both skins, all plugin pages, activity stream from git | **done** |
 | 1 | Category filter, search (Pagefind), colorscheme presets in the TUI skin, light/dark in modern | **done** |
-| 2 | `repository_dispatch` hooks in the plugin repos, GitHub Pages live | |
-| 3 | Demo pipeline: VHS `.tape` scripts → `.cast` text player + AV1 video, 6 flagship plugins | |
+| 2 | `repository_dispatch` hooks in the plugin repos, GitHub Pages live | Pages live; hooks open |
+| 3 | Demo pipeline: VHS `.tape` scripts recorded in CI → webm/mp4 + poster on the plugin pages | **pipeline done**; tapes: cascade, emojis |
 | 4 | TUI skin: vim motions (`j`/`k`/`gg`/`G`), `:` command line with completion, `?` help | **done** |
 | 5 | Vimdoc renderer (`doc/*.txt` → HTML with `\|tag\|` links; `:help` opens it), `/stack` dependency graph | **done** |

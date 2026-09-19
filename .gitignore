@@ -5,3 +5,7 @@ dist/
 .env.*
 .DS_Store
 *.log
+
+# demo recordings: fetched from the demo-assets branch (scripts/pull-demos.sh)
+public/demos/
+demos/out/

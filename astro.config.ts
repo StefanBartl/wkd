@@ -29,7 +29,7 @@ export default defineConfig({
         "font-src 'self'",
         "connect-src 'self'",
         "worker-src 'self'", // Pagefind's search worker
-        "media-src 'none'", // until the demo videos of phase 3
+        "media-src 'self'", // demo videos in public/demos/
         "frame-src 'none'",
         "object-src 'none'",
         "base-uri 'none'",

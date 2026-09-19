@@ -8,6 +8,10 @@ on:
   schedule:
     - cron: '17 */6 * * *'
   workflow_dispatch:
+  # New demo recordings (see demos.yml) go live without waiting for the cron.
+  workflow_run:
+    workflows: ["Record demos"]
+    types: [completed]
 
 # Least privilege: the build job only reads; the Pages token is minted in
 # the deploy job alone. Actions are pinned to commits (the tag is a comment).
@@ -22,6 +26,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -56,6 +61,18 @@ jobs:
           export OWNER="$(jq -r .owner src/data/registry.json)" RUNNER_TEMP
           jq -r '.plugins[].name' src/data/registry.json | xargs -P 6 -I{} bash -c 'clone "$1"' _ {}
           echo "PLUGINS_DIR=$RUNNER_TEMP/repos" >> "$GITHUB_ENV"
+
+      # Demo videos live on the orphan branch demo-assets (written by demos.yml);
+      # the loader turns whatever is in public/demos/ into <video> on plugin pages.
+      - name: Fetch demo recordings
+        run: |
+          mkdir -p public/demos
+          if git fetch --quiet --depth 1 origin demo-assets 2>/dev/null; then
+            git --work-tree=public/demos checkout --quiet FETCH_HEAD -- .
+            echo "demos: $(ls public/demos | wc -l) files"
+          else
+            echo "::notice::no demo-assets branch yet -- building without demos"
+          fi
 
       - name: Install, build and upload
         uses: withastro/action@3eafd002e65cc31b4f0eae0bb05450d521562247 # v6.1.3

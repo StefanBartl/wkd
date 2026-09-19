@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import type { InferGetStaticPropsType } from 'astro';
 import CommitLine from '../../../components/CommitLine.astro';
+import Demo from '../../../components/Demo.astro';
 import { categoryLabel, lazySnippet } from '../../../lib/format';
 import { href } from '../../../lib/site';
 import Shell from '../../../skins/tui/Shell.astro';
@@ -34,6 +35,9 @@ const d = plugin.data;
     {d.hasVimdoc ? <dt>help</dt> : null}
     {d.hasVimdoc ? <dd><a href={href(`p/${plugin.id}/help`, 'tui')} data-nav={`p/${plugin.id}/help`}>:help {plugin.id}</a></dd> : null}
   </dl>
+
+  {d.demo ? <h2 class="tui-h2">demo</h2> : null}
+  {d.demo ? <Demo slug={plugin.id} demo={d.demo} skin="tui" /> : null}
 
   <h2 class="tui-h2">install</h2>
   <pre class="tui-code"><code>{lazySnippet(d.owner, d.name)}</code></pre>

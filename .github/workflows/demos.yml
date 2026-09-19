@@ -1,0 +1,75 @@
+name: Record demos
+
+# Re-records every demos/*.tape with VHS in a clean Neovim (demos/init.lua)
+# and publishes the videos as the single-commit orphan branch `demo-assets`;
+# the deploy workflow copies that branch into public/demos/. Recordings are
+# therefore reproducible, never stale, and never in main's history.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '41 4 * * 1'
+  push:
+    branches: [main]
+    paths:
+      - 'demos/**'
+      - '.github/workflows/demos.yml'
+
+permissions:
+  contents: write # force-pushes the demo-assets branch
+
+concurrency:
+  group: demos
+  cancel-in-progress: false
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7 # v1.6.1
+        with:
+          neovim: true
+          version: stable
+
+      # Installs vhs, ttyd and ffmpeg (and JetBrains Mono); no tape is run here.
+      - uses: charmbracelet/vhs-action@f6d7db07a432fcd3b06772628d36a57f96d95dcf # v2.1.1
+        with:
+          version: v0.12.0
+
+      - name: Clone the plugins the tapes need
+        run: |
+          mkdir -p "$RUNNER_TEMP/repos"
+          owner=$(jq -r .owner src/data/registry.json)
+          for slug in $(jq -r '[.tapes[] | .plugin, .deps[]] | unique[]' demos/demos.json); do
+            git clone --quiet --depth 1 "https://github.com/$owner/$slug.nvim.git" "$RUNNER_TEMP/repos/$slug.nvim"
+          done
+          echo "PLUGINS_DIR=$RUNNER_TEMP/repos" >> "$GITHUB_ENV"
+
+      - name: Record
+        run: |
+          mkdir -p demos/out
+          nvim --version | head -1
+          for tape in demos/*.tape; do
+            case "$tape" in demos/_*) continue ;; esac
+            echo "::group::$tape"
+            vhs "$tape"
+            echo "::endgroup::"
+          done
+          # Posters: one frame from each recording.
+          for webm in demos/out/*.webm; do
+            ffmpeg -y -loglevel error -ss 1.5 -i "$webm" -frames:v 1 "${webm%.webm}.png"
+          done
+          ls -l demos/out
+
+      - name: Publish demo-assets branch
+        run: |
+          cd demos/out
+          git init -q
+          git checkout -q -b demo-assets
+          git add .
+          git -c user.name=github-actions -c user.email=github-actions@github.com \
+            commit -q -m "demos recorded $(date -u +%Y-%m-%dT%H:%MZ) from ${GITHUB_SHA::12}"
+          git push -q --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" demo-assets
+        env:
+          GITHUB_TOKEN: ${{ github.token }}

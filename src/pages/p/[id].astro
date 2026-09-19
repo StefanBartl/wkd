@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import type { InferGetStaticPropsType } from 'astro';
 import CommitLine from '../../components/CommitLine.astro';
+import Demo from '../../components/Demo.astro';
 import { categoryLabel, lazySnippet } from '../../lib/format';
 import { href } from '../../lib/site';
 import Shell from '../../skins/modern/Shell.astro';
@@ -40,6 +41,8 @@ const [nameBase, nameSuffix] = d.name.endsWith('.nvim')
         {d.hasVimdoc ? <a class="m-btn" href={href(`p/${plugin.id}/help`)} data-nav={`p/${plugin.id}/help`}>:help</a> : null}
       </p>
     </header>
+
+    {d.demo ? <Demo slug={plugin.id} demo={d.demo} skin="modern" /> : null}
 
     <div class="m-cols">
       <section data-pagefind-ignore>

@@ -853,4 +853,28 @@
     background: var(--acid);
     color: var(--acid-ink);
   }
+
+  /* ---- demo recording ------------------------------------------------- */
+  .m-demo {
+    margin: 0;
+    display: grid;
+    gap: var(--s-2);
+  }
+  .m-demo video {
+    width: 100%;
+    height: auto;
+    background: #1a1b26;
+    border: var(--line);
+  }
+  .m-demo figcaption {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+  .m-demo figcaption code {
+    text-transform: none;
+    letter-spacing: 0;
+  }
 }
