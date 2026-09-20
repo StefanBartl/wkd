@@ -225,6 +225,10 @@
   .filter-n {
     opacity: 0.6;
   }
+  /* The muted count would drop below 4.5:1 on the louder hover colours. */
+  .m-filter label:hover .filter-n {
+    opacity: 0.85;
+  }
 
   /* ---- neon hover hues ---------------------------------------------------
      Without script the hue simply cycles by position; src/scripts/hue.ts then
@@ -570,7 +574,7 @@
   .m-card:hover .m-card-cat,
   .m-card:focus-visible .m-card-cat {
     color: inherit;
-    opacity: 0.7;
+    opacity: 0.85;
   }
   .m-card-name {
     font-size: clamp(1.7rem, 2.6vw, 2.4rem);

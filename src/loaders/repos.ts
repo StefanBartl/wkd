@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 import type { Loader, LoaderContext } from 'astro/loaders';
 import { z } from 'astro/zod';
 import registry from '../data/registry.json';
+import { collectTags } from '../lib/vimdoc';
 
 // Both collections (plugins + activity) come from one scan of the plugin
 // checkouts. Locally that is the sibling directory of this repo; in CI the
@@ -140,6 +141,8 @@ export const pluginSchema = z.object({
   featureCount: z.number().int().nonnegative(),
   /** Lua files under TESTS/ (specs and their helpers): a rough size of the test suite */
   testFiles: z.number().int().nonnegative(),
+  /** distinct `*tag*` anchors across doc/*.txt: what a user can look up with :help */
+  helpTagCount: z.number().int().nonnegative(),
   recent: z.array(commitSchema),
   /** doc/*.txt files: file = basename without .txt; main = the plugin's primary help file */
   vimdocs: z.array(z.object({ file: z.string(), title: z.string(), main: z.boolean() })),
@@ -228,30 +231,62 @@ function walkLua(dir: string, out: string[] = []): string[] {
   return out;
 }
 
+/** Level-2 headings (`## `) of a markdown text; a `## ` inside a code fence is an example, not a heading. */
+function countH2(md: string): number {
+  let n = 0;
+  let inFence = false;
+  for (const line of md.split(/\r?\n/)) {
+    if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
+    else if (!inFence && line.startsWith('## ')) n++;
+  }
+  return n;
+}
+
 /**
- * Sections of docs/FEATURES/*.md: every plugin documents what it can do there,
- * one `##` heading per feature. README.md in that folder is the index, and a
- * `## ` inside a code fence is an example, not a heading.
+ * Features a plugin documents, one `##` section each: in docs/FEATURES/*.md
+ * (README.md there is the index) or, for the smaller plugins, in a single
+ * docs/FEATURES.md. Names are matched case-insensitively so a checkout counts
+ * the same on every filesystem, and only regular files and directories are
+ * followed -- a symlink is not read.
  */
 function countFeatures(dir: string): number {
-  const featuresDir = join(dir, 'docs', 'FEATURES');
-  if (!existsSync(featuresDir)) return 0;
+  const docsDir = join(dir, 'docs');
+  if (!existsSync(docsDir)) return 0;
   let n = 0;
-  for (const f of readdirSync(featuresDir)) {
-    if (!f.endsWith('.md') || f.toLowerCase() === 'readme.md') continue;
-    let inFence = false;
-    for (const line of readFileSync(join(featuresDir, f), 'utf8').split(/\r?\n/)) {
-      if (/^\s*```/.test(line)) inFence = !inFence;
-      else if (!inFence && line.startsWith('## ')) n++;
+  for (const entry of readdirSync(docsDir, { withFileTypes: true })) {
+    const name = entry.name.toLowerCase();
+    const path = join(docsDir, entry.name);
+    if (entry.isFile() && name === 'features.md') {
+      n += countH2(readFileSync(path, 'utf8'));
+    } else if (entry.isDirectory() && name === 'features') {
+      for (const f of readdirSync(path, { withFileTypes: true })) {
+        const fname = f.name.toLowerCase();
+        if (f.isFile() && fname.endsWith('.md') && fname !== 'readme.md') {
+          n += countH2(readFileSync(join(path, f.name), 'utf8'));
+        }
+      }
     }
   }
   return n;
 }
 
-/** Lua files anywhere under TESTS/ (the family's test folder), specs and helpers alike. */
+/**
+ * Lua files under TESTS/ (the family's test folder), specs and helpers alike.
+ * Hidden directories (scratch space such as `.repro_tmp`, vendored `.deps`) are
+ * no part of the suite: a checkout must count the same locally and in CI.
+ */
 function countTestFiles(dir: string): number {
+  const walk = (d: string): number => {
+    let n = 0;
+    for (const entry of readdirSync(d, { withFileTypes: true })) {
+      if (entry.name.startsWith('.')) continue;
+      if (entry.isDirectory()) n += walk(join(d, entry.name));
+      else if (entry.name.endsWith('.lua')) n++;
+    }
+    return n;
+  };
   const testsDir = join(dir, 'TESTS');
-  return existsSync(testsDir) ? walkLua(testsDir).length : 0;
+  return statSync(testsDir, { throwIfNoEntry: false })?.isDirectory() ? walk(testsDir) : 0;
 }
 
 /**
@@ -548,6 +583,7 @@ async function scanOne(
       lastCommit: commits[0]?.date ?? null,
       featureCount: countFeatures(dir),
       testFiles: countTestFiles(dir),
+      helpTagCount: new Set(vimdocs.flatMap((d) => collectTags(d.text))).size,
       recent: commits,
       vimdocs: vimdocs.map(({ file, title, main }) => ({ file, title, main })),
       uses,
