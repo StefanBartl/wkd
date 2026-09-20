@@ -116,7 +116,10 @@ every job succeeded, force-pushes them as the single-commit orphan branch `demo-
 `demos/**` changes. The deploy workflow copies that branch into `public/demos/`; the loader
 turns whatever it finds there into a `<video>` on the plugin page (both skins). Recordings
 are therefore reproducible, never stale, and never part of main's history. For a local build
-with videos: `scripts/pull-demos.sh`. Adding a demo = one tape + one line in
+with videos: `scripts/pull-demos.sh`. A plugin may have more than one tape: an
+entry with its own `tape` name (`hover-media` for `demos/hover-media.tape`), a `title`, a `needs`
+list (plugins of the family the shown feature depends on, linked from the caption) and a `note`.
+Adding a demo = one tape + one line in
 `demos/demos.json` (which checkouts it needs; a bare slug is one of the family, `owner/repo@sha`
 a third-party dependency such as telescope, pinned to a commit because its code runs in the
 container that produces what the site serves) + a `setup()` entry in `demos/init.lua` if the

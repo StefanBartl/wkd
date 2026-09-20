@@ -1,5 +1,5 @@
 {
-  "_comment": "Which checkouts a tape needs. A bare slug is one of the family (<owner>/<slug>.nvim); owner/repo@sha names a third-party dependency pinned to a commit. \"always\" is cloned for every tape (the colorscheme demos/init.lua picks up when present). Read by .github/workflows/demos.yml; the tape itself sets DEMO_PLUGIN/DEMO_DEPS for demos/init.lua.",
+  "_comment": "Which checkouts a tape needs. One entry per tape: \"plugin\" is the page it belongs to, \"tape\" (default: the plugin) names demos/<tape>.tape and the output files, \"title\" and \"needs\" (other plugins of the family the shown feature depends on) go into the caption. A bare dep is one of the family (<owner>/<slug>.nvim); owner/repo@sha names a third-party dependency pinned to a commit. \"always\" is cloned for every tape (the colorscheme demos/init.lua picks up when present). Read by .github/workflows/demos.yml and the site's loader; the tape itself sets DEMO_PLUGIN/DEMO_DEPS for demos/init.lua.",
   "always": ["folke/tokyonight.nvim@cdc07ac78467a233fd62c493de29a17e0cf2b2b6"],
   "tapes": [
     {
@@ -37,6 +37,14 @@
     {
       "plugin": "hover",
       "deps": ["lib", "ui", "markdown"]
+    },
+    {
+      "plugin": "hover",
+      "tape": "hover-media",
+      "title": "video and PDF links",
+      "deps": ["lib", "ui", "markdown", "media", "pdfport"],
+      "needs": ["media", "pdfport"],
+      "note": "What the float can hold depends on the terminal: with a graphics protocol (kitty, sixel) it draws a frame of the video and page 1 of the PDF; this recording runs in one without, so it shows what hover.nvim says instead."
     },
     {
       "plugin": "insights",

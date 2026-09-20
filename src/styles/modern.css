@@ -891,6 +891,19 @@
     text-transform: none;
     letter-spacing: 0;
   }
+  .m-demo + .m-demo {
+    margin-top: var(--s-4);
+  }
+  .m-demo figcaption strong {
+    color: var(--ink);
+  }
+  .m-demo .demo-note {
+    display: block;
+    margin-top: var(--s-1);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.8rem;
+  }
 
   /* ---- screenshots ----------------------------------------------------- */
   .m-shots {

@@ -1,35 +1,56 @@
 ---
-import { BASE, type Skin } from '../lib/site';
+import { BASE, href, type Skin } from '../lib/site';
+import type { DemoInfo } from '../loaders/repos';
 
-// A plugin's demo recording, when the build found one in public/demos/
+// A plugin's demo recordings, when the build found them in public/demos/
 // (see demos/ and .github/workflows/demos.yml). Not autoplaying: the poster
-// is the first paint, the video loads on demand.
+// is the first paint, the video loads on demand. A tape that needs other
+// plugins of the family says so in its caption and links to them.
 interface Props {
   slug: string;
-  demo: { webm: boolean; mp4: boolean; poster: boolean };
+  demos: DemoInfo[];
   skin: Skin;
 }
-const { slug, demo, skin } = Astro.props;
-const url = (ext: string): string => `${BASE}demos/${slug}.${ext}`;
+const { slug, demos, skin } = Astro.props;
+const url = (tape: string, ext: string): string => `${BASE}demos/${tape}.${ext}`;
 ---
 
-<figure class:list={['demo', skin === 'tui' ? 'tui-demo' : 'm-demo']}>
-  <video
-    controls
-    muted
-    loop
-    playsinline
-    preload="none"
-    width="1100"
-    height="620"
-    poster={demo.poster ? url('png') : undefined}
-    aria-label={`${slug}.nvim demo recording`}
-  >
-    {demo.webm ? <source src={url('webm')} type="video/webm" /> : null}
-    {demo.mp4 ? <source src={url('mp4')} type="video/mp4" /> : null}
-    Your browser cannot play this video.
-  </video>
-  <figcaption>
-    recorded with VHS from <code>demos/{slug}.tape</code> in a clean Neovim — re-recorded weekly
-  </figcaption>
-</figure>
+{
+  demos.map((demo) => (
+    <figure class:list={['demo', skin === 'tui' ? 'tui-demo' : 'm-demo']}>
+      <video
+        controls
+        muted
+        loop
+        playsinline
+        preload="none"
+        width="1100"
+        height="620"
+        poster={demo.poster ? url(demo.tape, 'png') : undefined}
+        aria-label={`${slug}.nvim demo recording${demo.title ? `: ${demo.title}` : ''}`}
+      >
+        {demo.webm ? <source src={url(demo.tape, 'webm')} type="video/webm" /> : null}
+        {demo.mp4 ? <source src={url(demo.tape, 'mp4')} type="video/mp4" /> : null}
+        Your browser cannot play this video.
+      </video>
+      <figcaption>
+        {demo.title ? <strong>{demo.title} · </strong> : null}
+        recorded with VHS from <code>demos/{demo.tape}.tape</code> in a clean Neovim — re-recorded weekly
+        {demo.needs.length > 0 ? (
+          <>
+            {' · needs '}
+            {demo.needs.map((n, i) => (
+              <>
+                {i > 0 ? ', ' : ''}
+                <a href={href(`p/${n}`, skin)} data-nav={`p/${n}`}>
+                  {n}.nvim
+                </a>
+              </>
+            ))}
+          </>
+        ) : null}
+        {demo.note ? <span class="demo-note">{demo.note}</span> : null}
+      </figcaption>
+    </figure>
+  ))
+}

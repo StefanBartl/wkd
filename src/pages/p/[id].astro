@@ -43,7 +43,7 @@ const [nameBase, nameSuffix] = d.name.endsWith('.nvim')
       </p>
     </header>
 
-    {d.demo ? <Demo slug={plugin.id} demo={d.demo} skin="modern" /> : null}
+    {d.demos.length > 0 ? <Demo slug={plugin.id} demos={d.demos} skin="modern" /> : null}
     {d.shots.length > 0 ? <Shots slug={plugin.id} shots={d.shots} skin="modern" /> : null}
 
     <div class="m-cols">

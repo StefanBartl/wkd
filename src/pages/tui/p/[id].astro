@@ -37,8 +37,8 @@ const d = plugin.data;
     {d.hasVimdoc ? <dd><a href={href(`p/${plugin.id}/help`, 'tui')} data-nav={`p/${plugin.id}/help`}>:help {plugin.id}</a></dd> : null}
   </dl>
 
-  {d.demo ? <h2 class="tui-h2">demo</h2> : null}
-  {d.demo ? <Demo slug={plugin.id} demo={d.demo} skin="tui" /> : null}
+  {d.demos.length > 0 ? <h2 class="tui-h2">demo</h2> : null}
+  {d.demos.length > 0 ? <Demo slug={plugin.id} demos={d.demos} skin="tui" /> : null}
 
   {d.shots.length > 0 ? <h2 class="tui-h2">screenshots</h2> : null}
   {d.shots.length > 0 ? <Shots slug={plugin.id} shots={d.shots} skin="tui" /> : null}

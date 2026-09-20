@@ -49,21 +49,21 @@ jobs:
           # a tape without an entry would silently never be recorded.
           for tape in demos/*.tape; do
             case "$tape" in demos/_*) continue ;; esac
-            slug=$(basename "$tape" .tape)
-            jq -e --arg s "$slug" '.tapes[] | select(.plugin == $s)' demos/demos.json >/dev/null \
+            name=$(basename "$tape" .tape)
+            jq -e --arg s "$name" '.tapes[] | select((.tape // .plugin) == $s)' demos/demos.json >/dev/null \
               || { echo "::error::$tape has no entry in demos/demos.json"; exit 1; }
           done
-          for slug in $(jq -r '.tapes[].plugin' demos/demos.json); do
-            [ -f "demos/$slug.tape" ] || { echo "::error::demos/demos.json lists $slug but demos/$slug.tape is missing"; exit 1; }
+          for name in $(jq -r '.tapes[] | (.tape // .plugin)' demos/demos.json); do
+            [ -f "demos/$name.tape" ] || { echo "::error::demos/demos.json lists $name but demos/$name.tape is missing"; exit 1; }
           done
-          tapes=$(jq -c '[.tapes[] | { plugin: .plugin, deps: (.deps | join(" ")) }]' demos/demos.json)
+          tapes=$(jq -c '[.tapes[] | { tape: (.tape // .plugin), plugin: .plugin, deps: (.deps | join(" ")) }]' demos/demos.json)
           echo "tapes=$tapes" >> "$GITHUB_OUTPUT"
-          echo "$tapes" | jq -r '.[] | "\(.plugin): \(.deps)"'
+          echo "$tapes" | jq -r '.[] | "\(.tape): \(.deps)"'
 
   record:
     needs: plan
     runs-on: ubuntu-latest
-    name: ${{ matrix.tape.plugin }}
+    name: ${{ matrix.tape.tape }}
     strategy:
       fail-fast: false
       matrix:
@@ -80,24 +80,29 @@ jobs:
           "$RUNNER_TEMP/nvim/bin/nvim" --version | head -1
 
       # Tools the plugins shell out to (ripgrep for replacer.nvim and
-      # insights.nvim, fd for pickers.nvim), mounted into the container.
+      # insights.nvim, fd for pickers.nvim, curl for hover.nvim), mounted into the container.
       - name: External tools
         run: |
           mkdir -p "$RUNNER_TEMP/tools/bin"
           # Pinned by version and checksum: these binaries run inside the container
           # that produces what the site serves.
           fetch() { # url sha256 binary
-            curl -sSL -o "$RUNNER_TEMP/tools/archive.tgz" "$1"
-            echo "$2  $RUNNER_TEMP/tools/archive.tgz" | sha256sum -c - >/dev/null
-            tar -xzf "$RUNNER_TEMP/tools/archive.tgz" -C "$RUNNER_TEMP/tools" --strip-components=1 --wildcards "*/$3"
-            mv "$RUNNER_TEMP/tools/$3" "$RUNNER_TEMP/tools/bin/$3"
+            curl -sSL -o "$RUNNER_TEMP/tools/archive" "$1"
+            echo "$2  $RUNNER_TEMP/tools/archive" | sha256sum -c - >/dev/null
+            rm -rf "$RUNNER_TEMP/tools/unpack"; mkdir -p "$RUNNER_TEMP/tools/unpack"
+            tar -xf "$RUNNER_TEMP/tools/archive" -C "$RUNNER_TEMP/tools/unpack"
+            mv "$(find "$RUNNER_TEMP/tools/unpack" -type f -name "$3" | head -1)" "$RUNNER_TEMP/tools/bin/$3"
           }
           fetch "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz" \
             33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c rg
           fetch "https://github.com/sharkdp/fd/releases/download/v10.5.0/fd-v10.5.0-x86_64-unknown-linux-musl.tar.gz" \
             761c72dc8e120d85b22292063be8a796e2eeb20eb3e4f38b8fa2343ccf3514a7 fd
+          # curl: hover.nvim's URL previews fetch the page (the site itself, in the tape).
+          fetch "https://github.com/stunnel/static-curl/releases/download/8.22.0/curl-linux-x86_64-musl-8.22.0.tar.xz" \
+            dfb02460ba2abe513087538f12a3cf79b74b64a5ea3787ce8ac0cdb11251f884 curl
           "$RUNNER_TEMP/tools/bin/rg" --version | head -1
           "$RUNNER_TEMP/tools/bin/fd" --version
+          "$RUNNER_TEMP/tools/bin/curl" --version | head -1
 
       - name: Clone the checkouts this tape needs
         env:
@@ -125,7 +130,7 @@ jobs:
 
       - name: Record
         env:
-          PLUGIN: ${{ matrix.tape.plugin }}
+          TAPE: ${{ matrix.tape.tape }}
         run: |
           docker pull -q "$VHS_IMAGE"
           mkdir -p demos/out
@@ -138,31 +143,32 @@ jobs:
             -v "$RUNNER_TEMP/tools:/opt/tools:ro" \
             -e PATH="/opt/nvim/bin:/opt/tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
             -e PLUGINS_DIR=/opt/repos -e WKD_ROOT=/vhs -e TERM=xterm-256color \
-            "$VHS_IMAGE" "demos/$PLUGIN.tape"
+            "$VHS_IMAGE" "demos/$TAPE.tape"
           # The container runs as root: take the outputs back (VHS writes them
           # relative to its working directory, i.e. ./out).
           sudo chown -R "$(id -u):$(id -g)" demos out 2>/dev/null || true
-          find ./out ./demos -type f \( -name "*.webm" -o -name "*.mp4" \) -not -path "./demos/out/*" -print -exec mv -t demos/out/ {} + 2>/dev/null || true
+          # (never the fixtures: demos/fixtures/intro.mp4 is a hover target, not a recording)
+          find ./out ./demos -type f \( -name "*.webm" -o -name "*.mp4" \) -not -path "./demos/out/*" -not -path "./demos/fixtures/*" -print -exec mv -t demos/out/ {} + 2>/dev/null || true
           # Diagnostics written by :DemoDump (demos/init.lua): into the log, not the branch.
           for dump in demos/out/_dump-*.txt; do
             [ -f "$dump" ] || continue
             echo "::group::$dump"; cat "$dump"; echo "::endgroup::"
             rm -f "$dump"
           done
-          test -f "demos/out/$PLUGIN.webm" || { echo "::error::demos/$PLUGIN.tape produced no recording"; exit 1; }
+          test -f "demos/out/$TAPE.webm" || { echo "::error::demos/$TAPE.tape produced no recording"; exit 1; }
           # Poster: one frame, with the container's ffmpeg.
           docker run --rm -v "$PWD:/vhs" --entrypoint ffmpeg "$VHS_IMAGE" \
-            -y -loglevel error -ss 1.5 -i "/vhs/demos/out/$PLUGIN.webm" -frames:v 1 "/vhs/demos/out/$PLUGIN.png"
+            -y -loglevel error -ss 1.5 -i "/vhs/demos/out/$TAPE.webm" -frames:v 1 "/vhs/demos/out/$TAPE.png"
           sudo chown -R "$(id -u):$(id -g)" demos
           ls -l demos/out
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: demo-${{ matrix.tape.plugin }}
+          name: demo-${{ matrix.tape.tape }}
           path: |
-            demos/out/${{ matrix.tape.plugin }}.webm
-            demos/out/${{ matrix.tape.plugin }}.mp4
-            demos/out/${{ matrix.tape.plugin }}.png
+            demos/out/${{ matrix.tape.tape }}.webm
+            demos/out/${{ matrix.tape.tape }}.mp4
+            demos/out/${{ matrix.tape.tape }}.png
           if-no-files-found: error
           retention-days: 1
 

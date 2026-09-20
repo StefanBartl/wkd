@@ -26,6 +26,64 @@ export const commitSchema = z.object({
 });
 export type Commit = z.infer<typeof commitSchema>;
 
+const demoSchema = z.object({
+  /** demos/<tape>.tape and the base name of its files */
+  tape: z.string(),
+  webm: z.boolean(),
+  mp4: z.boolean(),
+  poster: z.boolean(),
+  /** what this tape shows, when a plugin has more than one */
+  title: z.string().nullable(),
+  /** plugins of the family the shown feature needs (slugs) */
+  needs: z.array(z.string()),
+  /** one sentence under the caption */
+  note: z.string().nullable(),
+});
+export type DemoInfo = z.infer<typeof demoSchema>;
+
+const manifestSchema = z.object({
+  tapes: z.array(
+    z.object({
+      plugin: z.string(),
+      tape: z.string().optional(),
+      title: z.string().optional(),
+      needs: z.array(z.string()).optional(),
+      note: z.string().optional(),
+    }),
+  ),
+});
+
+/**
+ * The tapes of one plugin, from demos/demos.json (the same manifest the
+ * Record workflow runs), each marked with which of its files exist in
+ * public/demos/. A tape whose recording is not there yet is left out rather
+ * than rendered as an empty player.
+ */
+function readDemos(slug: string): DemoInfo[] {
+  const manifestPath = resolve('demos/demos.json');
+  if (!existsSync(manifestPath)) return [];
+  const parsed = manifestSchema.safeParse(JSON.parse(readFileSync(manifestPath, 'utf8')));
+  if (!parsed.success) throw new Error(`${manifestPath}: ${parsed.error.message}`);
+  const demoDir = resolve(process.env.DEMOS_DIR ?? 'public/demos');
+  const out: DemoInfo[] = [];
+  for (const t of parsed.data.tapes) {
+    if (t.plugin !== slug) continue;
+    const tape = t.tape ?? t.plugin;
+    const has = (ext: string): boolean => existsSync(join(demoDir, `${tape}.${ext}`));
+    if (!has('webm') && !has('mp4')) continue;
+    out.push({
+      tape,
+      webm: has('webm'),
+      mp4: has('mp4'),
+      poster: has('png'),
+      title: t.title ?? null,
+      needs: t.needs ?? [],
+      note: t.note ?? null,
+    });
+  }
+  return out;
+}
+
 const shotSchema = z.object({
   file: z.string(),
   width: z.number().int().positive(),
@@ -58,8 +116,8 @@ export const pluginSchema = z.object({
   uses: z.array(z.string()),
   /** like uses, but every require() is pcall-guarded: an optional integration */
   usesOptional: z.array(z.string()),
-  /** recording found in public/demos/ (fetched from the demo-assets branch) */
-  demo: z.object({ webm: z.boolean(), mp4: z.boolean(), poster: z.boolean() }).nullable(),
+  /** recordings found in public/demos/ (fetched from the demo-assets branch), in manifest order */
+  demos: z.array(demoSchema),
   /** hand-picked screenshots from public/shots/<slug>/shots.json, for what a recording cannot show */
   shots: z.array(shotSchema),
 });
@@ -360,10 +418,7 @@ async function scanOne(
     };
   });
 
-  const demoDir = resolve(process.env.DEMOS_DIR ?? 'public/demos');
-  const has = (ext: string): boolean => existsSync(join(demoDir, `${slug}.${ext}`));
-  const demo =
-    has('webm') || has('mp4') ? { webm: has('webm'), mp4: has('mp4'), poster: has('png') } : null;
+  const demos = readDemos(slug);
   const shots = readShots(slug);
 
   const uses: string[] = [];
@@ -414,7 +469,7 @@ async function scanOne(
       vimdocs: vimdocs.map(({ file, title, main }) => ({ file, title, main })),
       uses,
       usesOptional,
-      demo,
+      demos,
       shots,
     },
     commits,

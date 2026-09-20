@@ -76,7 +76,11 @@ local setups = {
   diff = {},
   markdown = {},
   color_my_ascii = {},
-  hover = {},
+  -- URL hovers on: the recording fetches the family site itself (curl is
+  -- mounted into the container).
+  hover = { links = { web = true, fetch = true }, inline_images = false },
+  media = {},
+  pdfport = {},
   insights = {},
   fileops = {},
   ["buffer-ctx"] = {},
@@ -114,7 +118,7 @@ if tweaks[plugin] then tweaks[plugin]() end
 
 -- Dependencies that must be set up as well for the demoed feature to exist
 -- (hover.nvim's link scanner is contributed by markdown.nvim's setup()).
-local also = { hover = { "markdown" } }
+local also = { hover = { "markdown", "media", "pdfport" } }
 
 local function setup_plugin(slug)
   if not setups[slug] then

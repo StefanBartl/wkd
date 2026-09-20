@@ -738,6 +738,12 @@
   .tui-demo code {
     color: var(--green);
   }
+  .tui-demo figcaption strong {
+    color: var(--fg);
+  }
+  .tui-demo .demo-note {
+    display: block;
+  }
 
   /* ---- screenshots ----------------------------------------------------- */
   .tui-shots {
