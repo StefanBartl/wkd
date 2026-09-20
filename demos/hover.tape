@@ -1,5 +1,6 @@
 # hover.nvim -- rest the cursor on something that points somewhere.
-# Titles via <C-t>: each one a short account of what happens, not just a name.
+# Per feature: <C-t> shows the title with a 3-second countdown, then the keys;
+# past the last title, <C-t> shows the "loops from here" card.
 Source demos/_settings.tape
 Output out/hover.webm
 Output out/hover.mp4
@@ -15,8 +16,9 @@ Sleep 800ms
 
 Hide
 Ctrl+T
-Sleep 1500ms
+Sleep 300ms
 Show
+Sleep 3s
 
 Type "/server.lua"
 Sleep 400ms
@@ -29,8 +31,9 @@ Sleep 3500ms
 
 Hide
 Ctrl+T
-Sleep 1500ms
+Sleep 300ms
 Show
+Sleep 3s
 
 Type "/app.log"
 Sleep 400ms
@@ -43,8 +46,9 @@ Sleep 3500ms
 
 Hide
 Ctrl+T
-Sleep 1500ms
+Sleep 300ms
 Show
+Sleep 3s
 
 Type "/rollback rules"
 Sleep 400ms
@@ -57,8 +61,9 @@ Sleep 3500ms
 
 Hide
 Ctrl+T
-Sleep 1500ms
+Sleep 300ms
 Show
+Sleep 3s
 
 Type "/github.io"
 Sleep 400ms
@@ -68,6 +73,12 @@ Type ":Hover show"
 Sleep 600ms
 Enter
 Sleep 5s
+
+Hide
+Ctrl+T
+Sleep 200ms
+Show
+Sleep 2s
 
 Hide
 Type ":qa!"

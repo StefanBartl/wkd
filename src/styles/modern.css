@@ -904,6 +904,37 @@
     letter-spacing: 0;
     font-size: 0.8rem;
   }
+  .m-demo .demo-chapters {
+    font-family: var(--font-mono), monospace;
+    font-size: 0.8rem;
+  }
+  .m-demo .demo-chapters summary {
+    cursor: pointer;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.75rem;
+  }
+  .m-demo .demo-chapters ol {
+    margin: var(--s-2) 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: var(--s-1);
+  }
+  .m-demo .demo-chapters button {
+    font: inherit;
+    color: var(--acid-ink);
+    background: none;
+    border: var(--line);
+    padding: 0 var(--s-1);
+    cursor: pointer;
+  }
+  .m-demo .demo-chapters button:hover,
+  .m-demo .demo-chapters button:focus-visible {
+    background: var(--acid);
+    color: var(--paper);
+  }
 
   /* ---- screenshots ----------------------------------------------------- */
   .m-shots {

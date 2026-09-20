@@ -13,6 +13,10 @@ interface Props {
 }
 const { slug, demos, skin } = Astro.props;
 const url = (tape: string, ext: string): string => `${BASE}demos/${tape}.${ext}`;
+const clock = (t: number): string => {
+  const s = Math.floor(t);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
 ---
 
 {
@@ -51,6 +55,34 @@ const url = (tape: string, ext: string): string => `${BASE}demos/${tape}.${ext}`
         ) : null}
         {demo.note ? <span class="demo-note">{demo.note}</span> : null}
       </figcaption>
+      {demo.chapters.length > 0 ? (
+        <details class="demo-chapters">
+          <summary>what is shown when</summary>
+          <ol>
+            {demo.chapters.map((c) => (
+              <li>
+                <button type="button" data-seek={c.t}>
+                  {clock(c.t)}
+                </button>{' '}
+                {c.title}
+              </li>
+            ))}
+          </ol>
+        </details>
+      ) : null}
     </figure>
   ))
 }
+
+<script>
+  // A chapter button seeks the recording it belongs to and plays from there.
+  for (const button of document.querySelectorAll<HTMLButtonElement>('.demo-chapters [data-seek]')) {
+    button.addEventListener('click', () => {
+      const video = button.closest('figure')?.querySelector('video');
+      if (!video) return;
+      video.currentTime = Number(button.dataset.seek);
+      void video.play();
+      video.scrollIntoView({ block: 'nearest' });
+    });
+  }
+</script>

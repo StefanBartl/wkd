@@ -9,8 +9,11 @@
 --
 -- Recording aids (both from this config, not from the plugin under demo):
 --   :Demo <text>   a title float in the top-right corner naming the feature
---                  currently shown; `:Demo off` removes it. <C-t> shows the
---                  next one from $DEMO_TITLES instead of typing a command.
+--                  currently shown; `:Demo off` removes it, `:Demo end` shows
+--                  the "loops from here" card. <C-t> shows the next title
+--                  from $DEMO_TITLES ("a|b|c") with a $DEMO_COUNTDOWN-second
+--                  countdown (default 3) before the feature's keys; past the
+--                  last title it shows the loop card.
 --   screenkey      ui.nvim's keystroke HUD in the bottom-right corner, so the
 --                  keys behind every action are visible
 
@@ -154,44 +157,123 @@ local function title_close()
   title.win = nil
 end
 
-vim.api.nvim_create_user_command("Demo", function(o)
-  title_close()
-  local text = vim.trim(o.args)
-  if text ~= "" and text ~= "off" then
-    -- Wrap at word boundaries so a title that tells the whole story ("-> ...
-    -- -> ...") stays on screen instead of running off the right edge.
-    local max_w = math.max(20, vim.o.columns - 6)
-    local lines, cur = {}, ""
-    for word in text:gmatch("%S+") do
-      local joined = cur == "" and word or (cur .. " " .. word)
-      if vim.fn.strdisplaywidth(joined) > max_w and cur ~= "" then
-        lines[#lines + 1] = cur
-        cur = word
-      else
-        cur = joined
-      end
-    end
-    lines[#lines + 1] = cur
-    local width = 0
-    for i, l in ipairs(lines) do
-      width = math.max(width, vim.fn.strdisplaywidth(l))
-      lines[i] = " " .. l .. " "
-    end
+---Render `lines` (already padded) in the title float, creating it when needed.
+---@param lines string[]
+local function title_show(lines)
+  local width = 0
+  for _, l in ipairs(lines) do
+    width = math.max(width, vim.fn.strdisplaywidth(l))
+  end
+  if not (title.win and vim.api.nvim_win_is_valid(title.win)) then
     title.buf = vim.api.nvim_create_buf(false, true)
     vim.bo[title.buf].bufhidden = "wipe"
-    vim.api.nvim_buf_set_lines(title.buf, 0, -1, false, lines)
     title.win = vim.api.nvim_open_win(title.buf, false, {
       relative = "editor",
       anchor = "NE",
       row = 0,
       col = vim.o.columns,
-      width = width + 2,
+      width = width,
       height = #lines,
       style = "minimal",
       focusable = false,
       zindex = 60,
     })
     vim.wo[title.win].winhighlight = "Normal:DemoTitle,NormalFloat:DemoTitle"
+  else
+    vim.api.nvim_win_set_config(title.win, { width = width, height = #lines })
+  end
+  vim.api.nvim_buf_set_lines(title.buf, 0, -1, false, lines)
+  vim.cmd.redraw()
+end
+
+---Word-wrap `text` to the screen, each line padded by one space.
+---@param text string
+---@return string[]
+local function title_lines(text)
+  local max_w = math.max(20, vim.o.columns - 6)
+  local lines, cur = {}, ""
+  for word in text:gmatch("%S+") do
+    local joined = cur == "" and word or (cur .. " " .. word)
+    if vim.fn.strdisplaywidth(joined) > max_w and cur ~= "" then
+      lines[#lines + 1] = cur
+      cur = word
+    else
+      cur = joined
+    end
+  end
+  lines[#lines + 1] = cur
+  for i, l in ipairs(lines) do
+    lines[i] = " " .. l .. " "
+  end
+  return lines
+end
+
+local countdown_timer = nil
+local function countdown_stop()
+  if countdown_timer then
+    countdown_timer:stop()
+    countdown_timer:close()
+    countdown_timer = nil
+  end
+end
+
+---Show `text` and, below it, a countdown from `seconds` to the moment the
+---feature's keys start -- the viewer knows a beat is coming. Ticks once a
+---second on a libuv timer, which keeps running while VHS sleeps.
+---@param text string
+---@param seconds integer
+local function title_with_countdown(text, seconds)
+  local lines = title_lines(text)
+  local function render(n)
+    local shown = vim.deepcopy(lines)
+    shown[#shown + 1] = n > 0 and (" \xE2\x96\xB6 " .. n .. " ") or " \xE2\x96\xB6 "
+    title_show(shown)
+  end
+  countdown_stop()
+  render(seconds)
+  local left = seconds
+  countdown_timer = vim.uv.new_timer()
+  countdown_timer:start(1000, 1000, vim.schedule_wrap(function()
+    left = left - 1
+    if left <= 0 then
+      countdown_stop()
+      if title.win and vim.api.nvim_win_is_valid(title.win) then
+        title_show(lines)
+      end
+      return
+    end
+    if title.win and vim.api.nvim_win_is_valid(title.win) then
+      render(left)
+    end
+  end))
+end
+
+vim.api.nvim_create_user_command("Demo", function(o)
+  countdown_stop()
+  title_close()
+  local text = vim.trim(o.args)
+  if text == "end" then
+    -- The recording loops: say so, centred, so the cut back to the start
+    -- does not read as a glitch.
+    local card = { "", "   \xE2\x9F\xB2  the recording loops from here   ", "" }
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[buf].bufhidden = "wipe"
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, card)
+    local w = vim.fn.strdisplaywidth(card[2])
+    title.win = vim.api.nvim_open_win(buf, false, {
+      relative = "editor",
+      row = math.floor((vim.o.lines - 3) / 2) - 1,
+      col = math.floor((vim.o.columns - w) / 2),
+      width = w,
+      height = 3,
+      style = "minimal",
+      focusable = false,
+      zindex = 60,
+    })
+    vim.wo[title.win].winhighlight = "Normal:DemoTitle,NormalFloat:DemoTitle"
+    title.buf = buf
+  elseif text ~= "" and text ~= "off" then
+    title_show(title_lines(text))
   end
   -- The typed command must not linger in the cmdline of the recording, nor
   -- in the : history (cmdlog.nvim's demo lists that history). Only when it
@@ -207,11 +289,23 @@ end, { nargs = "*", desc = "demo title float (recording aid)" })
 -- tape whose plugin records every typed : command (cmdlog.nvim), where a
 -- typed :Demo would show up in the demo itself.
 local titles = vim.split(vim.env.DEMO_TITLES or "", "|", { trimempty = true })
+local countdown = tonumber(vim.env.DEMO_COUNTDOWN) or 3
 local title_i = 0
 vim.keymap.set("n", "<C-t>", function()
   title_i = title_i + 1
-  vim.cmd.Demo(titles[title_i] or "off")
-end, { desc = "next demo title from $DEMO_TITLES (recording aid)" })
+  local text = titles[title_i]
+  if not text then
+    vim.cmd.Demo("end")
+    return
+  end
+  countdown_stop()
+  title_close()
+  if countdown > 0 then
+    title_with_countdown(text, countdown)
+  else
+    vim.cmd.Demo(text)
+  end
+end, { desc = "next demo title from $DEMO_TITLES, with a countdown; past the last one, the loop card (recording aid)" })
 
 -- ---- screenkey HUD (ui.nvim) ----------------------------------------------------
 local ok_sk, err_sk = pcall(function()

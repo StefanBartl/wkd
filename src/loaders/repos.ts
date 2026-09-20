@@ -38,8 +38,11 @@ const demoSchema = z.object({
   needs: z.array(z.string()),
   /** one sentence under the caption */
   note: z.string().nullable(),
+  /** jump marks: second of the recording at which each feature starts */
+  chapters: z.array(z.object({ t: z.number(), title: z.string() })),
 });
 export type DemoInfo = z.infer<typeof demoSchema>;
+const chaptersSchema = z.array(z.object({ t: z.number().nonnegative(), title: z.string() }));
 
 const manifestSchema = z.object({
   tapes: z.array(
@@ -71,6 +74,13 @@ function readDemos(slug: string): DemoInfo[] {
     const tape = t.tape ?? t.plugin;
     const has = (ext: string): boolean => existsSync(join(demoDir, `${tape}.${ext}`));
     if (!has('webm') && !has('mp4')) continue;
+    let chapters: DemoInfo['chapters'] = [];
+    if (has('chapters.json')) {
+      const raw = JSON.parse(readFileSync(join(demoDir, `${tape}.chapters.json`), 'utf8'));
+      const ch = chaptersSchema.safeParse(raw);
+      if (!ch.success) throw new Error(`${tape}.chapters.json: ${ch.error.message}`);
+      chapters = ch.data;
+    }
     out.push({
       tape,
       webm: has('webm'),
@@ -79,6 +89,7 @@ function readDemos(slug: string): DemoInfo[] {
       title: t.title ?? null,
       needs: t.needs ?? [],
       note: t.note ?? null,
+      chapters,
     });
   }
   return out;

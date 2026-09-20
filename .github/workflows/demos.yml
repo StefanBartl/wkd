@@ -156,6 +156,10 @@ jobs:
             rm -f "$dump"
           done
           test -f "demos/out/$TAPE.webm" || { echo "::error::demos/$TAPE.tape produced no recording"; exit 1; }
+          # Chapters: at which second each feature starts, computed from the tape
+          # (scripts/tape-chapters.mjs); the plugin page turns them into jump marks.
+          node scripts/tape-chapters.mjs "demos/$TAPE.tape" > "demos/out/$TAPE.chapters.json"
+          cat "demos/out/$TAPE.chapters.json"
           # Poster: one frame, with the container's ffmpeg.
           docker run --rm -v "$PWD:/vhs" --entrypoint ffmpeg "$VHS_IMAGE" \
             -y -loglevel error -ss 1.5 -i "/vhs/demos/out/$TAPE.webm" -frames:v 1 "/vhs/demos/out/$TAPE.png"
@@ -169,6 +173,7 @@ jobs:
             demos/out/${{ matrix.tape.tape }}.webm
             demos/out/${{ matrix.tape.tape }}.mp4
             demos/out/${{ matrix.tape.tape }}.png
+            demos/out/${{ matrix.tape.tape }}.chapters.json
           if-no-files-found: error
           retention-days: 1
 
@@ -190,7 +195,7 @@ jobs:
           # Only recordings and posters leave this workflow: the deploy copies
           # the branch verbatim under the site's origin, so nothing else may
           # ride along from a container that ran third-party code.
-          stray=$(find . -type f -not \( -name "*.webm" -o -name "*.mp4" -o -name "*.png" \) | head -5)
+          stray=$(find . -type f -not \( -name "*.webm" -o -name "*.mp4" -o -name "*.png" -o -name "*.chapters.json" \) | head -5)
           if [ -n "$stray" ]; then echo "::error::unexpected files: $stray"; exit 1; fi
           ls -l
           git init -q

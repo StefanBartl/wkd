@@ -116,7 +116,12 @@ every job succeeded, force-pushes them as the single-commit orphan branch `demo-
 `demos/**` changes. The deploy workflow copies that branch into `public/demos/`; the loader
 turns whatever it finds there into a `<video>` on the plugin page (both skins). Recordings
 are therefore reproducible, never stale, and never part of main's history. For a local build
-with videos: `scripts/pull-demos.sh`. A plugin may have more than one tape: an
+with videos: `scripts/pull-demos.sh`. Each tape's chapters (the second at which each feature starts) are computed from the tape by
+`scripts/tape-chapters.mjs` (VHS's own clock: typing speed, sleeps, nothing while hidden) and
+published as `<tape>.chapters.json`; the page lists them under the player as jump marks. The
+recording aids in `demos/init.lua`: `<C-t>` shows the next title from `$DEMO_TITLES` with a
+`$DEMO_COUNTDOWN`-second countdown (default 3) before the feature's keys, and past the last
+title the "loops from here" card. A plugin may have more than one tape: an
 entry with its own `tape` name (`hover-media` for `demos/hover-media.tape`), a `title`, a `needs`
 list (plugins of the family the shown feature depends on, linked from the caption) and a `note`.
 Adding a demo = one tape + one line in

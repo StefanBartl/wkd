@@ -744,6 +744,24 @@
   .tui-demo .demo-note {
     display: block;
   }
+  .tui-demo .demo-chapters summary {
+    cursor: pointer;
+    color: var(--yellow);
+  }
+  .tui-demo .demo-chapters ol {
+    margin: 0.25lh 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .tui-demo .demo-chapters button {
+    font: inherit;
+    color: var(--blue);
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+  }
 
   /* ---- screenshots ----------------------------------------------------- */
   .tui-shots {

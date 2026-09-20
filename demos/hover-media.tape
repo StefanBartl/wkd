@@ -1,5 +1,6 @@
 # hover.nvim + media.nvim + pdfport.nvim -- what a video or PDF link says on hover.
-# Titles via <C-t>: several steps per feature, each a short account of what happens.
+# Per feature: <C-t> shows the title with a 3-second countdown, then the keys;
+# past the last title, <C-t> shows the "loops from here" card.
 Source demos/_settings.tape
 Output out/hover-media.webm
 Output out/hover-media.mp4
@@ -20,8 +21,9 @@ Sleep 800ms
 
 Hide
 Ctrl+T
-Sleep 1500ms
+Sleep 300ms
 Show
+Sleep 3s
 
 Type "/intro.mp4"
 Sleep 400ms
@@ -34,8 +36,9 @@ Sleep 4s
 
 Hide
 Ctrl+T
-Sleep 1500ms
+Sleep 300ms
 Show
+Sleep 3s
 
 Type "/handbook.pdf"
 Sleep 400ms
@@ -48,8 +51,9 @@ Sleep 4s
 
 Hide
 Ctrl+T
-Sleep 1500ms
+Sleep 300ms
 Show
+Sleep 3s
 
 Type "/printable"
 Sleep 400ms
@@ -60,7 +64,13 @@ Sleep 600ms
 Enter
 Sleep 3500ms
 Enter
-Sleep 800ms
+Sleep 500ms
+
+Hide
+Ctrl+T
+Sleep 200ms
+Show
+Sleep 2s
 
 Hide
 Type ":qa!"

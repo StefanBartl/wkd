@@ -7,30 +7,51 @@ endobj
 << /Type /Pages /Kids [3 0 R] /Count 1 >>
 endobj
 3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>
 endobj
 4 0 obj
-<< /Length 274 >>
+<< /Length 1777 >>
 stream
-BT /F1 22 Tf 60 740 Td (wkd handbook) Tj ET
-BT /F1 12 Tf 60 705 Td (1. One command per plugin, one concern each.) Tj ET
-BT /F1 12 Tf 60 685 Td (2. lib.nvim is the shared foundation.) Tj ET
-BT /F1 12 Tf 60 665 Td (3. Every plugin page is generated from its repository.) Tj ET
+BT /F2 26 Tf 60 770 Td (hover.nvim handbook) Tj ET
+BT /F1 11 Tf 60 748 Td (Rest the cursor on something that points somewhere, and a float shows what it points at.) Tj ET
+1 w 60 736 m 535 736 l S
+BT /F2 14 Tf 60 706 Td (1. What hovers) Tj ET
+BT /F1 11 Tf 60 686 Td (A markdown link, a bare path in prose, a file.md#heading anchor, an image, a PDF,) Tj ET
+BT /F1 11 Tf 60 670 Td (a video, an office document, an http\(s\) URL. Each target type has a switch; each) Tj ET
+BT /F1 11 Tf 60 654 Td (switch has a command \(:Hover auto <type>, :Hover links web on, ...\).) Tj ET
+BT /F2 14 Tf 60 628 Td (2. What a float can hold) Tj ET
+BT /F1 11 Tf 60 608 Td (Text is always there. A picture needs images.nvim and a terminal with a graphics) Tj ET
+BT /F1 11 Tf 60 592 Td (protocol \(kitty, sixel\). A PDF page is rendered by pdfport.nvim, a video frame by) Tj ET
+BT /F1 11 Tf 60 576 Td (media.nvim; without a graphics terminal the float says what it knows instead:) Tj ET
+BT /F1 11 Tf 60 560 Td (type, size, resolution, length, page count.) Tj ET
+BT /F2 14 Tf 60 534 Td (3. When nothing hovers) Tj ET
+BT /F1 11 Tf 60 514 Td (:Hover why names the gate that refused -- the mode, a switch, a source that did not) Tj ET
+BT /F1 11 Tf 60 498 Td (claim the position -- and what to type about it.) Tj ET
+BT /F2 14 Tf 60 472 Td (4. Around it) Tj ET
+BT /F1 11 Tf 60 452 Td (markdown.nvim contributes the link scanner. images.nvim draws. pdfport.nvim and) Tj ET
+BT /F1 11 Tf 60 436 Td (media.nvim render pages and frames. All of them are soft: without them, everything) Tj ET
+BT /F1 11 Tf 60 420 Td (else works unchanged. lib.nvim is the one real dependency.) Tj ET
+1 w 60 90 m 535 90 l S
+BT /F1 9 Tf 60 74 Td (wkd -- a family of Neovim plugins  |  stefanbartl.github.io/wkd  |  page 1 of 1) Tj ET
 endstream
 endobj
 5 0 obj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
 xref
-0 6
+0 7
 0000000000 65535 f 
 0000000015 00000 n 
 0000000064 00000 n 
 0000000121 00000 n 
-0000000247 00000 n 
-0000000572 00000 n 
+0000000257 00000 n 
+0000002086 00000 n 
+0000002156 00000 n 
 trailer
-<< /Size 6 /Root 1 0 R >>
+<< /Size 7 /Root 1 0 R >>
 startxref
-642
+2231
 %%EOF
