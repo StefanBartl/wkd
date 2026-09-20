@@ -58,7 +58,9 @@ Sleep 800ms
 Type ":Hover why"
 Sleep 600ms
 Enter
-Sleep 4s
+Sleep 3500ms
+Enter
+Sleep 800ms
 
 Hide
 Type ":qa!"

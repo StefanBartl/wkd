@@ -135,7 +135,11 @@ local function setup_plugin(slug)
   end
 end
 for _, slug in ipairs(also[plugin] or {}) do
-  setup_plugin(slug)
+  -- Only when this tape put it on the runtimepath: hover's plain tape runs
+  -- without media/pdfport, its media tape with them.
+  if vim.tbl_contains(deps, slug) then
+    setup_plugin(slug)
+  end
 end
 setup_plugin(plugin)
 
@@ -154,16 +158,35 @@ vim.api.nvim_create_user_command("Demo", function(o)
   title_close()
   local text = vim.trim(o.args)
   if text ~= "" and text ~= "off" then
+    -- Wrap at word boundaries so a title that tells the whole story ("-> ...
+    -- -> ...") stays on screen instead of running off the right edge.
+    local max_w = math.max(20, vim.o.columns - 6)
+    local lines, cur = {}, ""
+    for word in text:gmatch("%S+") do
+      local joined = cur == "" and word or (cur .. " " .. word)
+      if vim.fn.strdisplaywidth(joined) > max_w and cur ~= "" then
+        lines[#lines + 1] = cur
+        cur = word
+      else
+        cur = joined
+      end
+    end
+    lines[#lines + 1] = cur
+    local width = 0
+    for i, l in ipairs(lines) do
+      width = math.max(width, vim.fn.strdisplaywidth(l))
+      lines[i] = " " .. l .. " "
+    end
     title.buf = vim.api.nvim_create_buf(false, true)
     vim.bo[title.buf].bufhidden = "wipe"
-    vim.api.nvim_buf_set_lines(title.buf, 0, -1, false, { " " .. text .. " " })
+    vim.api.nvim_buf_set_lines(title.buf, 0, -1, false, lines)
     title.win = vim.api.nvim_open_win(title.buf, false, {
       relative = "editor",
       anchor = "NE",
       row = 0,
       col = vim.o.columns,
-      width = vim.fn.strdisplaywidth(text) + 2,
-      height = 1,
+      width = width + 2,
+      height = #lines,
       style = "minimal",
       focusable = false,
       zindex = 60,
