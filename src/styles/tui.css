@@ -193,6 +193,10 @@
     color: var(--fg-dim);
     flex: none;
   }
+  /* The `?` key needs src/scripts/vim.ts; without scripting the hint is a lie. */
+  html:not([data-js]) .tui-cmd .pos-keys {
+    display: none;
+  }
 
   /* ---- search (lives in the cmdline) ------------------------------------ */
   .tui-cmd .search {

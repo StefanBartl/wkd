@@ -88,7 +88,10 @@ function inline(line: string, o: RenderOptions): string {
     } else if (ctrl) {
       out += `<kbd>${esc(ctrl)}</kbd>`;
     } else if (url) {
-      out += `<a class="vd-url" href="${esc(url)}" rel="noopener">${esc(url)}</a>`;
+      // Sentence punctuation after a URL belongs to the prose, not the link
+      // ("see https://github.com/x/y, which ..."), as in Vim's own helpURL.
+      const [, link = url, trail = ''] = url.match(/^(.*?)([.,;:!?"']*)$/) ?? [];
+      out += `<a class="vd-url" href="${esc(link)}" rel="noopener">${esc(link)}</a>${esc(trail)}`;
     } else if (arg) {
       out += `<var>${esc(arg)}</var>`;
     }
@@ -97,11 +100,21 @@ function inline(line: string, o: RenderOptions): string {
 }
 
 const SEPARATOR = /^[=-]{3,}\s*$/;
-const CODE_OPEN = /^(.*?)\s?>([a-z]*)$/;
+// A code block opens with `>` (optionally `>lua`) at the end of a line, and
+// only when it stands alone or follows whitespace -- exactly like Vim's own
+// help syntax. Without that rule a line ending in `<Esc>` or `->` would open
+// a block and swallow the indented lines after it.
+const CODE_OPEN = /^(?:(.*)\s)?>([a-z]*)$/;
 const MODELINE = /^\s*vim?:/;
+// Non-global twins of TAG_RE for .test(): a global regex keeps lastIndex
+// between calls and would miss every other match.
+const HAS_TAG = /\*[^\s*|]+\*/;
+const TAG_LINE = /^\s*(?:\*[^\s*|]+\*\s*)+$/;
 
 export function renderVimdoc(text: string, o: RenderOptions): Rendered {
   const lines = text.replace(/\r/g, '').split('\n');
+  // Files end with a newline, so the modeline is the last non-blank line.
+  while (lines.length && !lines[lines.length - 1]?.trim()) lines.pop();
   if (lines.length && MODELINE.test(lines[lines.length - 1] ?? '')) lines.pop();
 
   const headings: Rendered['headings'] = [];
@@ -122,7 +135,9 @@ export function renderVimdoc(text: string, o: RenderOptions): Rendered {
     if (code === null) return;
     while (code.length && code[code.length - 1] === '') code.pop();
     const lang = codeLang ? ` data-lang="${esc(codeLang)}"` : '';
-    out.push(`<pre class="vd-code"${lang}><code>${code.join('\n')}</code></pre>`);
+    // `>` directly followed by an unindented line (which ends the block, as in
+    // Vim) leaves nothing to show; an empty bordered box would be an artefact.
+    if (code.length) out.push(`<pre class="vd-code"${lang}><code>${code.join('\n')}</code></pre>`);
     code = null;
     codeLang = '';
   };
@@ -142,7 +157,8 @@ export function renderVimdoc(text: string, o: RenderOptions): Rendered {
     );
   };
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? '';
     if (code !== null) {
       if (line.startsWith('<')) {
         flushCode();
@@ -170,7 +186,28 @@ export function renderVimdoc(text: string, o: RenderOptions): Rendered {
     }
     if (pendingH2) {
       pendingH2 = false;
-      heading(2, line);
+      // A tag that does not fit on the heading line goes right-aligned on the
+      // next one (function signatures in lib.nvim's docs); keep it with the
+      // heading so the section has an id and a TOC entry.
+      const next = lines[i + 1] ?? '';
+      if (!HAS_TAG.test(line) && TAG_LINE.test(next)) {
+        i++;
+        heading(2, `${line} ${next}`);
+      } else if (
+        TAG_LINE.test(line) &&
+        next.trim() &&
+        !SEPARATOR.test(next) &&
+        !TAG_LINE.test(next) &&
+        !CODE_OPEN.test(next)
+      ) {
+        // The other order: tag line first, heading text below it (reposcope's
+        // command sections). Without the merge the heading and its TOC entry
+        // would have no text at all.
+        i++;
+        heading(2, `${next} ${line}`);
+      } else {
+        heading(2, line);
+      }
       continue;
     }
     const open = line.match(CODE_OPEN);

@@ -50,7 +50,8 @@ Requires Node ≥ 22.12 and pnpm ≥ 10.
 
 - **Astro 7**, zero client JS by default. Total client script is ~8 KB: the preference
   helper (`src/scripts/prefs.ts`) and the search UI (`src/scripts/search.ts`); the Pagefind
-  engine loads only when the search field is focused.
+  engine loads only when the search field is focused for a search (the TUI command line
+  reuses the field but never loads it).
 - **Search** is Pagefind, built into `dist/pagefind/` after `astro build` by
   `src/integrations/pagefind.ts` (which also serves that bundle in `astro dev` once a build
   exists). Only the modern-skin plugin pages carry `data-pagefind-body`, so each plugin is
@@ -58,14 +59,16 @@ Requires Node ≥ 22.12 and pnpm ≥ 10.
 - **Vim operation** of the TUI skin (`src/scripts/vim.ts`, progressive — everything is a
   plain link underneath): `j`/`k`/`gg`/`G` move a cursor line over the links in `<main>`,
   `:` opens a command line in the footer that shares the search field (`:help x`, `:e x`,
-  `:ls`, `:log`, `:colorscheme x`, `:set skin=modern|tui`, `:q`; `Tab` completes plugin
-  names and themes), `?` opens the key help, and the statusline shows NORMAL / INSERT /
-  COMMAND.
+  `:ls`, `:log`, `:colorscheme x`, `:set skin=modern|tui`, `:q`; `Tab` / `Shift+Tab` cycle
+  through the completions of commands, plugin names and themes; `:help x` on a plugin
+  without `doc/*.txt` fails with E149 instead of landing on a 404), `?` opens the key help,
+  and the statusline shows NORMAL / INSERT / COMMAND.
 - **Vimdoc** (`src/lib/vimdoc.ts`): every `doc/*.txt` is rendered to HTML at `/p/<plugin>/help/`
   (further files at `/p/<plugin>/help/<file>/`, lib.nvim has 17). Line-oriented on the help
   conventions -- `*tag*` anchors, `|tag|` links resolved across all plugins' docs, `>lua … <`
   code blocks, `~` headings, `'option'`, `<Key>`; everything HTML-escaped first. Help pages are
-  in the search index, so `:help`-style searches work site-wide.
+  in the search index (modern skin only, like the plugin pages), so `:help`-style searches
+  work site-wide.
 - **Stack** (`/stack`): the `require()` edges between the plugins, read from each `lua/` tree
   (tests, fixtures and Lua comments excluded); a require inside `pcall` counts as *optional*.
   "Depended on" ranking plus a per-plugin tree.

@@ -51,6 +51,7 @@ function init(): void {
   ].map((a) => ({
     slug: (a.dataset.nav ?? '').replace(/^p\//, ''),
     name: a.textContent?.trim() ?? '',
+    help: a.hasAttribute('data-vimdoc'), // has a /help page (doc/*.txt exists)
   }));
 
   const setMode = (m: ModeName): void => {
@@ -84,16 +85,30 @@ function init(): void {
     return includes.length === 1 ? (includes[0]?.slug ?? null) : null;
   };
 
+  const hasHelp = (slug: string): boolean => plugins.some((p) => p.slug === slug && p.help);
+
   const openPlugin = (arg: string, suffix = ''): void => {
+    let slug: string | null;
     if (!arg) {
       // :help on a plugin page opens that plugin's help; elsewhere the list.
-      const m = currentPage.match(/^p\/([^/]+)/);
-      go(m?.[1] ? `p/${m[1]}${suffix}` : '');
+      slug = currentPage.match(/^p\/([^/]+)/)?.[1] ?? null;
+      if (!slug) {
+        go('');
+        return;
+      }
+    } else {
+      slug = resolvePlugin(arg);
+      if (!slug) {
+        fail(`E149: Sorry, no plugin matches "${arg}"`);
+        return;
+      }
+    }
+    // A plugin without doc/*.txt has no help page; the link would 404.
+    if (suffix === '/help' && !hasHelp(slug)) {
+      fail(`E149: Sorry, no help for ${slug}`);
       return;
     }
-    const slug = resolvePlugin(arg);
-    if (slug) go(`p/${slug}${suffix}`);
-    else fail(`E149: Sorry, no plugin matches "${arg}"`);
+    go(`p/${slug}${suffix}`);
   };
 
   const commands: Command[] = [
@@ -171,8 +186,8 @@ function init(): void {
     );
   };
 
-  const candidates = (): Candidate[] => {
-    const raw = input.value.replace(/^\s+/, '');
+  const candidates = (typed: string): Candidate[] => {
+    const raw = typed.replace(/^\s+/, '');
     const space = raw.indexOf(' ');
     if (space < 0) {
       const q = raw.toLowerCase();
@@ -205,10 +220,15 @@ function init(): void {
     }
   };
 
+  // Tab cycles through the candidates of what was *typed* (seed), not of the
+  // text a previous Tab inserted -- otherwise the second Tab sees only the
+  // one candidate it just completed to and the cycle is stuck.
   let tabIndex = -1;
+  let seed: string | null = null;
   const renderCandidates = (): void => {
-    const cands = candidates();
+    const cands = candidates(input.value);
     tabIndex = -1;
+    seed = null;
     status.classList.remove('is-error');
     status.textContent = cands.length ? '' : input.value.trim() ? 'no completion' : '';
     list.replaceChildren(
@@ -227,7 +247,7 @@ function init(): void {
         // Keep the input focused (no blur -> no exitCmd) and apply the candidate.
         b.addEventListener('mousedown', (e) => e.preventDefault());
         b.addEventListener('click', () => {
-          applyCandidate(c);
+          applyCandidate(c, seed ?? input.value);
           execute();
         });
         li.append(b);
@@ -237,20 +257,21 @@ function init(): void {
     panel.hidden = !cands.length && !status.textContent;
   };
 
-  const applyCandidate = (c: Candidate): void => {
-    const raw = input.value.replace(/^\s+/, '');
+  const applyCandidate = (c: Candidate, typed: string): void => {
+    const raw = typed.replace(/^\s+/, '');
     const space = raw.indexOf(' ');
     input.value = space < 0 ? `${c.text} ` : `${raw.slice(0, space)} ${c.text}`;
     input.setSelectionRange(input.value.length, input.value.length);
   };
 
   const complete = (dir: 1 | -1): void => {
-    const cands = candidates();
+    seed ??= input.value;
+    const cands = candidates(seed);
     if (!cands.length) return;
     tabIndex = (tabIndex + dir + cands.length) % cands.length;
     const c = cands[tabIndex];
     if (!c) return;
-    applyCandidate(c);
+    applyCandidate(c, seed);
     for (const b of list.querySelectorAll<HTMLButtonElement>('button')) {
       b.classList.toggle('is-active', b.dataset.index === String(tabIndex));
     }
@@ -294,7 +315,16 @@ function init(): void {
     cmd.run(arg);
   };
 
-  input.addEventListener('focus', () => setMode(inCmd() ? 'COMMAND' : 'INSERT'));
+  input.addEventListener('focus', () => {
+    // `/` after a failed command: the error would otherwise colour the search
+    // status red until the next `:`.
+    if (!inCmd() && status.classList.contains('is-error')) {
+      status.classList.remove('is-error');
+      status.textContent = '';
+      panel.hidden = true;
+    }
+    setMode(inCmd() ? 'COMMAND' : 'INSERT');
+  });
   input.addEventListener('blur', () => {
     if (inCmd()) exitCmd();
     else setMode('NORMAL');
@@ -313,7 +343,10 @@ function init(): void {
     if (e.key === 'Escape') {
       e.preventDefault();
       exitCmd();
-    } else if (e.key === 'Tab' || e.key === 'ArrowDown') {
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      complete(e.shiftKey ? -1 : 1);
+    } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       complete(1);
     } else if (e.key === 'ArrowUp') {

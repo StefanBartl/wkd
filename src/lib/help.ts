@@ -28,8 +28,12 @@ export function tagIndex(): Promise<Map<string, TagTarget>> {
 
 export async function renderHelp(text: string, self: string, skin: Skin): Promise<Rendered> {
   const tags = await tagIndex();
+  // A document's own tags win over the family-wide index: two plugins may
+  // define the same tag (`*bold*`, `*not*`), and a |ref| must stay on the
+  // page that defines it, whichever doc the index happened to see first.
+  const own = new Set(collectTags(text));
   return renderVimdoc(text, {
-    resolve: (tag) => tags.get(tag) ?? null,
+    resolve: (tag) => (own.has(tag) ? { page: self } : (tags.get(tag) ?? null)),
     href: (page) => href(page, skin),
     self,
   });

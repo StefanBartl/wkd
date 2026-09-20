@@ -63,6 +63,7 @@ const file = page ? `~/wkd/${page}` : '~/wkd';
                   class:list={['item', { cur: p.id === current }]}
                   href={href(`p/${p.id}`, 'tui')}
                   data-nav={`p/${p.id}`}
+                  data-vimdoc={p.data.hasVimdoc ? '' : undefined}
                   aria-current={p.id === current ? 'page' : undefined}
                 >
                   {p.data.name}
@@ -82,7 +83,10 @@ const file = page ? `~/wkd/${page}` : '~/wkd';
     </div>
     <footer class="tui-cmd" aria-label="Command line">
       <Search placeholder={cmd} />
-      <span class="pos"><kbd>?</kbd> keys · {plugins.length} plugins</span>
+      <span class="pos">
+        {/* `?` is handled by src/scripts/vim.ts; hidden without scripting (tui.css). */}
+        <span class="pos-keys"><kbd>?</kbd> keys · </span>{plugins.length} plugins
+      </span>
     </footer>
   </div>
   {/* Opened by `?` (src/scripts/vim.ts); a native <dialog>, Esc closes it. */}

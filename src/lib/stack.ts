@@ -73,7 +73,8 @@ export function renderTuiStack(
     .map((n) => {
       const pad = ' '.repeat(Math.max(1, 24 - n.name.length));
       const bar = '█'.repeat(Math.max(1, Math.round((n.usedBy.length / max) * 24)));
-      return `${link(n.slug)}${pad}<span class="bar">${bar}</span> ${n.usedBy.length}`;
+      // The block glyphs are decoration; the count after them is the value.
+      return `${link(n.slug)}${pad}<span class="bar" aria-hidden="true">${bar}</span> ${n.usedBy.length}`;
     })
     .join('\n');
 

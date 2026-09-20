@@ -26,7 +26,7 @@ const page = doc.main ? `p/${doc.plugin}/help` : `p/${doc.plugin}/help/${doc.fil
   page={page}
   title={`:help ${doc.file} — ${plugin.name} — wkd`}
   description={doc.title}
-  cmd={`help ${doc.main ? doc.plugin : doc.file}`}
+  cmd={`help ${doc.plugin}`}
 >
   <h1 class="tui-h1">{doc.file}.txt</h1>
   <p class="tui-p tui-dim">

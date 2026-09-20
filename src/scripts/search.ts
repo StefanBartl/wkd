@@ -123,29 +123,35 @@ function init(form: HTMLFormElement): void {
   };
 
   const run = async (): Promise<void> => {
+    if (form.dataset.mode === 'cmd') return; // the debounce fired after `:`
     const query = input.value.trim();
     const mine = ++seq;
     if (!query) {
       close();
       return;
     }
+    // Stale when a newer search or close() moved seq on -- or when the TUI
+    // command line took the field over while this search was in flight
+    // (Tab out of the field, then `:`): its candidates must not be replaced.
+    const stale = (): boolean => mine !== seq || form.dataset.mode === 'cmd';
     let pf: Pagefind;
     try {
       pf = await load();
     } catch {
-      if (mine !== seq) return;
+      if (stale()) return;
       status.textContent = UNAVAILABLE;
       open();
       return;
     }
     const { results } = await pf.search(query);
-    if (mine !== seq) return;
+    if (stale()) return;
     const items = await Promise.all(results.slice(0, MAX_RESULTS).map((r) => r.data()));
-    if (mine !== seq) return;
+    if (stale()) return;
     render(items, query);
   };
 
   input.addEventListener('focus', () => {
+    if (form.dataset.mode === 'cmd') return; // `:` needs no index
     load().catch(() => {});
   });
   input.addEventListener('input', () => {

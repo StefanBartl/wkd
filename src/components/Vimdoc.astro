@@ -15,6 +15,9 @@ const self = helpPage(doc.plugin, doc.file, doc.main);
 const { html, headings } = await renderHelp(doc.text, self, skin);
 const raw = `https://github.com/${registry.owner}/${doc.pluginName}/blob/HEAD/doc/${encodeURIComponent(doc.file)}.txt`;
 const toc = headings.filter((h) => h.level === 2 && h.id);
+// Only the modern skin is indexed by Pagefind (src/scripts/search.ts maps the
+// result onto the visitor's skin); indexing both would list every hit twice.
+const indexed = skin === 'modern';
 ---
 
 {
@@ -35,12 +38,16 @@ const toc = headings.filter((h) => h.level === 2 && h.id);
   toc.length > 1 ? (
     <nav class="vd-toc" aria-label="Sections">
       {toc.map((h) => (
-        <a href={`#${encodeURIComponent(h.id ?? '')}`}>{h.text}</a>
+        <a href={`#${encodeURIComponent(h.id ?? '')}`}>{h.text || h.id}</a>
       ))}
     </nav>
   ) : null
 }
-<article class="vd" data-pagefind-body data-pagefind-meta={`title:${doc.pluginName} :help ${doc.file}`}>
+<article
+  class="vd"
+  data-pagefind-body={indexed ? '' : undefined}
+  data-pagefind-meta={indexed ? `title:${doc.pluginName} :help ${doc.file}` : undefined}
+>
   <p class="vd-source" data-pagefind-ignore>
     <a href={raw} rel="noopener">doc/{doc.file}.txt</a> — rendered from the plugin's own vimdoc
   </p>
