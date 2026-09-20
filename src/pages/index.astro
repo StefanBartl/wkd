@@ -3,16 +3,22 @@ import { getCollection } from 'astro:content';
 import CategoryFilter from '../components/CategoryFilter.astro';
 import CommitLine from '../components/CommitLine.astro';
 import registry from '../data/registry.json';
-import { byDateDesc, categoryLabel, pad2 } from '../lib/format';
+import { approx, byDateDesc, categoryLabel, pad2 } from '../lib/format';
 import { href } from '../lib/site';
+import { collectTags } from '../lib/vimdoc';
 import Shell from '../skins/modern/Shell.astro';
 
 const plugins = (await getCollection('plugins')).sort((a, b) =>
   a.data.name.localeCompare(b.data.name),
 );
 const activity = (await getCollection('activity')).sort(byDateDesc).slice(0, 10);
-const commits = plugins.reduce((n, p) => n + p.data.commitCount, 0);
-const latest = activity[0]?.data;
+const features = plugins.reduce((n, p) => n + p.data.featureCount, 0);
+const testFiles = plugins.reduce((n, p) => n + p.data.testFiles, 0);
+// Every `*tag*` a user can `:help`, counted per plugin (two plugins may share a name).
+const helpTags = new Set<string>();
+for (const d of await getCollection('vimdocs')) {
+  for (const tag of collectTags(d.data.text)) helpTags.add(`${d.data.plugin}\0${tag}`);
+}
 const counts: Record<string, number> = {};
 for (const p of plugins) counts[p.data.category] = (counts[p.data.category] ?? 0) + 1;
 const title = 'wkd — a family of Neovim plugins';
@@ -22,7 +28,7 @@ const description = `${plugins.length} Neovim plugins from one workshop: AI, edi
 <Shell page="" title={title} description={description}>
   <section class="m-hero">
     <p class="m-kicker">
-      github.com/{registry.owner} · <b>{plugins.length} repositories</b> · {commits.toLocaleString('en')} commits
+      github.com/{registry.owner} · <b>{plugins.length} repositories</b>
     </p>
     <h1 class="display" data-kinetic>
       {plugins.length} plugins.<br />One <b>family</b>.
@@ -30,16 +36,13 @@ const description = `${plugins.length} Neovim plugins from one workshop: AI, edi
     <p class="m-lede">
       Neovim plugins that share one rule — one command, one concern — and one tested foundation.
       This site is generated from the repositories themselves: every tagline, status and commit
-      below is read from the source, not written here.
+      below is read from the source.
     </p>
     <dl class="m-stats">
       <div><dt>plugins</dt><dd>{plugins.length}</dd></div>
-      <div><dt>commits</dt><dd>{commits.toLocaleString('en')}</dd></div>
-      <div><dt>with vimdoc</dt><dd>{plugins.filter((p) => p.data.hasVimdoc).length}</dd></div>
-      <div>
-        <dt>last push</dt>
-        <dd>{latest ? latest.date.slice(5, 10) : '—'}</dd>
-      </div>
+      <div><dt>features</dt><dd>{approx(features)}</dd></div>
+      <div><dt>help topics</dt><dd>{approx(helpTags.size)}</dd></div>
+      <div><dt>test files</dt><dd>{approx(testFiles)}</dd></div>
     </dl>
   </section>
 

@@ -8,6 +8,13 @@
     --muted: light-dark(#5f5e5a, #9c9a93);
     --acid: #c6ff3d;
     --acid-ink: #0b0b0c;
+    /* Hover colours of the plugin tiles and category pills: loud on purpose, all
+       readable under --acid-ink. src/scripts/hue.ts picks one at random per hover. */
+    --neon-0: #ff2d95; /* hot pink */
+    --neon-1: #39ff14; /* poison green */
+    --neon-2: #ffe600; /* highlighter yellow */
+    --neon-3: #ff6a00; /* blazing orange */
+    --neon-4: #00e5ff; /* electric cyan */
     /* Focus rings: acid is 1.03:1 on light paper, so use ink there. */
     --focus: light-dark(#0b0b0c, #c6ff3d);
     --line: 1px solid var(--ink);
@@ -202,8 +209,9 @@
     color: var(--muted);
   }
   .m-filter label:hover {
-    border-color: var(--ink);
-    color: var(--ink);
+    background: var(--hover);
+    border-color: var(--hover);
+    color: var(--acid-ink);
   }
   .m-filter input:checked + label {
     background: var(--ink);
@@ -216,6 +224,41 @@
   }
   .filter-n {
     opacity: 0.6;
+  }
+
+  /* ---- neon hover hues ---------------------------------------------------
+     Without script the hue simply cycles by position; src/scripts/hue.ts then
+     puts a random data-hue on the element the pointer enters, which wins by
+     coming later at equal specificity. */
+  :is(.m-card, .m-filter label) {
+    --hover: var(--neon-0);
+  }
+  :is(.m-card:nth-child(5n + 2), .m-filter label:nth-of-type(5n + 2)) {
+    --hover: var(--neon-1);
+  }
+  :is(.m-card:nth-child(5n + 3), .m-filter label:nth-of-type(5n + 3)) {
+    --hover: var(--neon-2);
+  }
+  :is(.m-card:nth-child(5n + 4), .m-filter label:nth-of-type(5n + 4)) {
+    --hover: var(--neon-3);
+  }
+  :is(.m-card:nth-child(5n + 5), .m-filter label:nth-of-type(5n + 5)) {
+    --hover: var(--neon-4);
+  }
+  :is(.m-card, .m-filter label)[data-hue="0"] {
+    --hover: var(--neon-0);
+  }
+  :is(.m-card, .m-filter label)[data-hue="1"] {
+    --hover: var(--neon-1);
+  }
+  :is(.m-card, .m-filter label)[data-hue="2"] {
+    --hover: var(--neon-2);
+  }
+  :is(.m-card, .m-filter label)[data-hue="3"] {
+    --hover: var(--neon-3);
+  }
+  :is(.m-card, .m-filter label)[data-hue="4"] {
+    --hover: var(--neon-4);
   }
   @media (width < 48rem) {
     .m-header {
@@ -264,9 +307,14 @@
     border-top: var(--line);
     color: var(--muted);
     font-size: 0.85rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--s-4) var(--s-8);
+    display: grid;
+    justify-items: center;
+    gap: var(--s-1);
+    text-align: center;
+  }
+  .m-footer-name {
+    color: var(--ink);
+    font-weight: 600;
   }
 
   /* ---- type ------------------------------------------------------------- */
@@ -504,8 +552,8 @@
   }
   .m-card:hover,
   .m-card:focus-visible {
-    background: var(--ink);
-    color: var(--paper);
+    background: var(--hover);
+    color: var(--acid-ink);
     outline: none;
   }
   .m-card-head {
@@ -521,7 +569,8 @@
   }
   .m-card:hover .m-card-cat,
   .m-card:focus-visible .m-card-cat {
-    color: var(--acid);
+    color: inherit;
+    opacity: 0.7;
   }
   .m-card-name {
     font-size: clamp(1.7rem, 2.6vw, 2.4rem);

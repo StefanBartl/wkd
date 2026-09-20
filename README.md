@@ -23,6 +23,8 @@ the same page in the other skin; `src/scripts/prefs.ts` remembers the choice in
 ../<plugin>/                 (sibling checkouts locally; cloned in CI)
   README.md   → banner (first code block), status (first blockquote), tagline (first paragraph)
   docs/*.md   → documentation list
+  docs/FEATURES/*.md → feature count (home statistics)
+  TESTS/**    → test-file count (home statistics)
   doc/*.txt   → rendered help pages (+ cross-plugin tag index)
   lua/**      → require() edges for /stack
   .git        → commit count, last 12 commits (conventional-commit parsed)
@@ -74,6 +76,16 @@ Requires Node ≥ 22.12 and pnpm ≥ 10.
   counts as *optional*. "Depended on" ranking plus a per-plugin tree.
 - **Category filter** on the home pages is pure CSS: radio inputs plus `:has()` rules in
   `src/styles/filter.css`. Adding a category to the registry means adding one rule there.
+- **Home statistics** (modern skin) are derived from the checkouts, never typed in, and shown
+  as rounded floors ("900+", `approx()` in `src/lib/format.ts`) so they stay true as the family
+  grows: *features* = `##` sections across every `docs/FEATURES/*.md` (fences and the folder's
+  `README.md` excluded), *help topics* = distinct `*tag*` anchors per plugin in `doc/*.txt`,
+  *test files* = Lua files under `TESTS/`. Commit counts stay on the plugin pages: they say
+  how busy a repository is, not how much it can do.
+- **Hover colours** (modern skin): plugin tiles and category pills light up in a loud neon
+  colour (`--neon-0…4` in `src/styles/modern.css`). `src/scripts/hue.ts` picks a random one per
+  hover through a `data-hue` attribute (so it works under the strict CSP); without script the
+  colour just cycles by position.
 - **Preferences** (all optional, all `localStorage`): skin, TUI colorscheme
   (`src/styles/themes.css`: tokyonight, gruvbox, catppuccin, kanagawa, nord) and the modern
   skin's light/dark override. A one-line inline bootstrap (`src/lib/boot.ts`, emitted

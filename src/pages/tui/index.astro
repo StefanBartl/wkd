@@ -2,7 +2,7 @@
 import { getCollection } from 'astro:content';
 import CategoryFilter from '../../components/CategoryFilter.astro';
 import CommitLine from '../../components/CommitLine.astro';
-import { byDateDesc, categoryLabel, pad2 } from '../../lib/format';
+import { approx, byDateDesc, categoryLabel, pad2 } from '../../lib/format';
 import { href } from '../../lib/site';
 import Shell from '../../skins/tui/Shell.astro';
 
@@ -10,7 +10,7 @@ const plugins = (await getCollection('plugins')).sort((a, b) =>
   a.data.name.localeCompare(b.data.name),
 );
 const activity = (await getCollection('activity')).sort(byDateDesc).slice(0, 8);
-const commits = plugins.reduce((n, p) => n + p.data.commitCount, 0);
+const features = plugins.reduce((n, p) => n + p.data.featureCount, 0);
 const counts: Record<string, number> = {};
 for (const p of plugins) counts[p.data.category] = (counts[p.data.category] ?? 0) + 1;
 // figlet -f Slant wkd
@@ -25,7 +25,7 @@ const banner = [
 
 <Shell page="" title="wkd — a family of Neovim plugins" description={`${plugins.length} Neovim plugins, one family.`} cmd="ls">
   <pre class="banner" aria-hidden="true" tabindex="-1">{banner}</pre>
-  <h1 class="tui-h1">{plugins.length} plugins · {commits.toLocaleString('en')} commits · one family</h1>
+  <h1 class="tui-h1">{plugins.length} plugins · {approx(features)} features · one family</h1>
   <p class="tui-p tui-dim">
     Generated from the repositories. Taglines, status and commits are read from source at build time.
   </p>

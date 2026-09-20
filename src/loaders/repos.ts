@@ -136,6 +136,10 @@ export const pluginSchema = z.object({
   docs: z.array(z.string()),
   commitCount: z.number().int().nonnegative(),
   lastCommit: z.string().nullable(),
+  /** H2 sections across docs/FEATURES/*.md: the family's own unit of "a feature" */
+  featureCount: z.number().int().nonnegative(),
+  /** Lua files under TESTS/ (specs and their helpers): a rough size of the test suite */
+  testFiles: z.number().int().nonnegative(),
   recent: z.array(commitSchema),
   /** doc/*.txt files: file = basename without .txt; main = the plugin's primary help file */
   vimdocs: z.array(z.object({ file: z.string(), title: z.string(), main: z.boolean() })),
@@ -222,6 +226,32 @@ function walkLua(dir: string, out: string[] = []): string[] {
     else if (entry.name.endsWith('.lua')) out.push(p);
   }
   return out;
+}
+
+/**
+ * Sections of docs/FEATURES/*.md: every plugin documents what it can do there,
+ * one `##` heading per feature. README.md in that folder is the index, and a
+ * `## ` inside a code fence is an example, not a heading.
+ */
+function countFeatures(dir: string): number {
+  const featuresDir = join(dir, 'docs', 'FEATURES');
+  if (!existsSync(featuresDir)) return 0;
+  let n = 0;
+  for (const f of readdirSync(featuresDir)) {
+    if (!f.endsWith('.md') || f.toLowerCase() === 'readme.md') continue;
+    let inFence = false;
+    for (const line of readFileSync(join(featuresDir, f), 'utf8').split(/\r?\n/)) {
+      if (/^\s*```/.test(line)) inFence = !inFence;
+      else if (!inFence && line.startsWith('## ')) n++;
+    }
+  }
+  return n;
+}
+
+/** Lua files anywhere under TESTS/ (the family's test folder), specs and helpers alike. */
+function countTestFiles(dir: string): number {
+  const testsDir = join(dir, 'TESTS');
+  return existsSync(testsDir) ? walkLua(testsDir).length : 0;
 }
 
 /**
@@ -516,6 +546,8 @@ async function scanOne(
       docs,
       commitCount,
       lastCommit: commits[0]?.date ?? null,
+      featureCount: countFeatures(dir),
+      testFiles: countTestFiles(dir),
       recent: commits,
       vimdocs: vimdocs.map(({ file, title, main }) => ({ file, title, main })),
       uses,
