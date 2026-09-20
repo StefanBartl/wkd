@@ -1,0 +1,10 @@
+# demos/init.lua is the only Lua here; it is formatted like the plugins it
+# drives (lib.nvim's .stylua.toml), so that `stylua --check demos/init.lua`
+# from this directory means the same thing as in their repositories.
+column_width = 100
+line_endings = "Unix"
+indent_type = "Spaces"
+indent_width = 2
+quote_style = "AutoPreferDouble"
+call_parentheses = "Always"
+collapse_simple_statement = "Never"

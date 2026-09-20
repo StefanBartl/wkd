@@ -5,6 +5,8 @@ Output out/cmdlog.mp4
 Env DEMO_PLUGIN "cmdlog"
 Env DEMO_DEPS "lib,ui,nvim-lua/plenary.nvim,nvim-telescope/telescope.nvim"
 # Titles via <C-t>: a typed :Demo would be recorded as a command of its own.
+# <C-t> counts down 3 seconds before the feature's keys (demos/init.lua): the
+# keys come after that countdown, not under it.
 Env DEMO_TITLES ":Cmdlog - the : history as a picker; Enter puts it back on the command line|:Cmdlog stats - what you type most"
 Hide
 Type `cd "${WKD_ROOT:-$GITHUB_WORKSPACE}" && clear && nvim -u demos/init.lua demos/fixtures/server.lua`
@@ -29,8 +31,9 @@ Sleep 800ms
 
 Hide
 Ctrl+T
-Sleep 1500ms
+Sleep 300ms
 Show
+Sleep 3s
 
 Type ":Cmdlog"
 Sleep 600ms
@@ -45,8 +48,9 @@ Sleep 800ms
 
 Hide
 Ctrl+T
-Sleep 1500ms
+Sleep 300ms
 Show
+Sleep 3s
 
 Type ":Cmdlog stats"
 Sleep 600ms

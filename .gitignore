@@ -6,9 +6,12 @@ dist/
 .DS_Store
 *.log
 
-# demo recordings: fetched from the demo-assets branch (scripts/pull-demos.sh)
+# demo recordings: fetched from the demo-assets branch (scripts/pull-demos.sh);
+# /out/ is where VHS writes a local `vhs demos/<tape>.tape` (Output paths are
+# relative to its working directory), never to be committed
 public/demos/
 demos/out/
+/out/
 
 # demo fixtures may be .log files
 !demos/fixtures/*.log

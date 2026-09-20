@@ -102,7 +102,9 @@ Requires Node ≥ 22.12 and pnpm ≥ 10.
 - **Base path** is `/wkd`. Every internal URL goes through `href()` in `src/lib/site.ts`;
   moving to a custom domain is `base: '/'` in `astro.config.ts` and nothing else.
 - **Lint/format**: Biome. `.astro` templates are not analysed for unused imports (Biome does
-  not read the template part yet).
+  not read the template part yet). The one Lua file, `demos/init.lua`, is checked like the
+  plugins it drives: `stylua --check demos/init.lua` and `luacheck demos/init.lua` from the
+  repository root (`.stylua.toml` and `.luacheckrc` here copy the family's settings).
 
 ## Demos
 
@@ -116,13 +118,15 @@ every action. The
 so a run takes about as long as the slowest tape, roughly five minutes, instead of the sum of
 all of them), turns each recording into `<plugin>.webm` + `.mp4` + a `.webp` poster and, once
 every job succeeded, force-pushes them as the single-commit orphan branch `demo-assets` -- weekly, on `workflow_dispatch`, and whenever
-`demos/**` changes. The deploy workflow copies that branch into `public/demos/` (a branch that
+`demos/**` or `scripts/tape-chapters.mjs` changes. The deploy workflow copies that branch into `public/demos/` (a branch that
 does not exist yet means a build without demos; an origin that cannot be queried fails the run
 rather than deploying a demo-less site over a good one); the loader
 turns whatever it finds there into a `<video>` on the plugin page (both skins). Recordings
 are therefore reproducible, never stale, and never part of main's history. For a local build
-with videos: `scripts/pull-demos.sh`. Each tape's chapters (the second at which each feature starts) are computed from the tape by
-`scripts/tape-chapters.mjs` (VHS's own clock: typing speed, sleeps, nothing while hidden) and
+with videos: `scripts/pull-demos.sh`. A tape recorded locally (`vhs demos/<tape>.tape` from the
+repository root) lands in `out/`, which is ignored. Each tape's chapters (the second at which each feature starts) are computed from the tape by
+`scripts/tape-chapters.mjs` (VHS's own clock: typing speed per character and per key repeat,
+sleeps, nothing while hidden, nothing for a `Ctrl+`/`Alt+`/`Shift+` combination) and
 published as `<tape>.chapters.json`; the page lists them under the player as jump marks. The
 recording aids in `demos/init.lua`: `<C-t>` shows the next title from `$DEMO_TITLES` with a
 `$DEMO_COUNTDOWN`-second countdown (default 3) before the feature's keys, and past the last
@@ -139,12 +143,15 @@ plugin needs one. External tools a plugin shells out to (ripgrep, fd) are downlo
 workflow (version and checksum pinned) and mounted into the container. The publish step
 refuses anything but `.webm`/`.mp4`/`.webp`/`.chapters.json`, since the deploy copies the branch
 verbatim under the site origin. The record job's checkout carries no token and is mounted into the
-container as the tapes' working directory; the chapters are computed before the container runs. lib.nvim's first-run panel for missing external tools is switched off in that
+container as the tapes' working directory, with `.git` hidden behind an empty read-only tmpfs
+(actions/checkout's post step runs git in that checkout on the host); the chapters are computed
+before the container runs and copied next to the recording only afterwards, and a symlink among
+the outputs fails the job instead of being followed by the upload. lib.nvim's first-run panel for missing external tools is switched off in that
 config (`vim.g.lib_nvim_deps_disable_first_run`): in the container it would open on every
 recording and, being entered, become the window the demoed command runs from -- which is how
 the diff.nvim tape once recorded a diff of the panel's float. A third aid, `:DemoDump [label]`, appends the window/option state to
 `demos/out/_dump-<plugin>.txt`, which the workflow prints into the job log and drops before
-publishing -- for a recording that looks wrong in CI but right locally. VHS runs in its official container image, pinned to v0.11.0: v0.12.0 exits 0
+publishing -- for a recording that looks wrong in CI but right locally. VHS runs in its official container image, pinned to v0.11.0 by tag and digest: v0.12.0 exits 0
 without writing any file ([charmbracelet/vhs#787](https://github.com/charmbracelet/vhs/issues/787)).
 
 ### Screenshots

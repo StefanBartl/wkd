@@ -20,6 +20,7 @@ on:
     branches: [main]
     paths:
       - 'demos/**'
+      - 'scripts/tape-chapters.mjs'
       - '.github/workflows/demos.yml'
 
 permissions:
@@ -31,12 +32,15 @@ concurrency:
 
 env:
   # v0.12.0 (2026-09-09) exits 0 without writing any output on Linux runners,
-  # charmbracelet/vhs#787; stay on v0.11.0 until that is fixed.
-  VHS_IMAGE: ghcr.io/charmbracelet/vhs:v0.11.0
+  # charmbracelet/vhs#787; stay on v0.11.0 until that is fixed. Pinned by
+  # digest as well: a tag can be re-pushed, and this image produces what
+  # the site serves.
+  VHS_IMAGE: ghcr.io/charmbracelet/vhs:v0.11.0@sha256:9d5fc3dc0c160b0fb1d2212baff07e6bdf3fa9438c504a3237484567302fcf93
 
 jobs:
   plan:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       tapes: ${{ steps.list.outputs.tapes }}
     steps:
@@ -56,7 +60,7 @@ jobs:
           for name in $(jq -r '.tapes[] | (.tape // .plugin)' demos/demos.json); do
             [ -f "demos/$name.tape" ] || { echo "::error::demos/demos.json lists $name but demos/$name.tape is missing"; exit 1; }
           done
-          tapes=$(jq -c '[.tapes[] | { tape: (.tape // .plugin), plugin: .plugin, deps: (.deps | join(" ")) }]' demos/demos.json)
+          tapes=$(jq -c '[.tapes[] | { tape: (.tape // .plugin), plugin: .plugin, deps: ((.deps // []) | join(" ")) }]' demos/demos.json)
           echo "tapes=$tapes" >> "$GITHUB_OUTPUT"
           echo "$tapes" | jq -r '.[] | "\(.tape): \(.deps)"'
 
@@ -64,6 +68,9 @@ jobs:
     needs: plan
     runs-on: ubuntu-latest
     name: ${{ matrix.tape.tape }}
+    # A tape takes a few minutes; a hung recording (Neovim waiting on a prompt,
+    # VHS writing nothing) must not hold the runner for the 6-hour default.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -78,7 +85,7 @@ jobs:
       - name: Neovim stable
         run: |
           mkdir -p "$RUNNER_TEMP/nvim"
-          curl -sSL -o "$RUNNER_TEMP/nvim.tar.gz" \
+          curl -fsSL -o "$RUNNER_TEMP/nvim.tar.gz" \
             https://github.com/neovim/neovim/releases/download/stable/nvim-linux-x86_64.tar.gz
           tar -xzf "$RUNNER_TEMP/nvim.tar.gz" -C "$RUNNER_TEMP/nvim" --strip-components=1
           "$RUNNER_TEMP/nvim/bin/nvim" --version | head -1
@@ -123,11 +130,13 @@ jobs:
             case "$dep" in
               */*@*)
                 repo="${dep%@*}"; sha="${dep##*@}"; dir="$RUNNER_TEMP/repos/${repo##*/}"
+                [ -d "$dir" ] && continue # listed twice (always + deps): one checkout
                 git init --quiet "$dir"
                 git -C "$dir" fetch --quiet --depth 1 "https://github.com/$repo.git" "$sha"
                 git -C "$dir" -c advice.detachedHead=false checkout --quiet FETCH_HEAD ;;
               */*) echo "::error::third-party dependency '$dep' must be pinned as owner/repo@sha"; exit 1 ;;
-              *)   git clone --quiet --depth 1 "https://github.com/$owner/$dep.nvim.git" "$RUNNER_TEMP/repos/$dep.nvim" ;;
+              *)   [ -d "$RUNNER_TEMP/repos/$dep.nvim" ] && continue # the plugin itself, listed again under deps
+                   git clone --quiet --depth 1 "https://github.com/$owner/$dep.nvim.git" "$RUNNER_TEMP/repos/$dep.nvim" ;;
             esac
           done
           ls "$RUNNER_TEMP/repos"
@@ -137,17 +146,28 @@ jobs:
           TAPE: ${{ matrix.tape.tape }}
         run: |
           docker pull -q "$VHS_IMAGE"
-          mkdir -p demos/out
+          # ./out is where VHS writes (relative to its working directory); created
+          # here so the checks below run even when VHS wrote nothing at all.
+          mkdir -p demos/out out
           # Chapters: at which second each feature starts, computed from the tape
           # (scripts/tape-chapters.mjs); the plugin page turns them into jump marks.
-          # Before the container runs, so that nothing it can write to the
-          # mounted checkout is executed on the host afterwards.
-          node scripts/tape-chapters.mjs "demos/$TAPE.tape" > "demos/out/$TAPE.chapters.json"
-          cat "demos/out/$TAPE.chapters.json"
+          # Computed before the container runs and kept outside the mount until
+          # it has finished: the container runs third-party code with write
+          # access to the checkout, so nothing it can touch is executed on the
+          # host afterwards, and nothing it writes may pose as the chapters.
+          node scripts/tape-chapters.mjs "demos/$TAPE.tape" > "$RUNNER_TEMP/$TAPE.chapters.json"
+          cat "$RUNNER_TEMP/$TAPE.chapters.json"
           # The container sees the repo at /vhs (its WORKDIR), Neovim at
           # /opt/nvim and the checkouts at /opt/repos; the tapes cd to $WKD_ROOT.
+          # .git is hidden behind an empty read-only tmpfs: actions/checkout's
+          # post step runs git (`submodule foreach`, `config`) in this checkout
+          # on the host, and a .git/config the container rewrote (core.fsmonitor,
+          # hooks) would then execute its code outside the container. Nothing in
+          # a tape needs the repository (the image has no git); an empty .git
+          # directory still marks the project root for the plugins.
           docker run --rm \
             -v "$PWD:/vhs" \
+            --tmpfs /vhs/.git:ro \
             -v "$RUNNER_TEMP/nvim:/opt/nvim:ro" \
             -v "$RUNNER_TEMP/repos:/opt/repos:ro" \
             -v "$RUNNER_TEMP/tools:/opt/tools:ro" \
@@ -155,8 +175,14 @@ jobs:
             -e PLUGINS_DIR=/opt/repos -e WKD_ROOT=/vhs -e TERM=xterm-256color \
             "$VHS_IMAGE" "demos/$TAPE.tape"
           # The container runs as root: take the outputs back (VHS writes them
-          # relative to its working directory, i.e. ./out).
-          sudo chown -R "$(id -u):$(id -g)" demos out 2>/dev/null || true
+          # relative to its working directory, i.e. ./out). -h: a symlink the
+          # container planted (checked next) changes owner itself, not its target.
+          sudo chown -Rh "$(id -u):$(id -g)" demos out 2>/dev/null || true
+          # A symlink planted by the container would make the upload (and the
+          # poster's ffmpeg) read whatever host file it points at, and the site
+          # would serve that as a recording: none may be there.
+          links=$(find ./out ./demos -type l -print 2>/dev/null | head -5)
+          if [ -n "$links" ]; then echo "::error::symlinks among the recording outputs: $links"; exit 1; fi
           # (never the fixtures: demos/fixtures/intro.mp4 is a hover target, not a recording)
           find ./out ./demos -type f \( -name "*.webm" -o -name "*.mp4" \) -not -path "./demos/out/*" -not -path "./demos/fixtures/*" -print -exec mv -t demos/out/ {} + 2>/dev/null || true
           # Diagnostics written by :DemoDump (demos/init.lua): into the log, not the branch.
@@ -166,6 +192,7 @@ jobs:
             rm -f "$dump"
           done
           test -f "demos/out/$TAPE.webm" || { echo "::error::demos/$TAPE.tape produced no recording"; exit 1; }
+          cp "$RUNNER_TEMP/$TAPE.chapters.json" "demos/out/$TAPE.chapters.json"
           # Poster: one frame, with the container's ffmpeg. webp rather than png:
           # every plugin page loads the poster eagerly through <video poster>,
           # whatever preload says, and a full-colour png of a terminal is
@@ -189,6 +216,7 @@ jobs:
   publish:
     needs: record
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write # force-pushes the demo-assets branch
     steps:

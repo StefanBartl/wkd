@@ -42,7 +42,14 @@ vim.g.lib_nvim_deps_disable_first_run = true
 vim.g.clipboard = {
   name = "demo-noop",
   copy = { ["+"] = function() end, ["*"] = function() end },
-  paste = { ["+"] = function() return {} end, ["*"] = function() return {} end },
+  paste = {
+    ["+"] = function()
+      return {}
+    end,
+    ["*"] = function()
+      return {}
+    end,
+  },
 }
 vim.o.number = true
 vim.o.termguicolors = true
@@ -117,7 +124,9 @@ local tweaks = {
     })
   end,
 }
-if tweaks[plugin] then tweaks[plugin]() end
+if tweaks[plugin] then
+  tweaks[plugin]()
+end
 
 -- Dependencies that must be set up as well for the demoed feature to exist
 -- (hover.nvim's link scanner is contributed by markdown.nvim's setup()).
@@ -232,20 +241,30 @@ local function title_with_countdown(text, seconds)
   countdown_stop()
   render(seconds)
   local left = seconds
-  countdown_timer = vim.uv.new_timer()
-  countdown_timer:start(1000, 1000, vim.schedule_wrap(function()
-    left = left - 1
-    if left <= 0 then
-      countdown_stop()
-      if title.win and vim.api.nvim_win_is_valid(title.win) then
-        title_show(lines)
+  local timer = vim.uv.new_timer()
+  countdown_timer = timer
+  timer:start(
+    1000,
+    1000,
+    vim.schedule_wrap(function()
+      -- A tick queued before this countdown was replaced (:Demo, the next
+      -- <C-t>) must neither stop the new timer nor paint the old title.
+      if countdown_timer ~= timer then
+        return
       end
-      return
-    end
-    if title.win and vim.api.nvim_win_is_valid(title.win) then
-      render(left)
-    end
-  end))
+      left = left - 1
+      if left <= 0 then
+        countdown_stop()
+        if title.win and vim.api.nvim_win_is_valid(title.win) then
+          title_show(lines)
+        end
+        return
+      end
+      if title.win and vim.api.nvim_win_is_valid(title.win) then
+        render(left)
+      end
+    end)
+  )
 end
 
 vim.api.nvim_create_user_command("Demo", function(o)
@@ -305,7 +324,9 @@ vim.keymap.set("n", "<C-t>", function()
   else
     vim.cmd.Demo(text)
   end
-end, { desc = "next demo title from $DEMO_TITLES, with a countdown; past the last one, the loop card (recording aid)" })
+end, {
+  desc = "next demo title from $DEMO_TITLES, with a countdown; past the last one, the loop card (recording aid)",
+})
 
 -- ---- screenkey HUD (ui.nvim) ----------------------------------------------------
 local ok_sk, err_sk = pcall(function()
@@ -318,8 +339,8 @@ local ok_sk, err_sk = pcall(function()
     -- of one chip per key; <Esc> and <C-…> keep their bracketed form.
     join_chars = true,
     labels = { ["<Space>"] = "\xE2\x90\xA3", ["<CR>"] = "\xE2\x8F\x8E", ["<BS>"] = "\xE2\x8C\xAB" },
-  })
-  ;(sk.enable or sk.toggle)()
+  });
+  (sk.enable or sk.toggle)()
 end)
 if not ok_sk then
   vim.notify("screenkey unavailable: " .. tostring(err_sk), vim.log.levels.WARN)
@@ -330,29 +351,55 @@ end
 -- workflow prints those files into the job log and drops them before
 -- publishing. Hidden in a tape (`Hide` / `Show`), it is how a recording that
 -- looks wrong in CI but right locally gets explained.
+-- Next to this file, resolved now: `-u demos/init.lua` gives a relative
+-- source path, and the cwd at dump time may be elsewhere (a tape or a plugin
+-- that cds).
+local dump_dir = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h") .. "/out"
 vim.api.nvim_create_user_command("DemoDump", function(o)
   local api = vim.api
-  local out = { ("== %s  nvim %s  %dx%d  diffopt=%s"):format(
-    o.args ~= "" and o.args or "dump", tostring(vim.version()), vim.o.columns, vim.o.lines, vim.o.diffopt) }
+  local out = {
+    ("== %s  nvim %s  %dx%d  diffopt=%s"):format(
+      o.args ~= "" and o.args or "dump",
+      tostring(vim.version()),
+      vim.o.columns,
+      vim.o.lines,
+      vim.o.diffopt
+    ),
+  }
   local cur = api.nvim_get_current_win()
   for _, w in ipairs(api.nvim_list_wins()) do
     local b = api.nvim_win_get_buf(w)
     local cfg = api.nvim_win_get_config(w)
-    local ok, err = pcall(api.nvim_set_option_value, "diff", vim.wo[w].diff, { win = w, scope = "local" })
+    local ok, err =
+      pcall(api.nvim_set_option_value, "diff", vim.wo[w].diff, { win = w, scope = "local" })
     local first = (api.nvim_buf_get_lines(b, 0, 1, false)[1] or ""):sub(1, 40)
-    local title = type(cfg.title) == "table" and cfg.title[1] and tostring(cfg.title[1][1]) or ""
-    out[#out + 1] = ("win=%d%s rel=%q diff=%s number=%s bt=%q buf=%q title=%q first=%q cursor=%d,%d set_diff=%s"):format(
-      w, w == cur and "*" or "", cfg.relative or "", tostring(vim.wo[w].diff), tostring(vim.wo[w].number),
-      vim.bo[b].buftype, vim.fn.fnamemodify(api.nvim_buf_get_name(b), ":t"), title, first,
-      api.nvim_win_get_cursor(w)[1], api.nvim_win_get_cursor(w)[2], ok and "ok" or tostring(err))
+    local wtitle = type(cfg.title) == "table" and cfg.title[1] and tostring(cfg.title[1][1]) or ""
+    local fmt = "win=%d%s rel=%q diff=%s number=%s bt=%q buf=%q title=%q first=%q"
+      .. " cursor=%d,%d set_diff=%s"
+    out[#out + 1] = fmt:format(
+      w,
+      w == cur and "*" or "",
+      cfg.relative or "",
+      tostring(vim.wo[w].diff),
+      tostring(vim.wo[w].number),
+      vim.bo[b].buftype,
+      vim.fn.fnamemodify(api.nvim_buf_get_name(b), ":t"),
+      wtitle,
+      first,
+      api.nvim_win_get_cursor(w)[1],
+      api.nvim_win_get_cursor(w)[2],
+      ok and "ok" or tostring(err)
+    )
   end
   for line in vim.fn.execute("messages"):gmatch("[^\n]+") do
     out[#out + 1] = "msg: " .. line
   end
-  -- Next to this file, not relative to the cwd: a tape may cd elsewhere.
-  local dir = vim.fs.dirname(vim.fs.normalize(debug.getinfo(1, "S").source:sub(2))) .. "/out"
-  vim.fn.mkdir(dir, "p")
-  vim.fn.writefile(out, ("%s/_dump-%s.txt"):format(dir, plugin ~= "" and plugin or "nvim"), "a")
+  vim.fn.mkdir(dump_dir, "p")
+  vim.fn.writefile(
+    out,
+    ("%s/_dump-%s.txt"):format(dump_dir, plugin ~= "" and plugin or "nvim"),
+    "a"
+  )
   if vim.fn.histget("cmd", -1):match("^DemoDump") then
     vim.fn.histdel("cmd", -1)
   end
