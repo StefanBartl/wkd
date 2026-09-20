@@ -935,6 +935,10 @@
     background: var(--acid);
     color: var(--paper);
   }
+  /* without JS the clocks stay disabled: readable, not clickable */
+  .m-demo .demo-chapters button:disabled {
+    cursor: default;
+  }
 
   /* ---- screenshots ----------------------------------------------------- */
   .m-shots {

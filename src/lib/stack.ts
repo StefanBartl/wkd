@@ -1,7 +1,8 @@
 import type { CollectionEntry } from 'astro:content';
 
 // The dependency picture of the family, from the require() edges the loader
-// found under each plugin's lua/ tree (tests and fixtures excluded).
+// found under each plugin's lua/ tree (Lua comments excluded; a pcall-guarded
+// require -- also pcall(require, "x") -- is an optional edge).
 
 export interface Edge {
   slug: string;

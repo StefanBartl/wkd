@@ -64,14 +64,25 @@ jobs:
 
       # Demo videos live on the orphan branch demo-assets (written by demos.yml);
       # the loader turns whatever is in public/demos/ into <video> on plugin pages.
+      # Only a branch that is really not there means "no demos": a fetch that
+      # fails for any other reason must not deploy a demo-less site over a
+      # good one. (ls-remote exits 2 when no ref matches, 128 when origin
+      # cannot be queried; the shell is bash -e, so a failing fetch or
+      # checkout in the then-branch fails the job.)
       - name: Fetch demo recordings
         run: |
           mkdir -p public/demos
-          if git fetch --quiet --depth 1 origin demo-assets 2>/dev/null; then
+          if git ls-remote --exit-code --heads origin demo-assets >/dev/null; then
+            git fetch --quiet --depth 1 origin demo-assets
             git --work-tree=public/demos checkout --quiet FETCH_HEAD -- .
             echo "demos: $(ls public/demos | wc -l) files"
           else
-            echo "::notice::no demo-assets branch yet -- building without demos"
+            status=$?
+            if [ "$status" -eq 2 ]; then
+              echo "::notice::no demo-assets branch yet -- building without demos"
+            else
+              echo "::error::could not query origin for demo-assets (git exit $status)"; exit 1
+            fi
           fi
 
       - name: Install, build and upload

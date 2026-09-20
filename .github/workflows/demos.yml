@@ -70,6 +70,10 @@ jobs:
         tape: ${{ fromJSON(needs.plan.outputs.tapes) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # This checkout is mounted into a container that runs third-party
+          # code, and nothing in this job needs the token.
+          persist-credentials: false
 
       - name: Neovim stable
         run: |
@@ -134,6 +138,12 @@ jobs:
         run: |
           docker pull -q "$VHS_IMAGE"
           mkdir -p demos/out
+          # Chapters: at which second each feature starts, computed from the tape
+          # (scripts/tape-chapters.mjs); the plugin page turns them into jump marks.
+          # Before the container runs, so that nothing it can write to the
+          # mounted checkout is executed on the host afterwards.
+          node scripts/tape-chapters.mjs "demos/$TAPE.tape" > "demos/out/$TAPE.chapters.json"
+          cat "demos/out/$TAPE.chapters.json"
           # The container sees the repo at /vhs (its WORKDIR), Neovim at
           # /opt/nvim and the checkouts at /opt/repos; the tapes cd to $WKD_ROOT.
           docker run --rm \
@@ -156,13 +166,12 @@ jobs:
             rm -f "$dump"
           done
           test -f "demos/out/$TAPE.webm" || { echo "::error::demos/$TAPE.tape produced no recording"; exit 1; }
-          # Chapters: at which second each feature starts, computed from the tape
-          # (scripts/tape-chapters.mjs); the plugin page turns them into jump marks.
-          node scripts/tape-chapters.mjs "demos/$TAPE.tape" > "demos/out/$TAPE.chapters.json"
-          cat "demos/out/$TAPE.chapters.json"
-          # Poster: one frame, with the container's ffmpeg.
-          docker run --rm -v "$PWD:/vhs" --entrypoint ffmpeg "$VHS_IMAGE" \
-            -y -loglevel error -ss 1.5 -i "/vhs/demos/out/$TAPE.webm" -frames:v 1 "/vhs/demos/out/$TAPE.png"
+          # Poster: one frame, with the container's ffmpeg. webp rather than png:
+          # every plugin page loads the poster eagerly through <video poster>,
+          # whatever preload says, and a full-colour png of a terminal is
+          # 100-500 KB. ffmpeg only needs the output directory.
+          docker run --rm -v "$PWD/demos/out:/vhs/demos/out" --entrypoint ffmpeg "$VHS_IMAGE" \
+            -y -loglevel error -ss 1.5 -i "/vhs/demos/out/$TAPE.webm" -frames:v 1 -c:v libwebp -quality 80 "/vhs/demos/out/$TAPE.webp"
           sudo chown -R "$(id -u):$(id -g)" demos
           ls -l demos/out
 
@@ -172,7 +181,7 @@ jobs:
           path: |
             demos/out/${{ matrix.tape.tape }}.webm
             demos/out/${{ matrix.tape.tape }}.mp4
-            demos/out/${{ matrix.tape.tape }}.png
+            demos/out/${{ matrix.tape.tape }}.webp
             demos/out/${{ matrix.tape.tape }}.chapters.json
           if-no-files-found: error
           retention-days: 1
@@ -195,7 +204,7 @@ jobs:
           # Only recordings and posters leave this workflow: the deploy copies
           # the branch verbatim under the site's origin, so nothing else may
           # ride along from a container that ran third-party code.
-          stray=$(find . -type f -not \( -name "*.webm" -o -name "*.mp4" -o -name "*.png" -o -name "*.chapters.json" \) | head -5)
+          stray=$(find . -type f -not \( -name "*.webm" -o -name "*.mp4" -o -name "*.webp" -o -name "*.chapters.json" \) | head -5)
           if [ -n "$stray" ]; then echo "::error::unexpected files: $stray"; exit 1; fi
           ls -l
           git init -q

@@ -31,7 +31,12 @@ const demoSchema = z.object({
   tape: z.string(),
   webm: z.boolean(),
   mp4: z.boolean(),
-  poster: z.boolean(),
+  /**
+   * Poster format, or null without one. The Record workflow writes webp; png
+   * is still accepted because the demo-assets branch keeps the old posters
+   * until the next weekly re-record.
+   */
+  poster: z.enum(['webp', 'png']).nullable(),
   /** what this tape shows, when a plugin has more than one */
   title: z.string().nullable(),
   /** plugins of the family the shown feature needs (slugs) */
@@ -67,7 +72,18 @@ function readDemos(slug: string): DemoInfo[] {
   if (!existsSync(manifestPath)) return [];
   const parsed = manifestSchema.safeParse(JSON.parse(readFileSync(manifestPath, 'utf8')));
   if (!parsed.success) throw new Error(`${manifestPath}: ${parsed.error.message}`);
-  const demoDir = resolve(process.env.DEMOS_DIR ?? 'public/demos');
+  // A tape's plugin and needs become links on the page: a typo must fail the
+  // build here, not ship as a 404.
+  const slugs = new Set(registry.plugins.map((p) => p.name.replace(/\.nvim$/, '')));
+  for (const t of parsed.data.tapes) {
+    for (const n of [t.plugin, ...(t.needs ?? [])]) {
+      if (!slugs.has(n)) {
+        throw new Error(`${manifestPath}: tape ${t.tape ?? t.plugin} names unknown plugin ${n}`);
+      }
+    }
+  }
+  // public/ is where the page links, so the loader looks nowhere else.
+  const demoDir = resolve('public/demos');
   const out: DemoInfo[] = [];
   for (const t of parsed.data.tapes) {
     if (t.plugin !== slug) continue;
@@ -85,7 +101,7 @@ function readDemos(slug: string): DemoInfo[] {
       tape,
       webm: has('webm'),
       mp4: has('mp4'),
-      poster: has('png'),
+      poster: has('webp') ? 'webp' : has('png') ? 'png' : null,
       title: t.title ?? null,
       needs: t.needs ?? [],
       note: t.note ?? null,
@@ -143,14 +159,19 @@ export type PluginData = z.infer<typeof pluginSchema>;
  * broken image.
  */
 function readShots(slug: string): Shot[] {
-  const dir = resolve(process.env.SHOTS_DIR ?? 'public/shots', slug);
+  const dir = resolve('public/shots', slug);
   const manifest = join(dir, 'shots.json');
   if (!existsSync(manifest)) return [];
   const parsed = z.array(shotSchema).safeParse(JSON.parse(readFileSync(manifest, 'utf8')));
   if (!parsed.success) throw new Error(`${manifest}: ${parsed.error.message}`);
   for (const shot of parsed.data) {
-    if (shot.file.includes('/') || shot.file.includes('\\') || !existsSync(join(dir, shot.file))) {
-      throw new Error(`${manifest}: no such file ${shot.file}`);
+    // A plain image file name only: no path segments (they would escape the
+    // directory in the URL), no directories, nothing an <img> cannot show.
+    if (
+      !/^[\w.-]+\.(webp|png|jpe?g|avif)$/i.test(shot.file) ||
+      !statSync(join(dir, shot.file), { throwIfNoEntry: false })?.isFile()
+    ) {
+      throw new Error(`${manifest}: ${shot.file} is not an image file in ${dir}`);
     }
   }
   return parsed.data;
@@ -183,21 +204,41 @@ function vimdocTitle(text: string, fallback: string): string {
   return t || fallback;
 }
 
-const REQUIRE = /require\(?\s*['"]([\w.-]+)/g;
+// require("mod"), require "mod" and the family's optional-dependency idiom
+// pcall(require, "mod"); `\b` keeps a `my_require(...)` helper out.
+const REQUIRE = /\brequire\s*(?:\(\s*|,\s*)?['"]([\w.-]+)/g;
 // Block comments and full-line comments (including `---` doc comments, whose
 // example code would otherwise count as dependencies).
 const LUA_COMMENT = /--\[(=*)\[[\s\S]*?\]\1\]|^[ \t]*--.*$/gm;
-const SKIP_PATH = /(^|[\\/])(tests?|spec|specs|fixtures?|TESTS)([\\/]|$)/i;
 
+// Everything under lua/ is on the runtimepath, so every file counts: the
+// family keeps its tests outside lua/, and a module named test/ or spec/
+// there is a real module.
 function walkLua(dir: string, out: string[] = []): string[] {
   if (!existsSync(dir)) return out;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, entry.name);
-    if (SKIP_PATH.test(p)) continue;
     if (entry.isDirectory()) walkLua(p, out);
     else if (entry.name.endsWith('.lua')) out.push(p);
   }
   return out;
+}
+
+/**
+ * Whether the require at `at` sits inside a pcall(...): only a pcall( whose
+ * parenthesis is still open at that point guards it -- an earlier, already
+ * closed pcall on the same lines does not.
+ */
+function guardedBy(src: string, at: number): boolean {
+  const window = src.slice(Math.max(0, at - 160), at);
+  const last = [...window.matchAll(/pcall\s*\(/g)].pop();
+  if (!last) return false;
+  let depth = 1;
+  for (const ch of window.slice((last.index ?? 0) + last[0].length)) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+  }
+  return depth > 0;
 }
 
 /**
@@ -212,8 +253,7 @@ function requiredRoots(dir: string): Map<string, boolean> {
     for (const m of src.matchAll(REQUIRE)) {
       const root = m[1]?.split('.')[0];
       if (!root) continue;
-      const at = m.index ?? 0;
-      const guarded = /pcall\s*\(/.test(src.slice(Math.max(0, at - 160), at));
+      const guarded = guardedBy(src, m.index ?? 0);
       roots.set(root, (roots.get(root) ?? true) && guarded);
     }
   }

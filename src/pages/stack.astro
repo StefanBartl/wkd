@@ -14,7 +14,7 @@ const name = (slug: string): string => nodes.find((n) => n.slug === slug)?.name 
 
 <Shell page="stack" title="Stack — wkd" description="Which plugins build on which: the require() graph of the family.">
   <section class="m-hero">
-    <p class="m-kicker"><b>{edges} require() edges</b> · {nodes.length} plugins · read from lua/, tests excluded</p>
+    <p class="m-kicker"><b>{edges} require() edges</b> · {nodes.length} plugins · read from every lua/ tree</p>
     <h1 class="display" data-kinetic>One <b>stack</b>.</h1>
     <p class="m-lede">
       What a plugin <code>require()</code>s from another plugin of the family. Most of it is one

@@ -766,6 +766,10 @@
     cursor: pointer;
     text-decoration: underline;
   }
+  /* without JS the clocks stay disabled: readable, not clickable */
+  .tui-demo .demo-chapters button:disabled {
+    cursor: default;
+  }
 
   /* ---- screenshots ----------------------------------------------------- */
   .tui-shots {

@@ -30,7 +30,7 @@ const clock = (t: number): string => {
         preload="none"
         width="1100"
         height="620"
-        poster={demo.poster ? url(demo.tape, 'png') : undefined}
+        poster={demo.poster ? url(demo.tape, demo.poster) : undefined}
         aria-label={`${slug}.nvim demo recording${demo.title ? `: ${demo.title}` : ''}`}
       >
         {demo.webm ? <source src={url(demo.tape, 'webm')} type="video/webm" /> : null}
@@ -39,7 +39,10 @@ const clock = (t: number): string => {
       </video>
       <figcaption>
         {demo.title ? <strong>{demo.title} · </strong> : null}
-        recorded with VHS from <code>demos/{demo.tape}.tape</code> in a clean Neovim — re-recorded weekly
+        {/* the same sentence on every page: not something a search should find */}
+        <span data-pagefind-ignore>
+          recorded with VHS from <code>demos/{demo.tape}.tape</code> in a clean Neovim — re-recorded weekly
+        </span>
         {demo.needs.length > 0 ? (
           <>
             {' · needs '}
@@ -61,7 +64,9 @@ const clock = (t: number): string => {
           <ol>
             {demo.chapters.map((c) => (
               <li>
-                <button type="button" data-seek={c.t}>
+                {/* disabled until the script below takes over: no dead control without JS;
+                    the label carries the title, which sits outside the button visually */}
+                <button type="button" data-seek={c.t} disabled aria-label={`${clock(c.t)} ${c.title}`}>
                   {clock(c.t)}
                 </button>{' '}
                 {c.title}
@@ -77,11 +82,13 @@ const clock = (t: number): string => {
 <script>
   // A chapter button seeks the recording it belongs to and plays from there.
   for (const button of document.querySelectorAll<HTMLButtonElement>('.demo-chapters [data-seek]')) {
+    button.disabled = false;
     button.addEventListener('click', () => {
       const video = button.closest('figure')?.querySelector('video');
       if (!video) return;
       video.currentTime = Number(button.dataset.seek);
-      void video.play();
+      // rejected when the user pauses before data arrives or nothing is playable -- nothing to do
+      video.play().catch(() => {});
       video.scrollIntoView({ block: 'nearest' });
     });
   }

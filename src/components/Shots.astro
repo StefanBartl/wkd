@@ -17,7 +17,7 @@ const { slug, shots, skin } = Astro.props;
     shots.map((s) => (
       <figure>
         <img
-          src={`${BASE}shots/${slug}/${s.file}`}
+          src={`${BASE}shots/${slug}/${encodeURIComponent(s.file)}`}
           width={s.width}
           height={s.height}
           loading="lazy"

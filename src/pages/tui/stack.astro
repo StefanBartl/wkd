@@ -13,7 +13,7 @@ const { bars, tree } = renderTuiStack(nodes, (slug) => href(`p/${slug}`, 'tui'))
 <Shell page="stack" title="Stack — wkd" description="Which plugins build on which: the require() graph of the family." cmd="stack">
   <h1 class="tui-h1">stack — {edges} require() edges · {nodes.length} plugins</h1>
   <p class="tui-p tui-dim">
-    What a plugin require()s from another plugin of the family, read from lua/ (tests excluded).
+    What a plugin require()s from another plugin of the family, read from every file under lua/.
     (optional) = the require sits inside pcall: an integration, not a hard dependency.
   </p>
 
