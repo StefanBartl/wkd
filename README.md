@@ -35,6 +35,10 @@ the same page in the other skin; `src/scripts/prefs.ts` remembers the choice in
 - `src/loaders/repos.ts` — the Astro content loader that scans the checkouts and fills two
   collections, `plugins` and `activity`.
 - `PLUGINS_DIR` — where the checkouts live (default: the parent directory of this repo).
+- `scripts/add-wkd-badge.mjs` — after adding a plugin here, run this once to insert a
+  badge and a one-line blockquote into *that plugin's own* README, linking back to its
+  page on this site (idempotent, `--write` to actually edit, `--only=<slug>` for one
+  repo). It edits the sibling checkouts under `PLUGINS_DIR`, never anything in this repo.
 
 ## Commands
 
