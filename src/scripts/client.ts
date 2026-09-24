@@ -3,4 +3,5 @@
 import './hue';
 import './prefs';
 import './search';
+import './views';
 import './vim';

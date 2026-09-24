@@ -1,5 +1,6 @@
 ---
 import { getCollection } from 'astro:content';
+import FamilyTree from '../components/FamilyTree.astro';
 import { categoryLabel } from '../lib/format';
 import { href } from '../lib/site';
 import { buildStack, foundations, treeLayout } from '../lib/stack';
@@ -11,7 +12,6 @@ const base = foundations(nodes);
 const edges = nodes.reduce((n, p) => n + p.uses.length, 0);
 const name = (slug: string): string => nodes.find((n) => n.slug === slug)?.name ?? slug;
 const tree = treeLayout(nodes);
-const treePos = new Map(tree.nodes.map((n) => [n.slug, n]));
 ---
 
 <Shell page="stack" title="Stack — wkd" description="Which plugins build on which: the require() graph of the family.">
@@ -42,43 +42,7 @@ const treePos = new Map(tree.nodes.map((n) => [n.slug, n]));
         )
       }
     </p>
-    <div class="m-tree-wrap">
-      <svg
-        class="m-tree"
-        width={tree.width}
-        height={tree.height}
-        viewBox={`0 0 ${tree.width} ${tree.height}`}
-        role="img"
-        aria-label="Layered require() tree of the plugin family, roots at the bottom"
-      >
-        {
-          tree.edges.map((e) => {
-            const a = treePos.get(e.from);
-            const b = treePos.get(e.to);
-            if (!a || !b) return null;
-            const midY = (a.y + b.y) / 2;
-            return (
-              <path
-                class={e.optional ? 'm-tree-edge m-tree-edge-opt' : 'm-tree-edge'}
-                d={`M ${a.x} ${a.y} C ${a.x} ${midY} ${b.x} ${midY} ${b.x} ${b.y}`}
-              />
-            );
-          })
-        }
-        {
-          tree.nodes.map((n) => (
-            <a
-              class={n.category === 'foundation' ? 'm-tree-node m-tree-node-root' : 'm-tree-node'}
-              href={href(`p/${n.slug}`)}
-            >
-              <title>{`${n.name} -- ${categoryLabel(n.category)}`}</title>
-              <circle cx={n.x} cy={n.y} r={n.category === 'foundation' ? 10 : 6} />
-              <text x={n.x} y={n.y - 14}>{n.name}</text>
-            </a>
-          ))
-        }
-      </svg>
-    </div>
+    <FamilyTree tree={tree} />
   </section>
 
   <section class="m-plugin" aria-label="Foundations">

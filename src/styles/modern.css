@@ -198,6 +198,77 @@
     color: var(--acid-ink);
   }
 
+  /* ---- view switch (grid / tree) ----------------------------------------
+     Pure CSS, same radio+:has() trick as the category filter below: works
+     with scripting off. The Escape shortcut (src/scripts/views.ts) is the
+     one part that needs script, so it's the one part with a no-script gap. */
+  .view-switch {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-3);
+    margin: 0;
+    min-width: 0;
+    padding: var(--s-3) var(--gutter);
+    border: 0;
+    border-bottom: var(--line);
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .view-tabs {
+    display: flex;
+    gap: var(--s-2);
+  }
+  .view-tabs label {
+    padding: var(--s-1) var(--s-3);
+    border: 1px solid var(--muted);
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+  }
+  .view-tabs label:hover {
+    background: var(--hover);
+    border-color: var(--hover);
+    color: var(--acid-ink);
+  }
+  #view-grid:checked ~ .view-tabs label[for="view-grid"],
+  #view-tree:checked ~ .view-tabs label[for="view-tree"] {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  #view-grid:focus-visible ~ .view-tabs label[for="view-grid"],
+  #view-tree:focus-visible ~ .view-tabs label[for="view-tree"] {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .view-hint {
+    display: none;
+    margin: 0;
+    opacity: 0.7;
+  }
+  .home:has(#view-tree:checked) .view-hint {
+    display: block;
+  }
+  .view-hint kbd {
+    font-family: inherit;
+    border: 1px solid var(--muted);
+    padding: 0 0.4ch;
+  }
+  .home-tree {
+    display: none;
+    padding-inline: var(--gutter);
+  }
+  .home:has(#view-tree:checked) .home-tree {
+    display: block;
+  }
+  .home:has(#view-tree:checked) .roster,
+  .home:has(#view-tree:checked) .m-filter {
+    display: none;
+  }
+
   /* ---- category filter -------------------------------------------------- */
   .m-filter {
     padding: var(--s-3) var(--gutter);

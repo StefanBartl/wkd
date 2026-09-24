@@ -2,14 +2,17 @@
 import { getCollection } from 'astro:content';
 import CategoryFilter from '../components/CategoryFilter.astro';
 import CommitLine from '../components/CommitLine.astro';
+import FamilyTree from '../components/FamilyTree.astro';
 import registry from '../data/registry.json';
 import { approx, byDateDesc, categoryLabel, pad2 } from '../lib/format';
 import { href } from '../lib/site';
+import { buildStack, treeLayout } from '../lib/stack';
 import Shell from '../skins/modern/Shell.astro';
 
 const plugins = (await getCollection('plugins')).sort((a, b) =>
   a.data.name.localeCompare(b.data.name),
 );
+const tree = treeLayout(buildStack(plugins));
 const activity = (await getCollection('activity')).sort(byDateDesc).slice(0, 10);
 const features = plugins.reduce((n, p) => n + p.data.featureCount, 0);
 const testFiles = plugins.reduce((n, p) => n + p.data.testFiles, 0);
@@ -74,6 +77,18 @@ const description = `${plugins.length} Neovim plugins from one workshop: AI, edi
   </section>
 
   <div class="home">
+    <fieldset class="view-switch">
+      <legend class="visually-hidden">View</legend>
+      <input type="radio" name="view" id="view-grid" class="visually-hidden" checked />
+      <input type="radio" name="view" id="view-tree" class="visually-hidden" />
+      <div class="view-tabs">
+        <label for="view-grid">Grid</label>
+        <label for="view-tree">Tree</label>
+      </div>
+      <p class="view-hint">
+        <kbd>Esc</kbd> back to grid
+      </p>
+    </fieldset>
     <div class="m-filter">
       <CategoryFilter counts={counts} />
     </div>
@@ -96,6 +111,15 @@ const description = `${plugins.length} Neovim plugins from one workshop: AI, edi
           </a>
         ))
       }
+    </section>
+    <section class="home-tree" aria-label="Plugin family tree">
+      <FamilyTree tree={tree} />
+      <p class="m-lede">
+        {tree.isolated} further {tree.isolated === 1 ? 'plugin has' : 'plugins have'} no
+        require() edge to a sibling and {tree.isolated === 1 ? "isn't" : "aren't"} shown here
+        — see <a href={href('stack')} data-nav="stack" data-astro-prefetch>/stack</a> for the
+        full breakdown.
+      </p>
     </section>
   </div>
 
