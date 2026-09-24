@@ -45,7 +45,6 @@
     { "name": "reposcope.nvim", "category": "project" },
     { "name": "documentation.nvim", "category": "project" },
     { "name": "gitsuite.nvim", "category": "project" },
-    { "name": "casedesk.nvim", "category": "project" },
 
     { "name": "ui.nvim", "category": "view" },
     { "name": "color_my_ascii.nvim", "category": "view" },
