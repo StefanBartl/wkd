@@ -72,6 +72,13 @@
     outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
+  /* The dropdown's own popup renders with the OS's light background
+     regardless of page theme; "color: inherit" on the closed select left
+     unselected options light-on-light there in dark mode. --acid-ink is
+     already a fixed dark value (unlike --paper, which flips with theme). */
+  .m-select option {
+    color: var(--acid-ink);
+  }
   .m-hint a,
   .m-hint button {
     text-decoration: underline;
