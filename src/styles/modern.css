@@ -234,13 +234,15 @@
     color: var(--acid-ink);
   }
   #view-grid:checked ~ .view-tabs label[for="view-grid"],
-  #view-tree:checked ~ .view-tabs label[for="view-tree"] {
+  #view-tree:checked ~ .view-tabs label[for="view-tree"],
+  #view-orbit:checked ~ .view-tabs label[for="view-orbit"] {
     background: var(--ink);
     color: var(--paper);
     border-color: var(--ink);
   }
   #view-grid:focus-visible ~ .view-tabs label[for="view-grid"],
-  #view-tree:focus-visible ~ .view-tabs label[for="view-tree"] {
+  #view-tree:focus-visible ~ .view-tabs label[for="view-tree"],
+  #view-orbit:focus-visible ~ .view-tabs label[for="view-orbit"] {
     outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
@@ -249,7 +251,7 @@
     margin: 0;
     opacity: 0.7;
   }
-  .home:has(#view-tree:checked) .view-hint {
+  .home:has(#view-tree:checked, #view-orbit:checked) .view-hint {
     display: block;
   }
   .view-hint kbd {
@@ -257,15 +259,17 @@
     border: 1px solid var(--muted);
     padding: 0 0.4ch;
   }
-  .home-tree {
+  .home-tree,
+  .home-orbit {
     display: none;
     padding-inline: var(--gutter);
   }
-  .home:has(#view-tree:checked) .home-tree {
+  .home:has(#view-tree:checked) .home-tree,
+  .home:has(#view-orbit:checked) .home-orbit {
     display: block;
   }
-  .home:has(#view-tree:checked) .roster,
-  .home:has(#view-tree:checked) .m-filter {
+  .home:has(#view-tree:checked, #view-orbit:checked) .roster,
+  .home:has(#view-tree:checked, #view-orbit:checked) .m-filter {
     display: none;
   }
 
@@ -1045,6 +1049,86 @@
   .m-tree-node:focus-visible circle {
     stroke: var(--acid-ink);
     stroke-width: 3;
+  }
+
+  /* ---- orbit view --------------------------------------------------------
+     Category bands use fill-opacity steps on one colour (--ink), not a new
+     hue per category: "one acid accent" stays true, and it reads correctly
+     for anyone who can't distinguish hues. The legend repeats every step as
+     text, so colour is never the only signal for which band is which. */
+  .m-orbit-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--s-4);
+    padding-block: var(--s-4);
+    border-top: var(--line);
+    border-bottom: var(--line);
+  }
+  .m-orbit {
+    display: block;
+    width: min(100%, 46rem);
+    height: auto;
+  }
+  .m-orbit-band {
+    fill: var(--ink);
+  }
+  .m-orbit-hub {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.5;
+  }
+  .m-orbit-hub-label {
+    fill: var(--ink);
+    font-family: var(--font-mono), monospace;
+    font-size: 28px;
+    font-weight: 800;
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
+  .m-orbit-spoke line {
+    stroke: var(--ink);
+    stroke-width: 1.5;
+    opacity: 0.55;
+  }
+  .m-orbit-spoke text {
+    fill: var(--ink);
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+  }
+  .m-orbit-spoke:hover line,
+  .m-orbit-spoke:focus-visible line {
+    stroke: var(--acid);
+    stroke-width: 3;
+    opacity: 1;
+  }
+  .m-orbit-spoke:hover text,
+  .m-orbit-spoke:focus-visible text {
+    font-weight: 700;
+  }
+  .m-orbit-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--s-2) var(--s-4);
+    margin: 0;
+    padding: 0 var(--gutter);
+    list-style: none;
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .m-orbit-legend li {
+    display: flex;
+    align-items: center;
+    gap: var(--s-1);
+  }
+  .m-orbit-swatch {
+    flex: none;
+  }
+  .m-orbit-swatch rect {
+    fill: var(--ink);
   }
 
   /* ---- demo recording ------------------------------------------------- */

@@ -1,0 +1,55 @@
+---
+// The radial view: same roster as the grid, grouped into coloured category
+// bands by angle. Data comes from src/lib/orbit.ts orbitLayout().
+import { categoryLabel } from '../lib/format';
+import { href } from '../lib/site';
+import type { OrbitLayout } from '../lib/orbit';
+
+interface Props {
+  orbit: OrbitLayout;
+}
+const { orbit } = Astro.props;
+---
+
+<div class="m-orbit-wrap">
+  <svg
+    class="m-orbit"
+    viewBox={`0 0 ${orbit.size} ${orbit.size}`}
+    role="img"
+    aria-label="All plugins arranged in a circle, grouped and coloured by category"
+  >
+    {orbit.bands.map((b) => <path class="m-orbit-band" d={b.path} fill-opacity={b.tone} />)}
+    <circle class="m-orbit-hub" cx={orbit.cx} cy={orbit.cy} r={orbit.hubR} />
+    <text class="m-orbit-hub-label" x={orbit.cx} y={orbit.cy}>
+      {orbit.centerLabel}
+    </text>
+    {
+      orbit.spokes.map((s) => (
+        <a class="m-orbit-spoke" href={href(`p/${s.slug}`)}>
+          <title>{`${s.name} -- ${categoryLabel(s.category)}`}</title>
+          <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />
+          <text
+            x={s.labelX}
+            y={s.labelY}
+            text-anchor={s.labelAnchor}
+            transform={`rotate(${s.labelRotation} ${s.labelX} ${s.labelY})`}
+          >
+            {s.name}
+          </text>
+        </a>
+      ))
+    }
+  </svg>
+  <ul class="m-orbit-legend">
+    {
+      orbit.bands.map((b) => (
+        <li>
+          <svg class="m-orbit-swatch" width="12" height="12" aria-hidden="true">
+            <rect width="12" height="12" fill-opacity={b.tone} />
+          </svg>
+          {b.label}
+        </li>
+      ))
+    }
+  </ul>
+</div>

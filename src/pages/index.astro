@@ -3,8 +3,10 @@ import { getCollection } from 'astro:content';
 import CategoryFilter from '../components/CategoryFilter.astro';
 import CommitLine from '../components/CommitLine.astro';
 import FamilyTree from '../components/FamilyTree.astro';
+import OrbitView from '../components/OrbitView.astro';
 import registry from '../data/registry.json';
 import { approx, byDateDesc, categoryLabel, pad2 } from '../lib/format';
+import { orbitLayout } from '../lib/orbit';
 import { href } from '../lib/site';
 import { buildStack, treeLayout } from '../lib/stack';
 import Shell from '../skins/modern/Shell.astro';
@@ -13,6 +15,10 @@ const plugins = (await getCollection('plugins')).sort((a, b) =>
   a.data.name.localeCompare(b.data.name),
 );
 const tree = treeLayout(buildStack(plugins));
+const orbit = orbitLayout(
+  plugins.map((p) => ({ slug: p.id, name: p.data.name, category: p.data.category })),
+  registry.categories,
+);
 const activity = (await getCollection('activity')).sort(byDateDesc).slice(0, 10);
 const features = plugins.reduce((n, p) => n + p.data.featureCount, 0);
 const testFiles = plugins.reduce((n, p) => n + p.data.testFiles, 0);
@@ -81,9 +87,11 @@ const description = `${plugins.length} Neovim plugins from one workshop: AI, edi
       <legend class="visually-hidden">View</legend>
       <input type="radio" name="view" id="view-grid" class="visually-hidden" checked />
       <input type="radio" name="view" id="view-tree" class="visually-hidden" />
+      <input type="radio" name="view" id="view-orbit" class="visually-hidden" />
       <div class="view-tabs">
         <label for="view-grid">Grid</label>
         <label for="view-tree">Tree</label>
+        <label for="view-orbit">Orbit</label>
       </div>
       <p class="view-hint">
         <kbd>Esc</kbd> back to grid
@@ -120,6 +128,9 @@ const description = `${plugins.length} Neovim plugins from one workshop: AI, edi
         — see <a href={href('stack')} data-nav="stack" data-astro-prefetch>/stack</a> for the
         full breakdown.
       </p>
+    </section>
+    <section class="home-orbit" aria-label="Plugins by category">
+      <OrbitView orbit={orbit} />
     </section>
   </div>
 
