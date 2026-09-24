@@ -1,0 +1,34 @@
+{
+  "combos": [
+    {
+      "id": "hover-preview",
+      "name": "Hover preview stack",
+      "blurb": "hover.nvim is the shared preview host; these hand it something to draw without it needing to know the format itself.",
+      "members": ["hover", "images", "pdfport", "media"]
+    },
+    {
+      "id": "markdown-toolkit",
+      "name": "Markdown toolkit",
+      "blurb": "One document, several jobs: structure, list continuation, an external render, and decoration inside its code blocks.",
+      "members": ["markdown", "cascade", "mdview", "emojis", "color_my_ascii"]
+    },
+    {
+      "id": "statusline-segments",
+      "name": "Statusline segments",
+      "blurb": "Each contributes one optional segment to ui.nvim's statusline -- none is a dependency, the segment is simply absent without it.",
+      "members": ["ui", "filetree", "github_stats", "runtime-analysis", "recommender", "sessions", "sandbox"]
+    },
+    {
+      "id": "git-family",
+      "name": "Git family",
+      "blurb": "Git tooling for the editor: history and diffing, and the repo-health numbers around them.",
+      "members": ["gitsuite", "diff", "github_stats", "reposcope"]
+    },
+    {
+      "id": "diagnostics",
+      "name": "Diagnostics neighbors",
+      "blurb": "Related, not interchangeable -- each answers a different \"what's going on\" question (the editor, the program, the codebase, over time).",
+      "members": ["dap", "debugging", "insights", "runtime-analysis", "lsp"]
+    }
+  ]
+}

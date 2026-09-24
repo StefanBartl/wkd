@@ -4,6 +4,7 @@ import CategoryFilter from '../components/CategoryFilter.astro';
 import CommitLine from '../components/CommitLine.astro';
 import FamilyTree from '../components/FamilyTree.astro';
 import OrbitView from '../components/OrbitView.astro';
+import { combosFor } from '../lib/combos';
 import registry from '../data/registry.json';
 import { approx, byDateDesc, categoryLabel, pad2 } from '../lib/format';
 import { orbitLayout } from '../lib/orbit';
@@ -116,6 +117,15 @@ const description = `${plugins.length} Neovim plugins from one workshop: AI, edi
             </span>
             <strong class="m-card-name">{p.data.name}</strong>
             <span class="m-card-tag">{p.data.tagline}</span>
+            {
+              combosFor(p.id).length > 0 && (
+                <span class="m-card-combos">
+                  {combosFor(p.id).map((c) => (
+                    <i class="m-combo-dot" data-combo={c.id} title={c.name} />
+                  ))}
+                </span>
+              )
+            }
             {
               p.data.description.length > p.data.tagline.length && (
                 <span class="m-card-desc">{p.data.description}</span>

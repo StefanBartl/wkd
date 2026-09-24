@@ -15,6 +15,15 @@
     --neon-2: #ffe600; /* highlighter yellow */
     --neon-3: #ff6a00; /* blazing orange */
     --neon-4: #00e5ff; /* electric cyan */
+    /* Combo groupings (T3): a second, deliberately separate colour identity
+       from the category neons above -- cool violet-to-blue range, no green/
+       yellow/orange so it never reads as "another category". Colour is
+       never the only signal: every dot also carries a title/text label. */
+    --combo-hover-preview: #7c3aed;
+    --combo-markdown-toolkit: #a855f7;
+    --combo-statusline-segments: #d946ef;
+    --combo-git-family: #6366f1;
+    --combo-diagnostics: #0ea5e9;
     /* Focus rings: acid is 1.03:1 on light paper, so use ink there. */
     --focus: light-dark(#0b0b0c, #c6ff3d);
     --line: 1px solid var(--ink);
@@ -701,6 +710,32 @@
     opacity: 1;
     translate: 0 0;
   }
+  .m-card-combos {
+    display: flex;
+    gap: var(--s-1);
+  }
+  .m-combo-dot {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    font-style: normal;
+    background: var(--muted);
+  }
+  .m-combo-dot[data-combo="hover-preview"] {
+    background: var(--combo-hover-preview);
+  }
+  .m-combo-dot[data-combo="markdown-toolkit"] {
+    background: var(--combo-markdown-toolkit);
+  }
+  .m-combo-dot[data-combo="statusline-segments"] {
+    background: var(--combo-statusline-segments);
+  }
+  .m-combo-dot[data-combo="git-family"] {
+    background: var(--combo-git-family);
+  }
+  .m-combo-dot[data-combo="diagnostics"] {
+    background: var(--combo-diagnostics);
+  }
   .m-status {
     font-family: var(--font-mono), monospace;
     font-size: 0.7rem;
@@ -1159,6 +1194,33 @@
   }
   .m-orbit-swatch rect {
     fill: var(--ink);
+  }
+
+  /* ---- combos (T3) -------------------------------------------------------
+     Reuses the .m-combo-dot color rules defined next to --combo-* above. */
+  .m-combos li {
+    display: block;
+    padding: var(--s-3) 0;
+  }
+  .m-combo-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    font-family: var(--font-mono), monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+  .m-combo-blurb {
+    margin: var(--s-1) 0 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .m-combo-members {
+    margin: var(--s-1) 0 0;
+  }
+  .m-combo-members a:hover {
+    background: var(--acid);
+    color: var(--acid-ink);
   }
 
   /* ---- demo recording ------------------------------------------------- */
