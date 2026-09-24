@@ -3,6 +3,7 @@ import { getCollection } from 'astro:content';
 import type { InferGetStaticPropsType } from 'astro';
 import CommitLine from '../../components/CommitLine.astro';
 import Demo from '../../components/Demo.astro';
+import ShotComposite from '../../components/ShotComposite.astro';
 import Shots from '../../components/Shots.astro';
 import { combosFor } from '../../lib/combos';
 import { categoryLabel, lazySnippet } from '../../lib/format';
@@ -48,7 +49,18 @@ const nameOf = (slug: string): string => allPlugins.find((p) => p.id === slug)?.
     </header>
 
     {d.demos.length > 0 ? <Demo slug={plugin.id} demos={d.demos} skin="modern" /> : null}
-    {d.shots.length > 0 ? <Shots slug={plugin.id} shots={d.shots} skin="modern" /> : null}
+    {
+      /* T6: ui.nvim's right-click-menu/tabline/statusline shots as one
+         composite instead of a plain gallery -- opt-in per slug, since the
+         composite is meant for a curated, matching set of shots, not any
+         plugin's arbitrary screenshot count. Empty until public/shots/ui/
+         actually has shots.json (Stefan's screenshots, not automatable). */
+      plugin.id === 'ui' ? (
+        d.shots.length > 0 && <ShotComposite slug={plugin.id} shots={d.shots} />
+      ) : d.shots.length > 0 ? (
+        <Shots slug={plugin.id} shots={d.shots} skin="modern" />
+      ) : null
+    }
 
     <div class="m-cols">
       <section data-pagefind-ignore>

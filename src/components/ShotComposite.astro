@@ -1,0 +1,49 @@
+---
+// T6: several screenshots (e.g. a right-click menu over a plain buffer, a
+// filetree, a tabline) shown as one thriller-poster-style composite instead
+// of a plain gallery -- segments separated by slanted stripes rather than
+// merged into one raster image, so a segment can be swapped or a fourth one
+// added later without rebuilding anything.
+//
+// Takes the same Shot[] shape src/loaders/repos.ts already produces from
+// public/shots/<slug>/shots.json; a plugin opts into this rendering by
+// passing a subset of its shots here instead of (or in addition to) the
+// plain <Shots> gallery. Nothing about shots.json itself changes.
+import { BASE } from '../lib/site';
+import type { Shot } from '../loaders/repos';
+
+interface Props {
+  slug: string;
+  shots: Shot[];
+}
+const { slug, shots } = Astro.props;
+---
+
+{
+  shots.length > 0 && (
+    <figure class="shot-composite-wrap">
+      <div class="shot-composite">
+        {shots.map((s, i) => (
+          <>
+            <div class="shot-composite-seg">
+              <img
+                src={`${BASE}shots/${slug}/${encodeURIComponent(s.file)}`}
+                loading="lazy"
+                decoding="async"
+                alt={`${slug}.nvim: ${s.caption}`}
+              />
+            </div>
+            {i < shots.length - 1 && <div class="shot-composite-divider" aria-hidden="true" />}
+          </>
+        ))}
+      </div>
+      <figcaption>
+        <ul class="shot-composite-captions">
+          {shots.map((s) => (
+            <li>{s.caption}</li>
+          ))}
+        </ul>
+      </figcaption>
+    </figure>
+  )
+}

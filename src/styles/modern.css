@@ -1337,4 +1337,60 @@
     font-size: 0.75rem;
     color: var(--muted);
   }
+
+  /* ---- shot composite (T6) ------------------------------------------------
+     A thriller-poster row: segments separated by slanted stripes instead of
+     merged into one image, so a segment stays swappable (build a fourth in
+     later without redoing the composite). The divider is two skewed layers
+     (white outer, black inset) -- no clip-path on the photos themselves, so
+     this doesn't depend on what's actually in frame. */
+  .shot-composite-wrap {
+    margin: 0;
+  }
+  .shot-composite {
+    display: flex;
+    overflow: hidden;
+    border: var(--line);
+  }
+  .shot-composite-seg {
+    flex: 1;
+    min-width: 0;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+  }
+  .shot-composite-seg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .shot-composite-divider {
+    flex: none;
+    width: 1.5rem;
+    margin-inline: -0.6rem;
+    background: var(--paper);
+    transform: skewX(-12deg);
+    position: relative;
+    z-index: 1;
+  }
+  .shot-composite-divider::before {
+    content: "";
+    position: absolute;
+    inset: 0 4px;
+    background: var(--ink);
+  }
+  .shot-composite-captions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1) var(--s-4);
+    margin: var(--s-2) 0 0;
+    padding: 0;
+    list-style: none;
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .shot-composite-captions li {
+    flex: 1 1 10rem;
+  }
 }
