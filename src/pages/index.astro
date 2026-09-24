@@ -37,6 +37,9 @@ const description = `${plugins.length} Neovim plugins from one workshop: AI, edi
 // enhances from there).
 const sum = (f: (p: (typeof plugins)[number]) => number) => plugins.reduce((n, p) => n + f(p), 0);
 const countWhere = (f: (p: (typeof plugins)[number]) => boolean) => plugins.filter(f).length;
+// Computed once and reused below (render loop + statsPool) instead of
+// re-filtering COMBOS for the same slug up to three times per plugin.
+const combosByPlugin = new Map(plugins.map((p) => [p.id, combosFor(p.id)]));
 const statsPool = [
   { label: 'plugins', value: String(plugins.length) },
   { label: 'features', value: approx(features) },
@@ -57,7 +60,7 @@ const statsPool = [
   { label: 'alpha', value: String(countWhere((p) => p.data.status === 'alpha')) },
   { label: 'categories', value: String(Object.keys(counts).length) },
   { label: 'combos', value: String(COMBOS.length) },
-  { label: 'in a combo', value: String(countWhere((p) => combosFor(p.id).length > 0)) },
+  { label: 'in a combo', value: String(countWhere((p) => (combosByPlugin.get(p.id)?.length ?? 0) > 0)) },
   { label: 'standalone', value: String(countWhere((p) => p.data.uses.length === 0)) },
 ];
 ---
@@ -153,9 +156,9 @@ const statsPool = [
             <strong class="m-card-name">{p.data.name}</strong>
             <span class="m-card-tag">{p.data.tagline}</span>
             {
-              combosFor(p.id).length > 0 && (
+              (combosByPlugin.get(p.id)?.length ?? 0) > 0 && (
                 <span class="m-card-combos">
-                  {combosFor(p.id).map((c) => (
+                  {combosByPlugin.get(p.id)?.map((c) => (
                     <i class="m-combo-dot" data-combo={c.id} title={c.name} />
                   ))}
                 </span>

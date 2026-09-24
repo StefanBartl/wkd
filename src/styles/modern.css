@@ -238,8 +238,13 @@
     user-select: none;
   }
   .view-tabs label:hover {
-    background: var(--hover);
-    border-color: var(--hover);
+    /* Not --hover: that custom property only exists on .m-card/.m-filter
+       label, where src/scripts/hue.ts sets a per-element data-hue. Without
+       it, var(--hover) here resolves to nothing and the whole declaration
+       is dropped -- a plain, fixed accent instead, like every other simple
+       hover state on this skin (e.g. .m-combo-members a:hover). */
+    background: var(--acid);
+    border-color: var(--acid);
     color: var(--acid-ink);
   }
   #view-grid:checked ~ .view-tabs label[for="view-grid"],
@@ -730,6 +735,14 @@
   .m-card:focus-visible .m-card-desc {
     opacity: 1;
     translate: 0 0;
+    /* Auto once visible: with pointer-events:none here, moving the mouse
+       from the tile into the flyout's own (overlapping) area would pass
+       the hover straight through to the card below, which -- since a
+       descendant capturing the pointer is what keeps a CSS :hover chain
+       alive -- immediately ends *this* tile's :hover and hides the flyout
+       again. Auto keeps the flyout the hit target while it's shown, and
+       still correctly blocks the tile underneath for that time. */
+    pointer-events: auto;
   }
   .m-card-combos {
     display: flex;

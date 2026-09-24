@@ -12,10 +12,15 @@ import Shell from '../../skins/modern/Shell.astro';
 
 export async function getStaticPaths() {
   const plugins = await getCollection('plugins');
-  return plugins.map((plugin) => ({ params: { id: plugin.id }, props: { plugin } }));
+  // Passed through as a prop (not re-fetched per page below) so all ~38
+  // generated pages share the one collection read from getStaticPaths.
+  return plugins.map((plugin) => ({
+    params: { id: plugin.id },
+    props: { plugin, allPlugins: plugins },
+  }));
 }
 type Props = InferGetStaticPropsType<typeof getStaticPaths>;
-const { plugin } = Astro.props as Props;
+const { plugin, allPlugins } = Astro.props as Props;
 const d = plugin.data;
 const page = `p/${plugin.id}`;
 // Let the huge headline break between name and suffix instead of mid-word.
@@ -23,7 +28,6 @@ const [nameBase, nameSuffix] = d.name.endsWith('.nvim')
   ? [d.name.slice(0, -5), '.nvim']
   : [d.name, ''];
 const combos = combosFor(plugin.id);
-const allPlugins = combos.length > 0 ? await getCollection('plugins') : [];
 const nameOf = (slug: string): string => allPlugins.find((p) => p.id === slug)?.data.name ?? slug;
 ---
 

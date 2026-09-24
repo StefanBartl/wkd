@@ -26,9 +26,18 @@ if (
   orbitRadio instanceof HTMLInputElement
 ) {
   const radios = [gridRadio, treeRadio, orbitRadio];
+  const IDLE_EVENTS = ['mousemove', 'keydown', 'scroll', 'touchstart'] as const;
   let touchedByUser = false;
   let revealed = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
+
+  // Once either flag flips, arm() is a permanent no-op -- drop the listeners
+  // instead of leaving them firing on every mousemove for the rest of the
+  // page's life for nothing.
+  const stopListening = (): void => {
+    clearTimeout(timer);
+    for (const type of IDLE_EVENTS) document.removeEventListener(type, arm);
+  };
 
   const arm = (): void => {
     if (touchedByUser || revealed) return;
@@ -37,17 +46,16 @@ if (
       if (touchedByUser || revealed || !gridRadio.checked) return;
       revealed = true;
       (Math.random() < 0.5 ? treeRadio : orbitRadio).checked = true;
+      stopListening();
     }, IDLE_MS);
   };
 
   for (const radio of radios) {
     radio.addEventListener('change', () => {
       touchedByUser = true;
-      clearTimeout(timer);
+      stopListening();
     });
   }
-  for (const type of ['mousemove', 'keydown', 'scroll', 'touchstart']) {
-    document.addEventListener(type, arm, { passive: true });
-  }
+  for (const type of IDLE_EVENTS) document.addEventListener(type, arm, { passive: true });
   arm();
 }
