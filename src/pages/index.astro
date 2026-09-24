@@ -116,6 +116,11 @@ const description = `${plugins.length} Neovim plugins from one workshop: AI, edi
             </span>
             <strong class="m-card-name">{p.data.name}</strong>
             <span class="m-card-tag">{p.data.tagline}</span>
+            {
+              p.data.description.length > p.data.tagline.length && (
+                <span class="m-card-desc">{p.data.description}</span>
+              )
+            }
           </a>
         ))
       }
