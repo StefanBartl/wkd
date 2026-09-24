@@ -2,7 +2,7 @@
 import { getCollection } from 'astro:content';
 import { categoryLabel } from '../lib/format';
 import { href } from '../lib/site';
-import { buildStack, foundations } from '../lib/stack';
+import { buildStack, foundations, treeLayout } from '../lib/stack';
 import Shell from '../skins/modern/Shell.astro';
 
 const plugins = await getCollection('plugins');
@@ -10,6 +10,8 @@ const nodes = buildStack(plugins);
 const base = foundations(nodes);
 const edges = nodes.reduce((n, p) => n + p.uses.length, 0);
 const name = (slug: string): string => nodes.find((n) => n.slug === slug)?.name ?? slug;
+const tree = treeLayout(nodes);
+const treePos = new Map(tree.nodes.map((n) => [n.slug, n]));
 ---
 
 <Shell page="stack" title="Stack — wkd" description="Which plugins build on which: the require() graph of the family.">
@@ -22,6 +24,61 @@ const name = (slug: string): string => nodes.find((n) => n.slug === slug)?.name 
       <em>optional</em> marks a require inside <code>pcall</code> — an integration that is used
       when the other plugin is installed, not a hard dependency.
     </p>
+  </section>
+
+  <section class="m-plugin" aria-label="Family tree">
+    <h2 class="m-h2">Family tree</h2>
+    <p class="m-lede">
+      Depth is how many hard <code>require()</code> hops a plugin sits above something with
+      none of its own -- <em>optional</em> edges (pcall-guarded integrations) are drawn but
+      don't count toward it, since a few run the other way, back down from the root. The
+      lit node is {name(base[0]?.slug ?? '')}, the one thing everything above it stands on.
+      {
+        tree.isolated > 0 && (
+          <>
+            {tree.isolated} further {tree.isolated === 1 ? 'plugin has' : 'plugins have'} no
+            require() edge to a sibling and {tree.isolated === 1 ? "isn't" : "aren't"} shown here.
+          </>
+        )
+      }
+    </p>
+    <div class="m-tree-wrap">
+      <svg
+        class="m-tree"
+        width={tree.width}
+        height={tree.height}
+        viewBox={`0 0 ${tree.width} ${tree.height}`}
+        role="img"
+        aria-label="Layered require() tree of the plugin family, roots at the bottom"
+      >
+        {
+          tree.edges.map((e) => {
+            const a = treePos.get(e.from);
+            const b = treePos.get(e.to);
+            if (!a || !b) return null;
+            const midY = (a.y + b.y) / 2;
+            return (
+              <path
+                class={e.optional ? 'm-tree-edge m-tree-edge-opt' : 'm-tree-edge'}
+                d={`M ${a.x} ${a.y} C ${a.x} ${midY} ${b.x} ${midY} ${b.x} ${b.y}`}
+              />
+            );
+          })
+        }
+        {
+          tree.nodes.map((n) => (
+            <a
+              class={n.category === 'foundation' ? 'm-tree-node m-tree-node-root' : 'm-tree-node'}
+              href={href(`p/${n.slug}`)}
+            >
+              <title>{`${n.name} -- ${categoryLabel(n.category)}`}</title>
+              <circle cx={n.x} cy={n.y} r={n.category === 'foundation' ? 10 : 6} />
+              <text x={n.x} y={n.y - 14}>{n.name}</text>
+            </a>
+          ))
+        }
+      </svg>
+    </div>
   </section>
 
   <section class="m-plugin" aria-label="Foundations">

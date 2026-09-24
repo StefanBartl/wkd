@@ -921,6 +921,54 @@
     color: var(--acid-ink);
   }
 
+  /* ---- family tree ------------------------------------------------------ */
+  .m-tree-wrap {
+    overflow-x: auto;
+    border-top: var(--line);
+    border-bottom: var(--line);
+    padding-block: var(--s-4);
+  }
+  .m-tree {
+    display: block;
+    max-width: none;
+  }
+  .m-tree-edge {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.5;
+    opacity: 0.3;
+  }
+  .m-tree-edge-opt {
+    stroke-dasharray: 3 4;
+    opacity: 0.2;
+  }
+  .m-tree-node circle {
+    fill: var(--paper);
+    stroke: var(--ink);
+    stroke-width: 1.5;
+  }
+  .m-tree-node-root circle {
+    fill: var(--acid);
+  }
+  .m-tree-node text {
+    fill: var(--ink);
+    font-family: var(--font-mono), monospace;
+    font-size: 11px;
+    text-anchor: middle;
+  }
+  .m-tree-node:hover circle,
+  .m-tree-node:focus-visible circle {
+    fill: var(--acid);
+  }
+  .m-tree-node:hover text,
+  .m-tree-node:focus-visible text {
+    font-weight: 700;
+  }
+  .m-tree-node:focus-visible circle {
+    stroke: var(--acid-ink);
+    stroke-width: 3;
+  }
+
   /* ---- demo recording ------------------------------------------------- */
   .m-demo {
     margin: 0;
