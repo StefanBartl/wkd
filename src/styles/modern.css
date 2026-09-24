@@ -529,6 +529,27 @@
     line-height: 1;
     font-variant-numeric: tabular-nums;
   }
+  /* T5: src/scripts/stats.ts toggles .is-swapping for ~260ms around a text
+     change, one slot at a time. Without script the four values just sit
+     there -- nothing here depends on it running. */
+  .m-stat-label,
+  .m-stat-value {
+    display: inline-block;
+    transition:
+      opacity 260ms var(--ease),
+      translate 260ms var(--ease);
+  }
+  .m-stat-label.is-swapping,
+  .m-stat-value.is-swapping {
+    opacity: 0;
+    translate: 0 -0.3em;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .m-stat-label,
+    .m-stat-value {
+      transition: none;
+    }
+  }
 
   .ticker {
     border-bottom: var(--line);

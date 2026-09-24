@@ -3,5 +3,6 @@
 import './hue';
 import './prefs';
 import './search';
+import './stats';
 import './views';
 import './vim';

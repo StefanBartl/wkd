@@ -4,7 +4,7 @@ import CategoryFilter from '../components/CategoryFilter.astro';
 import CommitLine from '../components/CommitLine.astro';
 import FamilyTree from '../components/FamilyTree.astro';
 import OrbitView from '../components/OrbitView.astro';
-import { combosFor } from '../lib/combos';
+import { COMBOS, combosFor } from '../lib/combos';
 import registry from '../data/registry.json';
 import { approx, byDateDesc, categoryLabel, pad2 } from '../lib/format';
 import { orbitLayout } from '../lib/orbit';
@@ -15,7 +15,8 @@ import Shell from '../skins/modern/Shell.astro';
 const plugins = (await getCollection('plugins')).sort((a, b) =>
   a.data.name.localeCompare(b.data.name),
 );
-const tree = treeLayout(buildStack(plugins));
+const stackNodes = buildStack(plugins);
+const tree = treeLayout(stackNodes);
 const orbit = orbitLayout(
   plugins.map((p) => ({ slug: p.id, name: p.data.name, category: p.data.category })),
   registry.categories,
@@ -29,6 +30,36 @@ const counts: Record<string, number> = {};
 for (const p of plugins) counts[p.data.category] = (counts[p.data.category] ?? 0) + 1;
 const title = 'wkd — a family of Neovim plugins';
 const description = `${plugins.length} Neovim plugins from one workshop: AI, editing, navigation, debugging, project tooling — one command each, one shared foundation.`;
+
+// T5: a pool of metrics the client rotates through, a slot at a time -- all
+// derived from data already loaded above, nothing new to fetch. The first
+// four stay the initial, no-script state (src/scripts/stats.ts progressively
+// enhances from there).
+const sum = (f: (p: (typeof plugins)[number]) => number) => plugins.reduce((n, p) => n + f(p), 0);
+const countWhere = (f: (p: (typeof plugins)[number]) => boolean) => plugins.filter(f).length;
+const statsPool = [
+  { label: 'plugins', value: String(plugins.length) },
+  { label: 'features', value: approx(features) },
+  { label: 'help topics', value: approx(helpTags) },
+  { label: 'test files', value: approx(testFiles) },
+  { label: 'commits', value: approx(sum((p) => p.data.commitCount)) },
+  { label: 'require() edges', value: String(stackNodes.reduce((n, p) => n + p.uses.length, 0)) },
+  {
+    label: 'optional integrations',
+    value: String(stackNodes.reduce((n, p) => n + p.uses.filter((u) => u.optional).length, 0)),
+  },
+  { label: 'demos recorded', value: String(sum((p) => p.data.demos.length)) },
+  { label: 'screenshots', value: String(sum((p) => p.data.shots.length)) },
+  { label: 'vimdoc pages', value: String(sum((p) => p.data.vimdocs.length)) },
+  { label: 'doc pages', value: String(sum((p) => p.data.docs.length)) },
+  { label: 'stable', value: String(countWhere((p) => p.data.status === 'stable')) },
+  { label: 'beta', value: String(countWhere((p) => p.data.status === 'beta')) },
+  { label: 'alpha', value: String(countWhere((p) => p.data.status === 'alpha')) },
+  { label: 'categories', value: String(Object.keys(counts).length) },
+  { label: 'combos', value: String(COMBOS.length) },
+  { label: 'in a combo', value: String(countWhere((p) => combosFor(p.id).length > 0)) },
+  { label: 'standalone', value: String(countWhere((p) => p.data.uses.length === 0)) },
+];
 ---
 
 <Shell page="" title={title} description={description}>
@@ -44,11 +75,15 @@ const description = `${plugins.length} Neovim plugins from one workshop: AI, edi
       This site is generated from the repositories themselves: every tagline, status and commit
       below is read from the source.
     </p>
-    <dl class="m-stats">
-      <div><dt>plugins</dt><dd>{plugins.length}</dd></div>
-      <div><dt>features</dt><dd>{approx(features)}</dd></div>
-      <div><dt>help topics</dt><dd>{approx(helpTags)}</dd></div>
-      <div><dt>test files</dt><dd>{approx(testFiles)}</dd></div>
+    <dl class="m-stats" data-stats-pool={JSON.stringify(statsPool)}>
+      {
+        statsPool.slice(0, 4).map((m) => (
+          <div>
+            <dt><span class="m-stat-label">{m.label}</span></dt>
+            <dd><span class="m-stat-value">{m.value}</span></dd>
+          </div>
+        ))
+      }
     </dl>
   </section>
 
