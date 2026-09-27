@@ -287,6 +287,47 @@
     display: none;
   }
 
+  /* T14: fade the incoming Tree/Orbit view in, instead of an instant pop.
+     Deliberately fade-in-only, nothing fades out: an earlier version also
+     transitioned .roster/.m-filter's exit via transition-behavior:
+     allow-discrete (which defers `display: none` until the fade completes,
+     to keep the element paintable for the whole opacity animation) -- code
+     review caught that this leaves the *outgoing* panel at full layout size
+     for the whole transition while the *incoming* one is already displayed
+     too, so both are simultaneously in flow and the page balloons by the
+     outgoing panel's full height for that whole window (confirmed: the
+     roster alone runs ~14500px tall), a real layout jump on every switch
+     out of Grid. It also left the outgoing panel's links clickable/focusable
+     while invisible-but-still-in-flow. Fading in only sidesteps both: the
+     outgoing panel still hides via the plain, un-animated display:none/block
+     swap above (instant, back to pre-T14 behaviour, so it's never briefly a
+     phantom hit target and never overlaps the incoming panel in flow), and
+     only the newly-shown one fades its opacity in from the @starting-style
+     value below. No transition-behavior/allow-discrete needed either, since
+     `display` itself isn't part of what's animating here. --dur is 0ms under
+     prefers-reduced-motion (tokens.css), collapsing this to an instant swap
+     there too. No @supports gate needed: a browser without @starting-style
+     just ignores the unknown at-rule and the opacity transition has no
+     starting value to run from, so it snaps straight to the end state --
+     the same safe fallback, with no partial-support edge case to reason
+     about (unlike gating on transition-behavior: allow-discrete, which a
+     browser could support while still lacking @starting-style, and vice
+     versa). */
+  .home-tree,
+  .home-orbit {
+    transition: opacity var(--dur) var(--ease);
+  }
+  .home:has(#view-tree:checked) .home-tree,
+  .home:has(#view-orbit:checked) .home-orbit {
+    opacity: 1;
+  }
+  @starting-style {
+    .home:has(#view-tree:checked) .home-tree,
+    .home:has(#view-orbit:checked) .home-orbit {
+      opacity: 0;
+    }
+  }
+
   /* ---- category filter -------------------------------------------------- */
   .m-filter {
     padding: var(--s-3) var(--gutter);
@@ -360,9 +401,13 @@
   :is(.m-card, .m-filter label)[data-hue="4"] {
     --hover: var(--neon-4);
   }
-  @media (width < 48rem) {
+  @media (width <= 48rem) {
     .m-header {
       flex-wrap: wrap;
+    }
+    .m-nav {
+      flex-wrap: wrap;
+      flex-basis: 100%;
     }
     .search {
       order: 3;
@@ -379,6 +424,16 @@
   .m-nav {
     display: flex;
     gap: var(--s-6);
+  }
+  /* Placed here, after the base rule, not inside the shared header/nav/search
+     media query above: that query comes before this rule in the file, so a
+     row-gap override placed there would lose the cascade tie to this rule's
+     `gap` shorthand (same specificity, later source order wins) -- confirmed
+     as a real dead-code bug in code review, not a hypothetical. */
+  @media (width <= 48rem) {
+    .m-nav {
+      row-gap: var(--s-2);
+    }
   }
   .m-nav a:hover,
   .m-nav a:focus-visible {
