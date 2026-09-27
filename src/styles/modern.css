@@ -287,6 +287,54 @@
     display: none;
   }
 
+  /* T14: soft crossfade instead of the instant display:none<->block swap above.
+     transition-behavior: allow-discrete lets `display` itself transition --
+     it flips to its shown value at 0% and to `none` at 100%, so the element
+     stays paintable for the whole opacity fade. Deliberately asymmetric:
+     .home-tree/.home-orbit get a real fade in *and* out, because both
+     directions have a defined "before" frame to animate from/to. .roster/
+     .m-filter only fade out (leaving Grid); no @starting-style is given for
+     their reverse direction (reappearing from display:none when Grid is
+     re-selected) on purpose -- that selector is also true on a plain page
+     load (Grid is the default view), and @starting-style applies on *any*
+     first match of a rule, load included. Giving it a starting value would
+     fade the whole homepage in on every visit, not just on a switch back to
+     Grid. Without one, that direction simply snaps instead, which is exactly
+     today's behaviour -- no regression, just no animation on that one edge.
+     --dur is 0ms under prefers-reduced-motion (tokens.css), so the two
+     directions that do animate collapse to an instant swap there too.
+     Progressive: unsupported browsers keep the instant swap everywhere. */
+  @supports (transition-behavior: allow-discrete) {
+    .roster,
+    .m-filter,
+    .home-tree,
+    .home-orbit {
+      transition: opacity var(--dur) var(--ease), display var(--dur) allow-discrete;
+    }
+    .roster,
+    .m-filter {
+      opacity: 1;
+    }
+    .home-tree,
+    .home-orbit {
+      opacity: 0;
+    }
+    .home:has(#view-tree:checked) .home-tree,
+    .home:has(#view-orbit:checked) .home-orbit {
+      opacity: 1;
+    }
+    .home:has(#view-tree:checked, #view-orbit:checked) .roster,
+    .home:has(#view-tree:checked, #view-orbit:checked) .m-filter {
+      opacity: 0;
+    }
+    @starting-style {
+      .home:has(#view-tree:checked) .home-tree,
+      .home:has(#view-orbit:checked) .home-orbit {
+        opacity: 0;
+      }
+    }
+  }
+
   /* ---- category filter -------------------------------------------------- */
   .m-filter {
     padding: var(--s-3) var(--gutter);
