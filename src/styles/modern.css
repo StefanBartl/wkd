@@ -360,9 +360,14 @@
   :is(.m-card, .m-filter label)[data-hue="4"] {
     --hover: var(--neon-4);
   }
-  @media (width < 48rem) {
+  @media (width <= 48rem) {
     .m-header {
       flex-wrap: wrap;
+    }
+    .m-nav {
+      flex-wrap: wrap;
+      flex-basis: 100%;
+      row-gap: var(--s-2);
     }
     .search {
       order: 3;
