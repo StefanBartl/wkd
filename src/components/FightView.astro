@@ -38,21 +38,40 @@ const pickCss = fightPickCss(BASE);
       <div class="fight-bar" aria-hidden="true">
         <div class="fight-bar-fill" data-fight-health="player"></div>
       </div>
-      <div class="fight-timer" data-fight-timer>{MATCH_SECONDS}</div>
+      <div class="fight-hud-center">
+        <div class="fight-record" data-fight-record aria-label="Wins and losses">0W 0L</div>
+        <div class="fight-timer" data-fight-timer>{MATCH_SECONDS}</div>
+      </div>
       <div class="fight-bar fight-bar-flip" aria-hidden="true">
         <div class="fight-bar-fill" data-fight-health="enemy"></div>
       </div>
     </div>
+    <div class="fight-toolbar">
+      <button type="button" class="fight-toolbtn" data-fight-music>Music: on</button>
+      <button type="button" class="fight-toolbtn" data-fight-fullscreen>Fullscreen</button>
+    </div>
     <div class="fight-canvas-wrap">
       <canvas data-fight-canvas width={CANVAS.w} height={CANVAS.h}></canvas>
+      <div class="fight-intro" data-fight-intro aria-hidden="true">FIGHT!</div>
       <div class="fight-result" data-fight-result hidden>
         <p data-fight-result-text></p>
         <button type="button" class="m-btn" data-fight-again>Rematch</button>
       </div>
     </div>
+    <div class="fight-touch" data-fight-touch aria-hidden="true">
+      <div class="fight-touch-move">
+        <button type="button" data-fight-action="left" aria-label="Move left">&larr;</button>
+        <button type="button" data-fight-action="right" aria-label="Move right">&rarr;</button>
+      </div>
+      <div class="fight-touch-actions">
+        <button type="button" data-fight-action="jump" aria-label="Jump">&uarr;</button>
+        <button type="button" data-fight-action="attack1" aria-label="Light attack">A</button>
+        <button type="button" data-fight-action="attack2" aria-label="Heavy attack">B</button>
+      </div>
+    </div>
     <p class="fight-controls">
       <kbd>&larr;</kbd><kbd>&rarr;</kbd> move &middot; <kbd>&uarr;</kbd> jump &middot;
-      <kbd>Space</kbd> attack
+      <kbd>Space</kbd> light &middot; <kbd>X</kbd> heavy
     </p>
   </div>
 </div>

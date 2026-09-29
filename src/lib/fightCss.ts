@@ -1,4 +1,4 @@
-import { ANIM, FIGHTERS, FRAME } from './fight';
+import { FIGHTERS, FRAME } from './fight';
 
 const PREVIEW = 100;
 
@@ -14,12 +14,13 @@ const PREVIEW = 100;
  */
 export function fightPickCss(base: string): string {
   const previewScale = PREVIEW / FRAME.w;
-  const previewSheetWidth = ANIM.idle.frames * FRAME.w * previewScale;
-  return FIGHTERS.map(
-    (f) => `.fight-pick[data-fighter="${f.id}"] .fight-pick-sprite {
+  return FIGHTERS.map((f) => {
+    // Each fighter's own idle frame count -- kenji's sheet has 4, not 8.
+    const sheetWidth = f.anim.idle.frames * FRAME.w * previewScale;
+    return `.fight-pick[data-fighter="${f.id}"] .fight-pick-sprite {
     background-image: url(${base}fight/${f.spriteBase}/idle.png);
-    background-size: ${previewSheetWidth}px ${PREVIEW}px;
+    background-size: ${sheetWidth}px ${PREVIEW}px;
     filter: ${f.filter};
-  }`,
-  ).join('\n');
+  }`;
+  }).join('\n');
 }

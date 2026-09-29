@@ -1368,11 +1368,44 @@
     margin-left: auto;
     background: var(--neon-0);
   }
-  .fight-timer {
+  .fight-hud-center {
     flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+  }
+  .fight-record {
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+  .fight-timer {
     min-width: 2.5ch;
     text-align: center;
     font-weight: 700;
+  }
+  .fight-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--s-2);
+    margin-bottom: var(--s-2);
+  }
+  .fight-toolbtn {
+    padding: 0.2em 0.7em;
+    border: 1px solid var(--muted);
+    color: var(--muted);
+    font-family: var(--font-mono), monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+  .fight-toolbtn:hover,
+  .fight-toolbtn:focus-visible {
+    color: var(--ink);
+    border-color: var(--ink);
+    outline: none;
   }
   .fight-canvas-wrap {
     position: relative;
@@ -1384,6 +1417,80 @@
     display: block;
     background: var(--ink);
     image-rendering: pixelated;
+  }
+  /* T7-followup: a synthesised (not real audio-asset) "FIGHT!" stinger --
+     see fight.ts's own comment on why. Fly-in-and-hold, matches the site's
+     brutalist type rather than a soft game-UI pop. */
+  .fight-intro {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono), monospace;
+    font-size: clamp(2.5rem, 10vw, 5rem);
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: var(--acid);
+    text-shadow: 0 0 0.5em color-mix(in oklab, var(--ink) 70%, transparent);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .fight-intro-play {
+    animation: fight-intro-fly 900ms var(--ease) both;
+  }
+  @keyframes fight-intro-fly {
+    0% {
+      opacity: 0;
+      transform: translateX(-60%) scale(0.6) rotate(-6deg);
+    }
+    35% {
+      opacity: 1;
+      transform: translateX(0) scale(1.15) rotate(2deg);
+    }
+    60% {
+      transform: scale(1) rotate(0deg);
+    }
+    80% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fight-intro-play {
+      animation: none;
+      opacity: 0;
+    }
+  }
+  .fight-touch {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--s-4);
+    margin-top: var(--s-3);
+  }
+  .fight-touch-move,
+  .fight-touch-actions {
+    display: flex;
+    gap: var(--s-2);
+  }
+  .fight-touch button {
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--muted);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-mono), monospace;
+    font-weight: 700;
+    font-size: 1.1rem;
+    touch-action: none;
+    user-select: none;
+  }
+  .fight-touch button:active {
+    background: var(--acid);
+    color: var(--acid-ink);
+    border-color: var(--acid);
   }
   .fight-result {
     position: absolute;
