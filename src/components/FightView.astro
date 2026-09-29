@@ -1,20 +1,21 @@
 ---
-import { ANIM, CANVAS, FIGHTERS, FRAME, MATCH_SECONDS } from '../lib/fight';
+import { CANVAS, FIGHTERS, MATCH_SECONDS } from '../lib/fight';
 // T7: a minimal local-vs-AI fighting minigame, picked from the Grid/Tree/
 // Orbit view switcher on the homepage. Server-side this only renders the
 // character-select cards and the static HUD shell -- the match itself
 // (src/scripts/fight.ts) is entirely client-side canvas, keyed off the
 // data-fight-* hooks below.
+import { fightPickCss } from '../lib/fightCss';
 import { BASE } from '../lib/site';
 
-// The pick-card preview shows only the idle sheet's first frame: an <img>
-// can only scale a whole image to fit its box, not crop a sub-region, so a
-// plain <img src="idle.png"> would squash all 8 frames into one smear. A
-// background-image sized to the sheet's full (scaled) width, cropped to a
-// 1-frame box, shows just frame 0 instead.
-const PREVIEW = 100;
-const previewScale = PREVIEW / FRAME.w;
-const previewSheetWidth = ANIM.idle.frames * FRAME.w * previewScale;
+// Per-fighter background-image/filter for the pick-card sprite preview
+// can't be a `style="--x:…"` attribute: the site's CSP has no
+// `style-src 'unsafe-inline'` (see hue.ts's data-hue for the same
+// constraint elsewhere). fightPickCss(BASE) instead goes into a real
+// <style> tag below, whose exact content is hashed into the CSP by
+// astro.config.ts (fightPickCss is a pure function so both call sites
+// produce byte-identical output -- same pattern as the boot script).
+const pickCss = fightPickCss(BASE);
 ---
 
 <div class="fight" data-fight>
@@ -23,12 +24,7 @@ const previewSheetWidth = ANIM.idle.frames * FRAME.w * previewScale;
     <div class="fight-roster">
       {
         FIGHTERS.map((f) => (
-          <button
-            type="button"
-            class="fight-pick"
-            data-fighter={f.id}
-            style={`--fighter-filter:${f.filter}; --fighter-sprite:url(${BASE}fight/${f.spriteBase}/idle.png); --fighter-sheet-w:${previewSheetWidth}px`}
-          >
+          <button type="button" class="fight-pick" data-fighter={f.id}>
             <span class="fight-pick-sprite" aria-hidden="true"></span>
             <span>{f.name}</span>
           </button>
@@ -60,3 +56,5 @@ const previewSheetWidth = ANIM.idle.frames * FRAME.w * previewScale;
     </p>
   </div>
 </div>
+
+<style set:html={pickCss}></style>

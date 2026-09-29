@@ -1334,12 +1334,13 @@
     display: block;
     width: 100px;
     height: 100px;
-    background-image: var(--fighter-sprite);
     background-position: 0 0;
-    background-size: var(--fighter-sheet-w) 100px;
     background-repeat: no-repeat;
-    filter: var(--fighter-filter, none);
     image-rendering: pixelated;
+    /* background-image/background-size/filter are per-fighter -- generated
+       into a <style> tag by FightView.astro, not here (see that file: a
+       style="--x:…" attribute would be blocked by the CSP's style-src,
+       which has no 'unsafe-inline'). */
   }
   .fight-arena {
     max-width: 64rem;

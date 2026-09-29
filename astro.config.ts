@@ -2,13 +2,25 @@ import { createHash } from 'node:crypto';
 import { defineConfig, fontProviders } from 'astro/config';
 import { pagefindIntegration } from './src/integrations/pagefind';
 import { BOOT } from './src/lib/boot';
+import { fightPickCss } from './src/lib/fightCss';
+
+// The `sha256-…` prefix has to stay a literal template at each call site --
+// astro's CspHashEntry type is templated on it, so a helper returning the
+// whole prefixed string would widen to plain `string` and fail to typecheck.
+const digest = (s: string) => createHash('sha256').update(s).digest('base64');
 
 // Deployed under a project sub-path on GitHub Pages for now. Moving to a
 // custom domain later means changing `site` and setting `base: '/'` -- nothing
-// else in the codebase may assume the path (see src/lib/site.ts).
+// else in the codebase may assume the path (see src/lib/site.ts). BASE_PATH
+// is repeated here (not imported from src/lib/site.ts, which reads
+// import.meta.env -- unavailable while this file evaluates in plain Node)
+// only to build the exact same string fightPickCss(BASE) renders at request
+// time, so its CSP hash below actually matches.
+const BASE_PATH = '/wkd';
+
 export default defineConfig({
   site: 'https://stefanbartl.github.io',
-  base: '/wkd',
+  base: BASE_PATH,
   trailingSlash: 'always',
   compressHTML: true,
   build: { format: 'directory' },
@@ -39,9 +51,14 @@ export default defineConfig({
       scriptDirective: {
         // Pagefind runs a WebAssembly search core; the bundle itself is same-origin.
         resources: ["'self'", "'wasm-unsafe-eval'"],
-        // Astro only hashes the scripts it bundles; the is:inline bootstrap in
-        // Base.astro is hashed here.
-        hashes: [`sha256-${createHash('sha256').update(BOOT).digest('base64')}`],
+        // Astro only hashes the scripts/styles it compiles from its own
+        // <style>/<script> template syntax; set:html content (the is:inline
+        // bootstrap in Base.astro, the fighter-pick CSS in FightView.astro)
+        // bypasses that and needs its hash listed here by hand.
+        hashes: [`sha256-${digest(BOOT)}`],
+      },
+      styleDirective: {
+        hashes: [`sha256-${digest(fightPickCss(`${BASE_PATH}/`))}`],
       },
     },
   },
