@@ -433,11 +433,14 @@ class Fighter {
       this.vy = 0;
     }
     this.x = Math.max(10, Math.min(CANVAS.w - BOX_W - 10, this.x));
-    if (this.state === 'takeHit' || this.state === 'death') return;
-    // An attack only releases once its swing has played out to the last
-    // frame -- setState() itself already refuses an earlier switch away
-    // from it, this just has to actually call setState() once it's done
-    // instead of never calling it at all while attacking.
+    // death is terminal (the `dead` guard above already covers it once
+    // takeHit() has set it, this is just belt-and-suspenders). takeHit is
+    // NOT: setState() already refuses to leave it before `hitUntil` (its
+    // own guard), so the fix for the "stuck in takeHit forever" bug is to
+    // actually call setState() while takeHit is current -- same shape as
+    // the attack1/attack2 fix below, which already gets this right instead
+    // of an unconditional early return.
+    if (this.state === 'death') return;
     const swingDone = isAttackState(this.state) && this.frame >= this.anim[this.state].frames - 1;
     if (!isAttackState(this.state) || swingDone) {
       if (!this.onGround) this.setState(this.vy < 0 ? 'jump' : 'fall', performance.now());
@@ -514,6 +517,11 @@ class Match {
   private endsAt = 0;
   private introUntil = 0;
   private introShown = false;
+  // A jump/attack pressed while still in the intro window -- see
+  // setAction()'s comment on why this needs queuing instead of just
+  // being dropped like the old blanket "ignore all input" guard did.
+  private pendingJump = false;
+  private pendingAttack: AttackState | null = null;
   private raf = 0;
   private running = false;
   private over = false;
@@ -601,24 +609,34 @@ class Match {
     // `this.running` (not just `this.over`) so a paused-but-not-stopped
     // match -- left via a real view-tab change, not yet Escape, see
     // views.ts -- can't keep reacting to touch buttons/keys anywhere on
-    // the page. Input is also ignored during the FIGHT! intro beat.
-    if (this.over || !this.running || performance.now() < this.introUntil) return;
+    // the page.
+    if (this.over || !this.running) return;
     const now = performance.now();
+    const duringIntro = now < this.introUntil;
     switch (action) {
       case 'left':
+        // Safe to set even during the intro: applying `this.keys` only
+        // has an effect once tick()'s intro branch ends and the normal
+        // movement code runs, so no separate queuing needed here.
         this.keys.left = down;
         break;
       case 'right':
         this.keys.right = down;
         break;
       case 'jump':
-        if (down && this.player.onGround) this.player.vy = JUMP_VELOCITY;
+        if (!down) break;
+        // Keyboard auto-repeat papers over a key held through the intro
+        // (another keydown fires once it ends), but a touch button's
+        // pointerdown only fires once -- queue it instead of dropping it,
+        // so both input paths behave the same way.
+        if (duringIntro) this.pendingJump = true;
+        else if (this.player.onGround) this.player.vy = JUMP_VELOCITY;
         break;
       case 'attack1':
-        if (down) this.player.startAttack('attack1', now);
-        break;
       case 'attack2':
-        if (down) this.player.startAttack('attack2', now);
+        if (!down) break;
+        if (duringIntro) this.pendingAttack = action;
+        else this.player.startAttack(action, now);
         break;
       default:
     }
@@ -673,6 +691,18 @@ class Match {
       this.render();
       if (this.running) this.raf = requestAnimationFrame(this.tick);
       return;
+    }
+
+    // The intro just ended (or ended on an earlier tick): apply whatever
+    // jump/attack got queued by setAction() while it was still playing.
+    if (this.pendingJump) {
+      this.pendingJump = false;
+      if (this.player.onGround) this.player.vy = JUMP_VELOCITY;
+    }
+    if (this.pendingAttack) {
+      const attack = this.pendingAttack;
+      this.pendingAttack = null;
+      this.player.startAttack(attack, now);
     }
 
     this.player.vx = (this.keys.right ? MOVE_SPEED : 0) - (this.keys.left ? MOVE_SPEED : 0);

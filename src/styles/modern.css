@@ -1418,6 +1418,37 @@
     background: var(--ink);
     image-rendering: pixelated;
   }
+  /* Fullscreen: the UA stylesheet forces .fight-arena to position:fixed,
+     100dvw/100dvh, but the canvas above keeps its native 1024:576 ratio
+     via width:100%/height:auto -- on any ordinary 16:9 screen that alone
+     already claims nearly the full height, leaving the HUD/toolbar/touch
+     controls/key legend with no room and no scroll to reach them. Flexing
+     the column and letting the canvas shrink to fit (object-fit: contain
+     equivalent via height:100%+max-width:100%) keeps everything on
+     screen instead. */
+  .fight-arena:fullscreen {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--s-2);
+    background: var(--ink);
+    padding: var(--s-3);
+    box-sizing: border-box;
+    max-width: none;
+  }
+  .fight-arena:fullscreen .fight-canvas-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+  }
+  .fight-arena:fullscreen .fight-canvas-wrap canvas {
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+  }
   /* T7-followup: a synthesised (not real audio-asset) "FIGHT!" stinger --
      see fight.ts's own comment on why. Fly-in-and-hold, matches the site's
      brutalist type rather than a soft game-UI pop. */
