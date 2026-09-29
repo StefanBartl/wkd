@@ -25,7 +25,7 @@ const { orbit } = Astro.props;
     </text>
     {
       orbit.spokes.map((s) => (
-        <a class="m-orbit-spoke" href={href(`p/${s.slug}`)}>
+        <a class="m-orbit-spoke" href={href(`p/${s.slug}`)} data-nav={`p/${s.slug}`}>
           <title>{`${s.name} -- ${categoryLabel(s.category)}`}</title>
           <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />
           <text

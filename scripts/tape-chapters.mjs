@@ -77,12 +77,12 @@ let titles = [];
 let titleIndex = 0;
 let visible = false;
 let clock = 0; // ms of recorded video so far
-let pending = null; // a title set while hidden, waiting for Show
+let pending = []; // titles set while hidden, waiting for the next Show
 const chapters = [];
 
 const startChapter = (title) => {
   if (visible) chapters.push({ t: Math.round(clock / 100) / 10, title });
-  else pending = title;
+  else pending.push(title);
 };
 
 for (const line of lines(tapePath)) {
@@ -99,10 +99,8 @@ for (const line of lines(tapePath)) {
     visible = false;
   } else if (/^Show\b/.test(line)) {
     visible = true;
-    if (pending !== null) {
-      chapters.push({ t: Math.round(clock / 100) / 10, title: pending });
-      pending = null;
-    }
+    for (const title of pending) chapters.push({ t: Math.round(clock / 100) / 10, title });
+    pending = [];
   } else if (sleep) {
     if (visible) clock += ms(sleep[1]);
   } else if (typed) {

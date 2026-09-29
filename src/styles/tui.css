@@ -30,12 +30,17 @@
 
   .tui {
     display: grid;
-    grid-template-rows: auto 1fr auto;
+    /* Explicit track per child below (grid-row), not auto-placement order --
+       .tui-hint is `hidden` by default and only some visitors ever see it, so
+       auto-placement would shift every later child up a row whenever it's
+       absent instead of just leaving its own track empty. */
+    grid-template-rows: auto auto 1fr auto;
     min-height: 100dvh;
   }
 
   /* ---- statusline ------------------------------------------------------- */
   .tui-status {
+    grid-row: 1;
     display: flex;
     align-items: stretch;
     background: var(--bg-alt);
@@ -77,6 +82,7 @@
     outline-offset: -1px;
   }
   .tui-hint {
+    grid-row: 2;
     background: var(--yellow);
     color: var(--bg);
     padding: 0 1ch;
@@ -95,6 +101,7 @@
 
   /* ---- body ------------------------------------------------------------- */
   .tui-body {
+    grid-row: 3;
     display: grid;
     grid-template-columns: 30ch 1fr;
     min-height: 0;
@@ -181,6 +188,7 @@
 
   /* ---- cmdline ---------------------------------------------------------- */
   .tui-cmd {
+    grid-row: 4;
     position: relative;
     display: flex;
     border-top: 1px solid var(--border);

@@ -5,6 +5,7 @@
 # the files as root-level paths).
 set -euo pipefail
 cd "$(dirname "$0")/.."
+rm -rf public/demos
 mkdir -p public/demos
 git fetch --quiet --depth 1 origin demo-assets
 git archive FETCH_HEAD | tar -x -C public/demos

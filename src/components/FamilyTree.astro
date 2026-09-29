@@ -41,6 +41,7 @@ const treePos = new Map(tree.nodes.map((n) => [n.slug, n]));
         <a
           class={n.category === 'foundation' ? 'm-tree-node m-tree-node-root' : 'm-tree-node'}
           href={href(`p/${n.slug}`)}
+          data-nav={`p/${n.slug}`}
         >
           <title>{`${n.name} -- ${categoryLabel(n.category)}`}</title>
           <circle cx={n.x} cy={n.y} r={n.category === 'foundation' ? 10 : 6} />
