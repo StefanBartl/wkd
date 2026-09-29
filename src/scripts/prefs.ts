@@ -34,9 +34,13 @@ function write(key: string, value: string | null): void {
 }
 
 // ---- skin -----------------------------------------------------------------
-const navLinks = document.querySelectorAll<HTMLAnchorElement>('a[data-nav]');
+// `a[data-nav]` also matches the SVG <a> nodes in the Tree/Orbit views: unlike
+// HTMLAnchorElement, SVGAElement.href is a read-only SVGAnimatedString, so
+// assigning `.href` silently no-ops there. setAttribute() writes the content
+// attribute directly and works identically for both element kinds.
+const navLinks = document.querySelectorAll<HTMLAnchorElement | SVGAElement>('a[data-nav]');
 const pointNavTo = (skin: Skin): void => {
-  for (const a of navLinks) a.href = href(a.dataset.nav ?? '', skin);
+  for (const a of navLinks) a.setAttribute('href', href(a.dataset.nav ?? '', skin));
 };
 
 for (const a of document.querySelectorAll<HTMLAnchorElement>('a[data-skin-switch]')) {
