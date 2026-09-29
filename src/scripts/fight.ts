@@ -347,6 +347,13 @@ class Match {
   pause(): void {
     this.running = false;
     cancelAnimationFrame(this.raf);
+    // handleKey() ignores keyup while paused too (see its own comment), so
+    // a movement key released during the pause would otherwise never clear
+    // -- same fix also covers losing a keyup entirely, e.g. the window
+    // itself loses focus while a key is held, which never reaches here as
+    // any event at all.
+    this.keys.left = false;
+    this.keys.right = false;
   }
 
   resume(): void {
