@@ -3,9 +3,10 @@ import { getCollection } from 'astro:content';
 import CategoryFilter from '../components/CategoryFilter.astro';
 import CommitLine from '../components/CommitLine.astro';
 import FamilyTree from '../components/FamilyTree.astro';
+import FightView from '../components/FightView.astro';
 import OrbitView from '../components/OrbitView.astro';
-import { COMBOS, combosFor } from '../lib/combos';
 import registry from '../data/registry.json';
+import { COMBOS, combosFor } from '../lib/combos';
 import { approx, byDateDesc, categoryLabel, pad2 } from '../lib/format';
 import { orbitLayout } from '../lib/orbit';
 import { href } from '../lib/site';
@@ -60,7 +61,10 @@ const statsPool = [
   { label: 'alpha', value: String(countWhere((p) => p.data.status === 'alpha')) },
   { label: 'categories', value: String(Object.keys(counts).length) },
   { label: 'combos', value: String(COMBOS.length) },
-  { label: 'in a combo', value: String(countWhere((p) => (combosByPlugin.get(p.id)?.length ?? 0) > 0)) },
+  {
+    label: 'in a combo',
+    value: String(countWhere((p) => (combosByPlugin.get(p.id)?.length ?? 0) > 0)),
+  },
   { label: 'standalone', value: String(countWhere((p) => p.data.uses.length === 0)) },
 ];
 ---
@@ -127,10 +131,12 @@ const statsPool = [
       <input type="radio" name="view" id="view-grid" class="visually-hidden" checked />
       <input type="radio" name="view" id="view-tree" class="visually-hidden" />
       <input type="radio" name="view" id="view-orbit" class="visually-hidden" />
+      <input type="radio" name="view" id="view-fight" class="visually-hidden" />
       <div class="view-tabs">
         <label for="view-grid">Grid</label>
         <label for="view-tree">Tree</label>
         <label for="view-orbit">Orbit</label>
+        <label for="view-fight">Fight</label>
       </div>
       <p class="view-hint">
         <kbd>Esc</kbd> back to grid
@@ -184,6 +190,9 @@ const statsPool = [
     </section>
     <section class="home-orbit" aria-label="Plugins by category">
       <OrbitView orbit={orbit} />
+    </section>
+    <section class="home-fight" aria-label="Fighting minigame">
+      <FightView />
     </section>
   </div>
 

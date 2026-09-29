@@ -6,6 +6,7 @@
 const gridRadio = document.getElementById('view-grid');
 const treeRadio = document.getElementById('view-tree');
 const orbitRadio = document.getElementById('view-orbit');
+const fightRadio = document.getElementById('view-fight');
 
 if (gridRadio instanceof HTMLInputElement) {
   document.addEventListener('keydown', (e) => {
@@ -19,13 +20,20 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').match
 // One-shot, and only ever toward a view the visitor never picked themselves:
 // setting .checked from here doesn't fire 'change' (only real input does),
 // so this can't mistake its own move for the visitor having touched the tabs.
+// Fight is deliberately never a reveal candidate -- a fighting game taking
+// over the page because the visitor stepped away for 20s would be a bad
+// surprise, not a delightful one -- but picking it still counts as having
+// touched the switcher, same as Tree/Orbit.
 if (
   !reduceMotion &&
   gridRadio instanceof HTMLInputElement &&
   treeRadio instanceof HTMLInputElement &&
   orbitRadio instanceof HTMLInputElement
 ) {
-  const radios = [gridRadio, treeRadio, orbitRadio];
+  const allRadios = [gridRadio, treeRadio, orbitRadio, fightRadio].filter(
+    (r): r is HTMLInputElement => r instanceof HTMLInputElement,
+  );
+  const revealCandidates = [treeRadio, orbitRadio];
   const IDLE_EVENTS = ['mousemove', 'keydown', 'scroll', 'touchstart'] as const;
   let touchedByUser = false;
   let revealed = false;
@@ -45,12 +53,13 @@ if (
     timer = setTimeout(() => {
       if (touchedByUser || revealed || !gridRadio.checked) return;
       revealed = true;
-      (Math.random() < 0.5 ? treeRadio : orbitRadio).checked = true;
+      const pick = revealCandidates[Math.floor(Math.random() * revealCandidates.length)];
+      if (pick) pick.checked = true;
       stopListening();
     }, IDLE_MS);
   };
 
-  for (const radio of radios) {
+  for (const radio of allRadios) {
     radio.addEventListener('change', () => {
       touchedByUser = true;
       stopListening();

@@ -249,14 +249,16 @@
   }
   #view-grid:checked ~ .view-tabs label[for="view-grid"],
   #view-tree:checked ~ .view-tabs label[for="view-tree"],
-  #view-orbit:checked ~ .view-tabs label[for="view-orbit"] {
+  #view-orbit:checked ~ .view-tabs label[for="view-orbit"],
+  #view-fight:checked ~ .view-tabs label[for="view-fight"] {
     background: var(--ink);
     color: var(--paper);
     border-color: var(--ink);
   }
   #view-grid:focus-visible ~ .view-tabs label[for="view-grid"],
   #view-tree:focus-visible ~ .view-tabs label[for="view-tree"],
-  #view-orbit:focus-visible ~ .view-tabs label[for="view-orbit"] {
+  #view-orbit:focus-visible ~ .view-tabs label[for="view-orbit"],
+  #view-fight:focus-visible ~ .view-tabs label[for="view-fight"] {
     outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
@@ -274,16 +276,18 @@
     padding: 0 0.4ch;
   }
   .home-tree,
-  .home-orbit {
+  .home-orbit,
+  .home-fight {
     display: none;
     padding-inline: var(--gutter);
   }
   .home:has(#view-tree:checked) .home-tree,
-  .home:has(#view-orbit:checked) .home-orbit {
+  .home:has(#view-orbit:checked) .home-orbit,
+  .home:has(#view-fight:checked) .home-fight {
     display: block;
   }
-  .home:has(#view-tree:checked, #view-orbit:checked) .roster,
-  .home:has(#view-tree:checked, #view-orbit:checked) .m-filter {
+  .home:has(#view-tree:checked, #view-orbit:checked, #view-fight:checked) .roster,
+  .home:has(#view-tree:checked, #view-orbit:checked, #view-fight:checked) .m-filter {
     display: none;
   }
 
@@ -314,16 +318,19 @@
      browser could support while still lacking @starting-style, and vice
      versa). */
   .home-tree,
-  .home-orbit {
+  .home-orbit,
+  .home-fight {
     transition: opacity var(--dur) var(--ease);
   }
   .home:has(#view-tree:checked) .home-tree,
-  .home:has(#view-orbit:checked) .home-orbit {
+  .home:has(#view-orbit:checked) .home-orbit,
+  .home:has(#view-fight:checked) .home-fight {
     opacity: 1;
   }
   @starting-style {
     .home:has(#view-tree:checked) .home-tree,
-    .home:has(#view-orbit:checked) .home-orbit {
+    .home:has(#view-orbit:checked) .home-orbit,
+    .home:has(#view-fight:checked) .home-fight {
       opacity: 0;
     }
   }
@@ -1283,6 +1290,131 @@
   }
   .m-orbit-swatch rect {
     fill: var(--ink);
+  }
+
+  /* ---- fight (T7) --------------------------------------------------------
+     Same editorial-brutalist language as the rest of the site (hairline
+     borders, monospace caps, acid accent) instead of a generic game HUD. */
+  .fight-select {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-4);
+    max-width: 40rem;
+  }
+  .fight-lede {
+    color: var(--muted);
+    font-family: var(--font-mono), monospace;
+    font-size: 0.85rem;
+  }
+  .fight-roster {
+    display: flex;
+    gap: var(--s-4);
+    flex-wrap: wrap;
+  }
+  .fight-pick {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--s-2);
+    padding: var(--s-4);
+    border: var(--line);
+    cursor: pointer;
+    font-family: var(--font-mono), monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.8rem;
+  }
+  .fight-pick:hover,
+  .fight-pick:focus-visible {
+    background: var(--acid);
+    color: var(--acid-ink);
+    outline: none;
+  }
+  .fight-pick-sprite {
+    display: block;
+    width: 100px;
+    height: 100px;
+    background-image: var(--fighter-sprite);
+    background-position: 0 0;
+    background-size: var(--fighter-sheet-w) 100px;
+    background-repeat: no-repeat;
+    filter: var(--fighter-filter, none);
+    image-rendering: pixelated;
+  }
+  .fight-arena {
+    max-width: 64rem;
+  }
+  .fight-hud {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    margin-bottom: var(--s-2);
+    font-family: var(--font-mono), monospace;
+  }
+  .fight-bar {
+    flex: 1;
+    height: 0.6rem;
+    border: 1px solid var(--muted);
+    background: var(--paper);
+  }
+  .fight-bar-fill {
+    height: 100%;
+    width: 100%;
+    background: var(--acid);
+    transition: width 120ms linear;
+  }
+  .fight-bar-flip .fight-bar-fill {
+    margin-left: auto;
+    background: var(--neon-0);
+  }
+  .fight-timer {
+    flex: none;
+    min-width: 2.5ch;
+    text-align: center;
+    font-weight: 700;
+  }
+  .fight-canvas-wrap {
+    position: relative;
+    border: var(--line);
+  }
+  .fight-canvas-wrap canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    background: var(--ink);
+    image-rendering: pixelated;
+  }
+  .fight-result {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-4);
+    background: color-mix(in oklab, var(--ink) 75%, transparent);
+    color: var(--paper);
+    font-family: var(--font-mono), monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 1.25rem;
+  }
+  .fight-result .m-btn {
+    color: var(--ink);
+    background: var(--paper);
+  }
+  .fight-controls {
+    margin-top: var(--s-3);
+    color: var(--muted);
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .fight-controls kbd {
+    font-family: inherit;
+    border: 1px solid var(--muted);
+    padding: 0 0.4ch;
   }
 
   /* ---- combos (T3) -------------------------------------------------------
