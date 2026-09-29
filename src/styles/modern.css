@@ -267,7 +267,7 @@
     margin: 0;
     opacity: 0.7;
   }
-  .home:has(#view-tree:checked, #view-orbit:checked) .view-hint {
+  .home:has(#view-tree:checked, #view-orbit:checked, #view-fight:checked) .view-hint {
     display: block;
   }
   .view-hint kbd {

@@ -17,6 +17,12 @@ import {
 } from '../lib/fight';
 import { BASE } from '../lib/site';
 
+// Same guard as search.ts's own isEditable: the search box and category
+// filter are always in the DOM regardless of which view is active, so a
+// running match's window-level keydown listener has to yield to them.
+const isEditable = (t: EventTarget | null): boolean =>
+  t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+
 const root = document.querySelector<HTMLElement>('[data-fight]');
 if (root) setUp(root);
 
@@ -68,10 +74,13 @@ function setUp(root: HTMLElement): void {
     match.start();
   });
 
-  // Leaving the Fight tab (Grid/Tree/Orbit, or Escape via views.ts flipping
-  // #view-grid) stops the loop -- a fighting game has no business running
-  // frames, taking input or ticking its clock while the visitor is looking
-  // at something else.
+  // Leaving the Fight tab (a real click, or Escape -- views.ts dispatches a
+  // 'change' event for that too, not just the .checked assignment) stops
+  // the loop -- a fighting game has no business running frames, taking
+  // input or ticking its clock while the visitor is looking at something
+  // else. handleKey()'s own `!this.running` guard is the backstop for the
+  // gap between pause() (here) and stop() (only on an actual fighter
+  // re-pick) still leaving the window keydown/keyup listeners attached.
   for (const radio of document.querySelectorAll<HTMLInputElement>('input[name="view"]')) {
     radio.addEventListener('change', () => {
       if (radio.id !== 'view-fight') match?.pause();
@@ -213,7 +222,13 @@ class Fighter {
       this.vy = 0;
     }
     this.x = Math.max(10, Math.min(CANVAS.w - BOX_W - 10, this.x));
-    if (this.state !== 'attack1' && this.state !== 'takeHit' && this.state !== 'death') {
+    if (this.state === 'takeHit' || this.state === 'death') return;
+    // attack1 only releases once its swing has played out to the last
+    // frame -- setState() itself already refuses an earlier switch away
+    // from it, this just has to actually call setState() once it's done
+    // instead of never calling it at all while attack1 is current.
+    const swingDone = this.state === 'attack1' && this.frame >= ANIM.attack1.frames - 1;
+    if (this.state !== 'attack1' || swingDone) {
       if (!this.onGround) this.setState(this.vy < 0 ? 'jump' : 'fall', performance.now());
       else if (this.vx !== 0) this.setState('run', performance.now());
       else this.setState('idle', performance.now());
@@ -243,7 +258,11 @@ class Fighter {
     const cx = this.x + BOX_W / 2;
     const bottom = this.y + BOX_H;
     ctx.save();
-    ctx.filter = this.filter;
+    // Skipping the assignment for the (usual) unfiltered case avoids
+    // exercising canvas's filter code path -- known slow, especially on
+    // WebKit -- on every frame of the match for a value that never
+    // actually changes once the fighter is created.
+    if (this.filter !== 'none') ctx.filter = this.filter;
     if (this.facing === -1) {
       ctx.translate(cx, 0);
       ctx.scale(-1, 1);
@@ -279,6 +298,12 @@ class Match {
   private over = false;
   private aiNextDecisionAt = 0;
   private aiMoveDir = 0;
+  // Written health/timer values, so the HUD only touches the DOM on the
+  // ~1-2/sec ticks where they actually changed instead of every one of a
+  // 60fps match's ~3600 frames.
+  private lastPlayerHealth = -1;
+  private lastAiHealth = -1;
+  private lastRemaining = -1;
   private onKeyDown = (e: KeyboardEvent): void => this.handleKey(e, true);
   private onKeyUp = (e: KeyboardEvent): void => this.handleKey(e, false);
 
@@ -288,7 +313,12 @@ class Match {
     private hud: Hud,
   ) {
     const chosen = FIGHTERS.find((f) => f.id === playerId) ?? FIGHTERS[0];
-    const other = FIGHTERS.find((f) => f.id !== chosen?.id) ?? FIGHTERS[1];
+    // A random pick among the rest, not FIGHTERS.find()'s first-in-order
+    // match: with today's 2 fighters that's the same fighter either way,
+    // but it stops "opponent" from silently freezing into one fixed
+    // matchup the day the roster grows past 2.
+    const rest = FIGHTERS.filter((f) => f.id !== chosen?.id);
+    const other = rest[Math.floor(Math.random() * rest.length)] ?? FIGHTERS[1];
     this.player = new Fighter(
       180,
       1,
@@ -333,7 +363,11 @@ class Match {
   }
 
   private handleKey(e: KeyboardEvent, down: boolean): void {
-    if (this.over) return;
+    // `this.running` (not just `this.over`) so a paused-but-not-stopped
+    // match -- left via a real view-tab change, not yet Escape, see
+    // views.ts -- can't keep hijacking Arrow/Space anywhere on the page.
+    if (this.over || !this.running) return;
+    if (isEditable(e.target)) return;
     switch (e.key) {
       case 'ArrowLeft':
         this.keys.left = down;
@@ -394,11 +428,20 @@ class Match {
     this.resolveAttack(this.player, this.ai, now);
     this.resolveAttack(this.ai, this.player, now);
 
-    this.hud.playerBar.style.width = `${this.player.health}%`;
-    this.hud.enemyBar.style.width = `${this.ai.health}%`;
+    if (this.player.health !== this.lastPlayerHealth) {
+      this.lastPlayerHealth = this.player.health;
+      this.hud.playerBar.style.width = `${this.player.health}%`;
+    }
+    if (this.ai.health !== this.lastAiHealth) {
+      this.lastAiHealth = this.ai.health;
+      this.hud.enemyBar.style.width = `${this.ai.health}%`;
+    }
 
     const remaining = Math.max(0, Math.ceil((this.endsAt - now) / 1000));
-    this.hud.timerEl.textContent = String(remaining);
+    if (remaining !== this.lastRemaining) {
+      this.lastRemaining = remaining;
+      this.hud.timerEl.textContent = String(remaining);
+    }
 
     if (this.player.dead || this.ai.dead || remaining <= 0) {
       this.finish(remaining <= 0);
@@ -438,7 +481,7 @@ class Match {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, CANVAS.w, CANVAS.h);
     ctx.save();
-    ctx.filter = this.level.filter;
+    if (this.level.filter !== 'none') ctx.filter = this.level.filter;
     if (this.bg.complete && this.bg.naturalWidth > 0) {
       ctx.drawImage(this.bg, 0, 0, CANVAS.w, CANVAS.h);
     }

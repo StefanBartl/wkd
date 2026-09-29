@@ -10,7 +10,15 @@ const fightRadio = document.getElementById('view-fight');
 
 if (gridRadio instanceof HTMLInputElement) {
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !gridRadio.checked) gridRadio.checked = true;
+    if (e.key === 'Escape' && !gridRadio.checked) {
+      gridRadio.checked = true;
+      // A bare property assignment doesn't fire 'change' (only real input
+      // does -- see the idle-timer's own comment on this further down).
+      // Escape is a deliberate exit though, unlike that timer's own
+      // automated move, so it should still reach anything keyed off
+      // 'change' -- namely fight.ts pausing a running match.
+      gridRadio.dispatchEvent(new Event('change', { bubbles: true }));
+    }
   });
 }
 
