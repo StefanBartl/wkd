@@ -36,7 +36,7 @@ const pickCss = fightPickCss(BASE);
          lives in src/scripts/fight-online.ts, fetched on the first click. */
     }
     <div class="fight-online" data-fight-online hidden>
-      <p class="fight-lede" data-fight-online-status>
+      <p class="fight-lede" role="status" data-fight-online-status>
         Or fight a friend, browser to browser. No server in between: you swap two codes through
         any messenger. For now you both need to be on the same network.
       </p>
@@ -80,12 +80,13 @@ const pickCss = fightPickCss(BASE);
     <div class="fight-toolbar">
       <button type="button" class="fight-toolbtn" data-fight-music>Music: on</button>
       <button type="button" class="fight-toolbtn" data-fight-fullscreen>Fullscreen</button>
+      <button type="button" class="fight-toolbtn" data-fight-leave hidden>Disconnect</button>
     </div>
     <div class="fight-canvas-wrap">
       <canvas data-fight-canvas width={CANVAS.w} height={CANVAS.h}></canvas>
       <div class="fight-intro" data-fight-intro aria-hidden="true">FIGHT!</div>
       <div class="fight-result" data-fight-result hidden>
-        <p data-fight-result-text></p>
+        <p role="status" data-fight-result-text></p>
         <button type="button" class="m-btn" data-fight-again>Rematch</button>
       </div>
     </div>

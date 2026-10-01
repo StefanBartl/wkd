@@ -8,7 +8,14 @@
 // with `hello`, the host answers with `start`, and each side builds the
 // identical initial state from that one message.
 import { FIGHTERS, LEVELS } from '../lib/fight';
-import { type ControlMessage, invite, join, type PeerLink } from '../lib/fight-engine/net';
+import {
+  BadCodeError,
+  type ControlMessage,
+  invite,
+  join,
+  LinkFailedError,
+  type PeerLink,
+} from '../lib/fight-engine/net';
 import { peerDriver } from '../lib/fight-engine/net-driver';
 import { RollbackSession } from '../lib/fight-engine/rollback';
 import { createState } from '../lib/fight-engine/sim';
@@ -19,6 +26,10 @@ const PING_MS = 2000;
 // pings do not (timers still run, throttled to about one per second). So
 // silence this long means the peer is gone, not just looking elsewhere.
 const SILENCE_MS = 10_000;
+// A match in progress exchanges game packets every frame. A peer that keeps
+// answering pings but sends none (tab hidden for a long time, or simply
+// hostile) must not hold the match frozen forever.
+const GAME_SILENCE_MS = 30_000;
 
 type StartMessage = Extract<ControlMessage, { type: 'start' }>;
 
@@ -59,6 +70,13 @@ function findUi(root: HTMLElement): Ui | null {
 
 // One flow at a time; starting another cancels the one in progress.
 let abort: (() => void) | null = null;
+// What the status line says when nothing is going on. Read once: reset()
+// leaves its last word in that element, so reading it again would take an
+// error message for the original text.
+let idleText: string | null = null;
+
+const LINK_FAILED =
+  'Could not connect. For now this only works between devices on the same network.';
 
 export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
   const found = findUi(api.root);
@@ -66,8 +84,10 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
   const ui: Ui = found;
   abort?.();
 
-  const idle = ui.status.textContent ?? '';
+  idleText ??= ui.status.textContent ?? '';
+  const idle = idleText;
   let cancelled = false;
+  let busy = false;
   let pending: { cancel(): void } | null = null;
   let link: PeerLink | null = null;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
@@ -78,6 +98,13 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
   const show = (step: 'menu' | 'out' | 'in' | 'cancel', on: boolean): void => {
     const el = { menu: ui.menu, out: ui.outStep, in: ui.inStep, cancel: ui.cancel }[step];
     el.hidden = !on;
+  };
+  /** The button that was just pressed is hidden by the next step; keyboard users keep their place. */
+  const retry = (message: string): void => {
+    busy = false;
+    ui.submit.disabled = false;
+    say(message);
+    ui.input.focus();
   };
 
   /** Back to how the page was before, optionally leaving a last word. */
@@ -90,6 +117,7 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
     link?.close();
     api.takeOver(null);
     ui.submit.onclick = null;
+    ui.submit.disabled = false;
     ui.copy.onclick = null;
     ui.cancel.onclick = null;
     ui.cancel.textContent = 'Cancel';
@@ -100,6 +128,7 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
     show('cancel', false);
     show('menu', true);
     say(message ?? idle);
+    ui.menu.querySelector<HTMLElement>('button')?.focus();
   };
   abort = () => reset(null);
   ui.cancel.onclick = () => reset(null);
@@ -115,11 +144,23 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
     );
   };
 
+  // The fighter cards would start an AI match, which hides this whole panel
+  // (and the Cancel button in it) while the codes are still being swapped.
+  api.takeOver({
+    pick: () => say('Finish connecting first, or press Cancel.'),
+    rematch: () => {},
+  });
+
   show('menu', false);
   show('cancel', true);
   ui.copy.textContent = 'Copy';
 
-  const failed = (): void => reset('That did not work. Check the code and try again.');
+  const failed = (error: unknown): void =>
+    reset(
+      error instanceof LinkFailedError
+        ? LINK_FAILED
+        : 'That did not work. Check the code and try again.',
+    );
 
   if (mode === 'invite') {
     say('Creating an invitation…');
@@ -133,9 +174,17 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
       show('out', true);
       show('in', true);
       say('Waiting for your friend’s reply code.');
+      ui.copy.focus();
       ui.submit.onclick = () => {
+        if (busy) return;
+        busy = true;
+        ui.submit.disabled = true;
         say('Connecting…');
-        invitation.accept(ui.input.value).then(connected, failed);
+        invitation.accept(ui.input.value).then(connected, (error: unknown) => {
+          // A typo or a cut-off message does not cost the invitation.
+          if (error instanceof BadCodeError) retry('That reply code is not valid. Check it.');
+          else failed(error);
+        });
       };
     }, failed);
   } else {
@@ -143,18 +192,29 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
     ui.submit.textContent = 'Create reply';
     show('in', true);
     say('Waiting for the invitation code.');
+    ui.input.focus();
     ui.submit.onclick = () => {
+      if (busy) return;
+      busy = true;
+      ui.submit.disabled = true;
       say('Creating a reply…');
-      join(ui.input.value).then((reply) => {
-        if (cancelled) return reply.cancel();
-        pending = reply;
-        ui.out.value = reply.code;
-        ui.outLabel.textContent = '2. Send this reply code back to your friend';
-        show('in', false);
-        show('out', true);
-        say('Waiting for your friend to enter the reply code.');
-        reply.link.then(connected, failed);
-      }, failed);
+      join(ui.input.value).then(
+        (reply) => {
+          if (cancelled) return reply.cancel();
+          pending = reply;
+          ui.out.value = reply.code;
+          ui.outLabel.textContent = '2. Send this reply code back to your friend';
+          show('in', false);
+          show('out', true);
+          say('Waiting for your friend to enter the reply code.');
+          ui.copy.focus();
+          reply.link.then(connected, failed);
+        },
+        (error: unknown) => {
+          if (error instanceof BadCodeError) retry('That invitation code is not valid. Check it.');
+          else failed(error);
+        },
+      );
     };
   }
 
@@ -169,14 +229,20 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
     let mine: string | null = null;
     let theirs: string | null = null;
     let matchNo = 0;
+    // The number of the match last started: what `rematch` messages refer to.
+    let current = -1;
     let playing = false;
+    let session: RollbackSession | null = null;
     let iWantRematch = false;
     let theyWantRematch = false;
 
     show('out', false);
     show('in', false);
     ui.cancel.textContent = 'Disconnect';
+    // Whatever was on screen, the fighter cards belong to this session now.
+    api.showSelect();
     say('Connected. Pick your fighter.');
+    api.root.querySelector<HTMLElement>('[data-fighter]')?.focus();
 
     const launch = (start: StartMessage): void => {
       const [f0, f1] = start.fighters.map((id) => FIGHTERS.find((f) => f.id === id));
@@ -184,13 +250,14 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
       // Only the host's own start message is known to be well-formed.
       if (!f0 || !f1 || !level) return;
       const initial = createState({ anim: f0.anim }, { anim: f1.anim }, start.seed);
-      const session = new RollbackSession({
+      session = new RollbackSession({
         local: host ? 0 : 1,
         state: initial,
         transport: peer.game,
         matchId: start.match,
       });
       playing = true;
+      current = start.match;
       say('Connected.');
       iWantRematch = false;
       theyWantRematch = false;
@@ -225,11 +292,19 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
           if (!host) launch(message);
           break;
         case 'rematch':
+          // Only a request about the match that just ended counts; a repeated
+          // click or a late message would otherwise arm the next rematch too.
+          if (message.match !== current) return;
           theyWantRematch = true;
           if (iWantRematch) startIfReady();
           break;
         default:
       }
+    };
+
+    const leave = (): void => {
+      api.showSelect();
+      reset(null);
     };
 
     api.takeOver({
@@ -240,25 +315,30 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
         if (!playing) startIfReady();
       },
       rematch() {
+        if (iWantRematch) return;
         iWantRematch = true;
-        peer.sendControl({ type: 'rematch' });
+        peer.sendControl({ type: 'rematch', match: current });
         if (theyWantRematch) startIfReady();
         else if (ui.resultText) ui.resultText.textContent = 'Waiting for your friend…';
       },
+      leave,
     });
 
     heartbeat = setInterval(() => {
       peer.sendControl({ type: 'ping' });
-      if (performance.now() - peer.lastHeard > SILENCE_MS) peer.close();
+      const now = performance.now();
+      const matchFrozen =
+        session !== null &&
+        session.outcome === 0 &&
+        !session.desynced &&
+        now - peer.lastGameHeard > GAME_SILENCE_MS;
+      if (now - peer.lastHeard > SILENCE_MS || matchFrozen) peer.close();
     }, PING_MS);
 
     peer.onclose = () => {
       api.showSelect();
       reset('The connection to your friend was lost. The AI is still up for a fight.');
     };
-    ui.cancel.onclick = () => {
-      api.showSelect();
-      reset(null);
-    };
+    ui.cancel.onclick = leave;
   }
 }

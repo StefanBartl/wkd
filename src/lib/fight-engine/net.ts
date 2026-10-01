@@ -19,7 +19,9 @@ const ICE_SERVERS: RTCIceServer[] = [];
 export type ControlMessage =
   | { type: 'hello'; fighter: string }
   | { type: 'start'; match: number; seed: number; level: string; fighters: [string, string] }
-  | { type: 'rematch' }
+  // `match` is the number of the match that just ended, so a repeated or late
+  // rematch request cannot be mistaken for one about the next match.
+  | { type: 'rematch'; match: number }
   | { type: 'ping' };
 
 export interface PeerLink {
@@ -30,15 +32,23 @@ export interface PeerLink {
   onclose: (() => void) | null;
   /** performance.now() of the last message received on either channel. */
   readonly lastHeard: number;
+  /** performance.now() of the last game packet; pings on the control channel do not count. */
+  readonly lastGameHeard: number;
   close(): void;
 }
+
+/** The pasted text is not a usable code. Nothing was started, so the same attempt can be retried. */
+export class BadCodeError extends Error {}
+
+/** The codes were fine but the two browsers could not reach each other. */
+export class LinkFailedError extends Error {}
 
 const isString = (v: unknown): v is string => typeof v === 'string' && v.length <= 64;
 const isUint = (v: unknown): v is number =>
   typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 0xffff_ffff;
 
 /** The peer is a stranger's browser: nothing it sends is trusted to have this shape. */
-function parseControl(raw: string): ControlMessage | null {
+export function parseControl(raw: string): ControlMessage | null {
   let data: unknown;
   try {
     data = JSON.parse(raw);
@@ -63,7 +73,7 @@ function parseControl(raw: string): ControlMessage | null {
       };
     }
     case 'rematch':
-      return { type: 'rematch' };
+      return isUint(m.match) ? { type: 'rematch', match: m.match } : null;
     case 'ping':
       return { type: 'ping' };
     default:
@@ -76,6 +86,11 @@ function parseControl(raw: string): ControlMessage | null {
 // encoded it fits in a chat message.
 const MAX_CODE_CHARS = 8000;
 const MAX_SDP_BYTES = 32_768;
+// A real description for two data channels has a few dozen lines and a
+// handful of candidates; a code with hundreds of either is not from a browser
+// (each candidate makes the receiving browser probe one more address).
+const MAX_SDP_LINES = 300;
+const MAX_SDP_CANDIDATES = 40;
 
 async function pump(stream: ReadableStream<Uint8Array>, limit: number): Promise<Uint8Array> {
   const reader = stream.getReader();
@@ -106,9 +121,8 @@ function through(bytes: Uint8Array<ArrayBuffer>, transform: GenericTransformStre
   return new Blob([bytes]).stream().pipeThrough(transform) as ReadableStream<Uint8Array>;
 }
 
-async function pack(description: RTCSessionDescription | null): Promise<string> {
-  if (!description) throw new Error('no session description');
-  const json = JSON.stringify({ t: description.type, s: description.sdp });
+export async function pack(type: string, sdp: string): Promise<string> {
+  const json = JSON.stringify({ t: type, s: sdp });
   const deflated = await pump(
     through(new TextEncoder().encode(json), new CompressionStream('deflate-raw')),
     MAX_SDP_BYTES,
@@ -118,23 +132,38 @@ async function pack(description: RTCSessionDescription | null): Promise<string> 
   return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
 }
 
-async function unpack(
+const packDescription = (description: RTCSessionDescription | null): Promise<string> => {
+  if (!description) throw new Error('no session description');
+  return pack(description.type, description.sdp);
+};
+
+/** Anything wrong with the text itself is a BadCodeError; nothing else is thrown. */
+export async function unpack(
   code: string,
   expected: 'offer' | 'answer',
 ): Promise<RTCSessionDescriptionInit> {
-  const compact = code.replace(/\s+/g, '');
-  if (compact.length === 0 || compact.length > MAX_CODE_CHARS) throw new Error('bad code');
-  const binary = atob(compact.replaceAll('-', '+').replaceAll('_', '/'));
-  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-  const inflated = await pump(
-    through(bytes, new DecompressionStream('deflate-raw')),
-    MAX_SDP_BYTES,
-  );
-  const data: unknown = JSON.parse(new TextDecoder().decode(inflated));
-  if (typeof data !== 'object' || data === null) throw new Error('bad code');
-  const { t, s } = data as Record<string, unknown>;
-  if (t !== expected || typeof s !== 'string') throw new Error('bad code');
-  return { type: expected, sdp: s };
+  try {
+    const compact = code.replace(/\s+/g, '');
+    if (compact.length === 0 || compact.length > MAX_CODE_CHARS) throw new BadCodeError();
+    const binary = atob(compact.replaceAll('-', '+').replaceAll('_', '/'));
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    const inflated = await pump(
+      through(bytes, new DecompressionStream('deflate-raw')),
+      MAX_SDP_BYTES,
+    );
+    const data: unknown = JSON.parse(new TextDecoder().decode(inflated));
+    if (typeof data !== 'object' || data === null) throw new BadCodeError();
+    const { t, s } = data as Record<string, unknown>;
+    if (t !== expected || typeof s !== 'string') throw new BadCodeError();
+    const lines = s.split(/\r?\n/);
+    if (lines.length > MAX_SDP_LINES) throw new BadCodeError();
+    if (lines.filter((line) => line.startsWith('a=candidate:')).length > MAX_SDP_CANDIDATES) {
+      throw new BadCodeError();
+    }
+    return { type: expected, sdp: s };
+  } catch (error) {
+    throw error instanceof BadCodeError ? error : new BadCodeError();
+  }
 }
 
 // ---- connection ---------------------------------------------------------
@@ -151,6 +180,7 @@ function wire(pc: RTCPeerConnection): Promise<PeerLink> {
   game.binaryType = 'arraybuffer';
 
   let lastHeard = performance.now();
+  let lastGameHeard = lastHeard;
   let closed = false;
 
   const transport: Transport = {
@@ -165,6 +195,9 @@ function wire(pc: RTCPeerConnection): Promise<PeerLink> {
     onclose: null,
     get lastHeard() {
       return lastHeard;
+    },
+    get lastGameHeard() {
+      return lastGameHeard;
     },
     sendControl(message) {
       if (ctl.readyState === 'open') ctl.send(JSON.stringify(message));
@@ -182,7 +215,7 @@ function wire(pc: RTCPeerConnection): Promise<PeerLink> {
 
   game.onmessage = (e) => {
     if (!(e.data instanceof ArrayBuffer)) return;
-    lastHeard = performance.now();
+    lastHeard = lastGameHeard = performance.now();
     transport.onmessage?.(new Uint8Array(e.data));
   };
   ctl.onmessage = (e) => {
@@ -200,7 +233,7 @@ function wire(pc: RTCPeerConnection): Promise<PeerLink> {
       if (++open < 2) return;
       // The silence clock starts now, not when the invitation was made:
       // the players take far longer than any timeout to swap their codes.
-      lastHeard = performance.now();
+      lastHeard = lastGameHeard = performance.now();
       resolve(link);
     };
     ctl.onopen = opened;
@@ -208,7 +241,7 @@ function wire(pc: RTCPeerConnection): Promise<PeerLink> {
     pc.onconnectionstatechange = () => {
       // 'disconnected' is not final -- ICE may recover from it.
       if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-        reject(new Error('connection failed'));
+        reject(new LinkFailedError('connection failed'));
         lost();
       }
     };
@@ -237,7 +270,11 @@ function gathered(pc: RTCPeerConnection): Promise<void> {
 export interface Invitation {
   /** Give this to the other player. */
   readonly code: string;
-  /** Feed in the code they send back; resolves once the link is up. */
+  /**
+   * Feed in the code they send back; resolves once the link is up. A
+   * BadCodeError leaves the invitation usable for another try; calling it
+   * again while a good code is being connected returns that same attempt.
+   */
   accept(replyCode: string): Promise<PeerLink>;
   cancel(): void;
 }
@@ -259,16 +296,32 @@ export async function invite(): Promise<Invitation> {
   // Rejections surface through accept(); without this an early failure
   // would be reported as unhandled before anyone awaits it.
   link.catch(() => {});
-  await pc.setLocalDescription(await pc.createOffer());
-  await gathered(pc);
-  return {
-    code: await pack(pc.localDescription),
-    async accept(replyCode) {
-      await pc.setRemoteDescription(await unpack(replyCode, 'answer'));
-      return link;
-    },
-    cancel: () => pc.close(),
-  };
+  try {
+    await pc.setLocalDescription(await pc.createOffer());
+    await gathered(pc);
+    const code = await packDescription(pc.localDescription);
+    let accepting: Promise<PeerLink> | null = null;
+    return {
+      code,
+      accept(replyCode) {
+        accepting ??= (async () => {
+          const answer = await unpack(replyCode, 'answer');
+          await pc.setRemoteDescription(answer);
+          return link;
+        })().catch((error: unknown) => {
+          // A typo is not the end of the invitation; anything else is.
+          if (error instanceof BadCodeError) accepting = null;
+          throw error;
+        });
+        return accepting;
+      },
+      cancel: () => pc.close(),
+    };
+  } catch (error) {
+    // Nobody holds a handle yet, so nobody else could close it.
+    pc.close();
+    throw error;
+  }
 }
 
 export async function join(invitationCode: string): Promise<Reply> {
@@ -276,8 +329,13 @@ export async function join(invitationCode: string): Promise<Reply> {
   const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
   const link = wire(pc);
   link.catch(() => {});
-  await pc.setRemoteDescription(offer);
-  await pc.setLocalDescription(await pc.createAnswer());
-  await gathered(pc);
-  return { code: await pack(pc.localDescription), link, cancel: () => pc.close() };
+  try {
+    await pc.setRemoteDescription(offer);
+    await pc.setLocalDescription(await pc.createAnswer());
+    await gathered(pc);
+    return { code: await packDescription(pc.localDescription), link, cancel: () => pc.close() };
+  } catch (error) {
+    pc.close();
+    throw error;
+  }
 }

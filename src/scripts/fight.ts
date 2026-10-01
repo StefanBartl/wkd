@@ -144,6 +144,12 @@ function setUp(root: HTMLElement): void {
   };
   updateRecord(recordEl);
 
+  // Matches can be started by the other side (an online `start` message), at
+  // any time -- also while the visitor is on another tab or the page is hidden.
+  const fightShown = (): boolean =>
+    !document.hidden &&
+    (document.getElementById('view-fight') as HTMLInputElement | null)?.checked === true;
+
   const launch = (setup: MatchSetup): void => {
     selectPanel.hidden = true;
     arena.hidden = false;
@@ -151,12 +157,14 @@ function setUp(root: HTMLElement): void {
     arena.dataset.you = String(setup.local);
     match?.stop();
     match = new Match(ctx, hud, setup, musicOn);
-    match.start();
+    // Not visible: set up, but wait for resume() instead of playing music
+    // and running a match nobody is looking at (or controlling).
+    match.start(fightShown());
   };
 
   // The AI game is the default owner of the fighter cards and the rematch
-  // button; an online session takes both over while it lasts.
-  const versusAi = {
+  // button; an online session takes them over while it lasts.
+  const versusAi: OnlineHandlers = {
     pick(id: string): void {
       picked = id;
       launch(aiSetup(id));
@@ -165,7 +173,7 @@ function setUp(root: HTMLElement): void {
       if (picked) launch(aiSetup(picked));
     },
   };
-  let handlers: { pick(id: string): void; rematch(): void } = versusAi;
+  let handlers: OnlineHandlers = versusAi;
 
   for (const btn of root.querySelectorAll<HTMLButtonElement>('[data-fighter]')) {
     btn.addEventListener('click', () => {
@@ -175,6 +183,10 @@ function setUp(root: HTMLElement): void {
   }
 
   againBtn?.addEventListener('click', () => handlers.rematch());
+  // Only while an online session is on: the way out of it once the select
+  // panel (with its Disconnect button) is hidden behind the arena.
+  const leaveBtn = root.querySelector<HTMLButtonElement>('[data-fight-leave]');
+  leaveBtn?.addEventListener('click', () => handlers.leave?.());
 
   const online = root.querySelector<HTMLElement>('[data-fight-online]');
   if (online && typeof RTCPeerConnection !== 'undefined' && 'CompressionStream' in window) {
@@ -189,13 +201,21 @@ function setUp(root: HTMLElement): void {
       },
       takeOver(next) {
         handlers = next ?? versusAi;
+        if (leaveBtn) leaveBtn.hidden = !handlers.leave;
       },
     };
     online.hidden = false;
     for (const mode of ['invite', 'join'] as const) {
       online.querySelector(`[data-fight-${mode}]`)?.addEventListener('click', () => {
         // WebRTC, rollback and the invitation flow: fetched on first use.
-        import('./fight-online').then((m) => m.begin(mode, api)).catch(() => {});
+        import('./fight-online')
+          .then((m) => m.begin(mode, api))
+          .catch(() => {
+            const status = online.querySelector('[data-fight-online-status]');
+            // A page left open across a deploy points at chunks that are gone.
+            if (status)
+              status.textContent = 'Could not load online play. Reload the page and retry.';
+          });
       });
     }
   }
@@ -254,8 +274,7 @@ function setUp(root: HTMLElement): void {
   }
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) match?.pause();
-    else if ((document.getElementById('view-fight') as HTMLInputElement | null)?.checked)
-      match?.resume();
+    else if (fightShown()) match?.resume();
   });
 
   requestWasmCore(root.querySelector<HTMLElement>('[data-fight-core]'));
@@ -302,7 +321,14 @@ export interface OnlineApi {
   /** Stop whatever is running and go back to the fighter cards. */
   showSelect(): void;
   /** Route fighter picks and the rematch button here; null hands them back to the AI game. */
-  takeOver(handlers: { pick(id: string): void; rematch(): void } | null): void;
+  takeOver(handlers: OnlineHandlers | null): void;
+}
+
+export interface OnlineHandlers {
+  pick(id: string): void;
+  rematch(): void;
+  /** Present while a session can be left from the arena; shows the Leave button. */
+  leave?(): void;
 }
 
 type Action = 'left' | 'right' | 'jump' | 'attack1' | 'attack2';
@@ -568,19 +594,21 @@ class Match {
     if (this.hud.netEl) this.hud.netEl.hidden = this.driver.status() === null;
   }
 
-  start(): void {
+  /** `active` false: wait for resume() -- nobody is looking at the Fight tab right now. */
+  start(active = true): void {
     this.lastFrameAt = performance.now();
     this.acc = 0;
-    this.running = true;
     this.over = false;
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     this.hud.introEl.classList.remove('fight-intro-play');
     void this.hud.introEl.offsetWidth; // restart the CSS animation
     this.hud.introEl.classList.add('fight-intro-play');
+    requestParticles();
+    if (!active) return;
+    this.running = true;
     playSfx('stinger');
     if (this.musicWanted) music.start();
-    requestParticles();
     this.raf = requestAnimationFrame(this.tick);
   }
 
