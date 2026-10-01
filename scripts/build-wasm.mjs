@@ -6,14 +6,19 @@
 //
 // Needs: rustup target add wasm32-unknown-unknown
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, statSync } from 'node:fs';
+import { copyFileSync, rmSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const crate = join(root, 'wasm', 'fight-sim');
 const out = join(root, 'src', 'lib', 'fight-engine', 'fight-sim.wasm');
+// Pinned: CARGO_TARGET_DIR or a cargo config could send the build elsewhere,
+// and the copy below would then pick up whatever an older build left here.
+const target = join(crate, 'target');
+const built = join(target, 'wasm32-unknown-unknown', 'release', 'fight_sim.wasm');
 
+rmSync(built, { force: true });
 execFileSync(
   'cargo',
   [
@@ -21,10 +26,12 @@ execFileSync(
     '--release',
     '--target',
     'wasm32-unknown-unknown',
+    '--target-dir',
+    target,
     '--manifest-path',
     join(crate, 'Cargo.toml'),
   ],
   { stdio: 'inherit' },
 );
-copyFileSync(join(crate, 'target', 'wasm32-unknown-unknown', 'release', 'fight_sim.wasm'), out);
+copyFileSync(built, out);
 console.log(`${out}: ${statSync(out).size} bytes`);

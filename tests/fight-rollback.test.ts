@@ -305,14 +305,91 @@ test('a tick that will not record its input says so, so a tap can wait', () => {
   assert.ok(a.stalledFor > 20);
 });
 
-/** A header-only packet, as a hostile peer could hand-build one. */
-function forgedPacket(frame: number, advantage: number): Uint8Array {
-  const bytes = new Uint8Array(23);
+interface Crafted {
+  frame?: number;
+  ack?: number;
+  advantage?: number;
+  start?: number;
+  inputs?: readonly number[];
+  /** The count byte, when it should disagree with the inputs that follow. */
+  count?: number;
+  matchId?: number;
+}
+
+/** A packet as a hostile peer could hand-build one (same layout as rollback.ts). */
+function craftPacket(p: Crafted): Uint8Array {
+  const inputs = p.inputs ?? [];
+  const bytes = new Uint8Array(23 + inputs.length);
   const view = new DataView(bytes.buffer);
-  view.setUint32(0, frame, true);
-  view.setInt8(8, advantage);
+  view.setUint32(0, p.frame ?? 0, true);
+  view.setUint32(4, p.ack ?? 0, true);
+  view.setInt8(8, p.advantage ?? 0);
+  view.setUint32(9, p.start ?? 0, true);
+  view.setUint8(13, p.count ?? inputs.length);
+  view.setUint8(22, p.matchId ?? 0);
+  bytes.set(inputs, 23);
   return bytes;
 }
+
+const forgedPacket = (frame: number, advantage: number): Uint8Array =>
+  craftPacket({ frame, advantage });
+
+function lonelySession(matchId = 0): { session: RollbackSession; feed(data: Uint8Array): void } {
+  const link = createLoopback({ delay: 0, loss: 1 });
+  const session = new RollbackSession({
+    local: 0,
+    state: createState(samurai, kenji, 1),
+    transport: link.a,
+    matchId,
+  });
+  return { session, feed: (data) => link.a.onmessage?.(data) };
+}
+
+test('packets that are malformed, from another match, or from the future are ignored', () => {
+  const { session, feed } = lonelySession(7);
+  const ignored: Uint8Array[] = [
+    new Uint8Array(0),
+    new Uint8Array(22),
+    // The count byte promises three inputs, two follow.
+    craftPacket({ inputs: [1, 2], count: 3, matchId: 7 }),
+    craftPacket({ inputs: [1, 2, 3], count: 2, matchId: 7 }),
+    // A straggler of the previous match.
+    craftPacket({ inputs: [1, 2, 3], matchId: 6 }),
+    // Starts after a gap: waits for the packet that was lost.
+    craftPacket({ start: 5, inputs: [1, 2, 3], matchId: 7 }),
+    craftPacket({ start: 0xffff_ffff, inputs: [1, 2, 3], matchId: 7 }),
+  ];
+  for (const data of ignored) feed(data);
+  assert.equal(session.remoteFrames, 0);
+  for (let i = 0; i < 20; i++) session.advance(0);
+  assert.equal(session.confirmedFrame, 0);
+});
+
+test('a good packet is taken, a repeat adds nothing, and reserved input bits are harmless', () => {
+  const { session, feed } = lonelySession(7);
+  feed(craftPacket({ inputs: [0, 0, 0xff], matchId: 7 }));
+  assert.equal(session.remoteFrames, 3);
+  // The peer repeats unacknowledged inputs in every packet.
+  feed(craftPacket({ inputs: [0, 0, 0xff], matchId: 7 }));
+  assert.equal(session.remoteFrames, 3);
+  // ...and one that overlaps what is known and extends it.
+  feed(craftPacket({ start: 1, inputs: [0, 0xff, 0xaa, 0x55], matchId: 7 }));
+  assert.equal(session.remoteFrames, 5);
+  for (let i = 0; i < 20; i++) session.advance(0);
+  assert.ok(session.confirmedFrame > 0);
+  assert.equal(session.desynced, false);
+});
+
+test('a peer that claims impossible frames and acks cannot crash or wedge the session', () => {
+  const { session, feed } = lonelySession();
+  feed(craftPacket({ frame: 0xffff_ffff, ack: 0xffff_ffff, advantage: -127 }));
+  feed(craftPacket({ frame: 0, ack: 0, advantage: 127 }));
+  for (let i = 0; i < 50; i++) {
+    session.advance(0);
+    feed(craftPacket({ frame: 0xffff_ffff, ack: 0xffff_ffff, advantage: -128 }));
+  }
+  assert.ok(session.frame <= 8, 'with no real input from the peer the window still holds');
+});
 
 test('one forged frame number cannot switch the pacing off for the whole match', () => {
   const initial = createState(samurai, kenji, 6);

@@ -94,7 +94,7 @@ export const ATTACK_RANGE = 90;
 const ATTACK_W = 100;
 const ATTACK_H = 60;
 const ATTACK_Y_OFFSET = 30;
-const EDGE_MARGIN = 10;
+export const EDGE_MARGIN = 10;
 
 export const MOVE_SPEED = Math.round(4.2 * FP);
 const GRAVITY = Math.round(0.55 * FP);

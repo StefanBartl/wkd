@@ -88,6 +88,13 @@ jobs:
       - name: Install, build and upload
         uses: withastro/action@3eafd002e65cc31b4f0eae0bb05450d521562247 # v6.1.3
 
+      # Gate for the deploy job below: the fight engine's tests include the
+      # check that the committed fight-sim.wasm still matches sim.ts bit for
+      # bit, and nothing else in CI would catch a stale binary. Runs on the
+      # Node the action set up (24; the tests need >= 22.18 to run .ts files).
+      - name: Test
+        run: node --test "tests/*.test.ts"
+
   deploy:
     needs: build
     runs-on: ubuntu-latest

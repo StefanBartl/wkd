@@ -18,7 +18,7 @@
     "build:wasm": "node scripts/build-wasm.mjs",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "verify": "pnpm lint && pnpm check && pnpm build"
+    "verify": "pnpm lint && pnpm check && pnpm test && pnpm build"
   },
   "dependencies": {
     "astro": "^7.3.3"
