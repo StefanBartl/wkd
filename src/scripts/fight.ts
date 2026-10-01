@@ -20,6 +20,7 @@ import {
   WINS_KEY,
 } from '../lib/fight';
 import { aiInput } from '../lib/fight-engine/ai';
+import { music, playSfx } from '../lib/fight-engine/audio';
 import { pollGamepads } from '../lib/fight-engine/gamepad';
 import {
   BOX_H,
@@ -221,12 +222,10 @@ function setUp(root: HTMLElement): void {
 
   // Small reward for noticing the tab. mouseenter (not mouseover) so this
   // fires once per hover, not on every sub-pixel pointer move inside the
-  // label. Like playStinger()/playHit(), this can be a silent no-op before
-  // the page has seen any user gesture -- browser autoplay policy, not a bug
-  // here.
+  // label.
   document
     .querySelector<HTMLLabelElement>('label[for="view-fight"]')
-    ?.addEventListener('mouseenter', playHoverBlip);
+    ?.addEventListener('mouseenter', () => playSfx('blip'));
 }
 
 function updateRecord(el: HTMLElement): void {
@@ -270,117 +269,6 @@ function loadImage(src: string): HTMLImageElement {
     imageCache.set(src, img);
   }
   return img;
-}
-
-// ---- tiny procedural audio -------------------------------------------------
-// No sound assets exist in the source project (it never had any either --
-// see its own ToDo.md). This is a synthesised stinger + a looping arpeggio,
-// not a real "FIGHT!" voice line or produced music -- a placeholder Stefan
-// can replace with real audio later, same spirit as T6's pre-built,
-// awaiting-real-screenshots component.
-let audioCtx: AudioContext | null = null;
-function getAudioCtx(): AudioContext | null {
-  if (typeof AudioContext === 'undefined') return null;
-  if (!audioCtx) audioCtx = new AudioContext();
-  if (audioCtx.state === 'suspended') void audioCtx.resume();
-  return audioCtx;
-}
-
-function playStinger(): void {
-  const ctx = getAudioCtx();
-  if (!ctx) return;
-  const now = ctx.currentTime;
-  for (const [freq, start, dur] of [
-    [220, 0, 0.16],
-    [146, 0.1, 0.32],
-  ] as const) {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(freq, now + start);
-    gain.gain.setValueAtTime(0.0001, now + start);
-    gain.gain.exponentialRampToValueAtTime(0.22, now + start + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(now + start);
-    osc.stop(now + start + dur + 0.05);
-  }
-}
-
-function playHoverBlip(): void {
-  const ctx = getAudioCtx();
-  if (!ctx) return;
-  const now = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(880, now);
-  osc.frequency.exponentialRampToValueAtTime(1320, now + 0.06);
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.exponentialRampToValueAtTime(0.12, now + 0.015);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start(now);
-  osc.stop(now + 0.1);
-}
-
-function playHit(): void {
-  const ctx = getAudioCtx();
-  if (!ctx) return;
-  const now = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(180, now);
-  osc.frequency.exponentialRampToValueAtTime(60, now + 0.1);
-  gain.gain.setValueAtTime(0.18, now);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start(now);
-  osc.stop(now + 0.14);
-}
-
-class MusicLoop {
-  private gain: GainNode | null = null;
-  private timer: ReturnType<typeof setInterval> | undefined;
-  private i = 0;
-  private readonly notes = [110, 130.81, 146.83, 110, 164.81, 146.83, 130.81, 98];
-
-  start(): void {
-    const ctx = getAudioCtx();
-    if (!ctx) return;
-    this.stop();
-    this.gain = ctx.createGain();
-    this.gain.gain.value = 0.05;
-    this.gain.connect(ctx.destination);
-    this.i = 0;
-    this.timer = setInterval(() => this.step(ctx), 230);
-    this.step(ctx);
-  }
-
-  private step(ctx: AudioContext): void {
-    if (!this.gain) return;
-    const freq = this.notes[this.i % this.notes.length] ?? 110;
-    this.i++;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const g = ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.value = freq;
-    g.gain.setValueAtTime(0.0001, now);
-    g.gain.exponentialRampToValueAtTime(1, now + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
-    osc.connect(g).connect(this.gain);
-    osc.start(now);
-    osc.stop(now + 0.22);
-  }
-
-  stop(): void {
-    clearInterval(this.timer);
-    this.timer = undefined;
-    this.gain?.disconnect();
-    this.gain = null;
-  }
 }
 
 // ---- input ------------------------------------------------------------
@@ -495,7 +383,6 @@ class Match {
   private raf = 0;
   private running = false;
   private over = false;
-  private music = new MusicLoop();
   private musicWanted: boolean;
   // Written health/timer values, so the HUD only touches the DOM on the
   // ~1-2/sec ticks where they actually changed instead of every one of a
@@ -536,15 +423,15 @@ class Match {
     this.hud.introEl.classList.remove('fight-intro-play');
     void this.hud.introEl.offsetWidth; // restart the CSS animation
     this.hud.introEl.classList.add('fight-intro-play');
-    playStinger();
-    if (this.musicWanted) this.music.start();
+    playSfx('stinger');
+    if (this.musicWanted) music.start();
     this.raf = requestAnimationFrame(this.tick);
   }
 
   pause(): void {
     this.running = false;
     cancelAnimationFrame(this.raf);
-    this.music.stop();
+    music.stop();
     // setAction() ignores keyup while paused too, so a movement key
     // released during the pause would otherwise never clear -- same fix
     // also covers losing a keyup entirely, e.g. the window itself loses
@@ -557,7 +444,7 @@ class Match {
     this.running = true;
     this.lastFrameAt = performance.now();
     this.acc = 0;
-    if (this.musicWanted) this.music.start();
+    if (this.musicWanted) music.start();
     this.raf = requestAnimationFrame(this.tick);
   }
 
@@ -569,8 +456,8 @@ class Match {
 
   setMusic(on: boolean): void {
     this.musicWanted = on;
-    if (on && this.running && !this.over) this.music.start();
-    else this.music.stop();
+    if (on && this.running && !this.over) music.start();
+    else music.stop();
   }
 
   setAction(action: Action, down: boolean): void {
@@ -616,7 +503,7 @@ class Match {
       steps++;
     }
 
-    if (events & (EV_HIT_P0 | EV_HIT_P1)) playHit();
+    if (events & (EV_HIT_P0 | EV_HIT_P1)) playSfx('hit');
     this.syncHud();
     if (events & (EV_KO | EV_TIMEUP)) this.finish();
     this.render();
