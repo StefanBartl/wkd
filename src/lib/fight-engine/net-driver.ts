@@ -12,6 +12,9 @@ import {
   type SimState,
 } from './sim.ts';
 
+// Half a second of overdue input: long enough that it is not just jitter.
+const WAITING_TICKS = 30;
+
 function describe(session: RollbackSession): string {
   const { rollbacks, maxRollbackFrames } = session.stats;
   const parts = [
@@ -19,7 +22,8 @@ function describe(session: RollbackSession): string {
     `deepest ${maxRollbackFrames}f`,
     `guessing ${session.predictedFrames}f`,
   ];
-  if (session.desynced) parts.push('DESYNC');
+  if (session.stalledFor > WAITING_TICKS) parts.push('waiting for your friend');
+  if (session.desynced) parts.push('OUT OF SYNC');
   return parts.join(' · ');
 }
 
@@ -31,7 +35,14 @@ export function peerDriver(session: RollbackSession): Driver {
     get outcome() {
       return session.outcome;
     },
+    get wantsInput() {
+      return session.wantsInput;
+    },
+    get desynced() {
+      return session.desynced;
+    },
     status: () => describe(session),
+    flush: () => session.flush(),
   };
 }
 
@@ -75,6 +86,12 @@ export function laggedAiDriver(initial: SimState, net: LoopbackOptions): Driver 
     },
     get outcome() {
       return player.outcome;
+    },
+    get wantsInput() {
+      return player.wantsInput;
+    },
+    get desynced() {
+      return player.desynced;
     },
     status: () => `${describe(player)} · simulated ${Math.round((net.delay * 1000) / 60)}ms`,
   };

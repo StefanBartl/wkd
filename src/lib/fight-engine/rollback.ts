@@ -61,6 +61,10 @@ const MAX_INPUTS_PER_PACKET = 64;
 const HASH_INTERVAL = 30;
 const SYNC_SKIP_COOLDOWN = 10;
 const HEADER_BYTES = 23;
+// The same event reported again this close to its first report is the same
+// event, merely moved by a rollback (hits are 27+ frames apart, a landing
+// needs a whole jump in between).
+const EVENT_DEDUPE_FRAMES = 6;
 
 interface Packet {
   /** Sender's current frame. */
@@ -140,6 +144,10 @@ export class RollbackSession {
   private remoteKnown = 0;
   private peerAck = 0;
   private mispredicted = false;
+  /** EV_* bits already handed out per frame, so a replay only adds what is new. */
+  private readonly emitted = new Uint8Array(MAX_FRAMES);
+  private readonly lastEventFrame = new Int32Array(8).fill(-1000);
+  private stallRun = 0;
 
   private heardFromPeer = false;
   private remoteFrame = 0;
@@ -177,19 +185,42 @@ export class RollbackSession {
     return this.confirmed[G_OVER] as number;
   }
 
+  /** Frames for which the peer's real input has arrived; beyond that it is guessed. */
+  get remoteFrames(): number {
+    return this.remoteKnown;
+  }
+
   /** Frames of input from the peer still being guessed at. */
   get predictedFrames(): number {
     return this.frameNo - this.confirmedNo;
   }
 
   /**
+   * Whether the next advance() will record the input it is given. When it
+   * will not (a stalled or skipped tick), the caller should keep a latched
+   * button press for a later tick instead of spending it.
+   */
+  get wantsInput(): boolean {
+    const target = this.frameNo + this.inputDelay;
+    return target >= this.localKnown && target < MAX_FRAMES;
+  }
+
+  /** Consecutive ticks that could not step because the peer's input is overdue. */
+  get stalledFor(): number {
+    return this.stallRun;
+  }
+
+  /**
    * One 60 Hz tick: takes the local input sampled now, sends it, absorbs
    * whatever arrived from the peer and steps the match. Returns the EV_*
-   * bits of the newly simulated frame, or 0 when the tick had to wait.
-   * Events are from the predicted timeline -- a hit that gets rolled back
-   * has already been reported.
+   * bits that are new since the last tick -- the newly simulated frame and
+   * anything a rollback replay produced that was not reported yet -- or 0
+   * when the tick had to wait. Events come from the predicted timeline: a
+   * hit that is rolled back away has already been reported.
    */
   advance(localInput: number): number {
+    // Once the confirmed states disagree there is no shared match to play.
+    if (this.desynced) return 0;
     const target = this.frameNo + this.inputDelay;
     if (target >= this.localKnown && target < MAX_FRAMES) {
       this.localInputs[target] = localInput;
@@ -198,21 +229,51 @@ export class RollbackSession {
     this.confirm();
     this.send();
 
-    if (this.mispredicted) this.rollback();
+    let events = this.mispredicted ? this.rollback() : 0;
 
-    if (this.frameNo >= MAX_FRAMES - 1) return 0;
+    if (this.frameNo >= MAX_FRAMES - 1) return events;
     if (this.frameNo - this.confirmedNo >= this.maxPrediction) {
       this.stats.stalledTicks++;
-      return 0;
+      this.stallRun++;
+      return events;
     }
     if (this.shouldWaitForPeer()) {
       this.stats.syncSkips++;
-      return 0;
+      return events;
     }
 
-    const events = this.stepCurrent(this.frameNo);
+    this.stallRun = 0;
+    events |= this.report(this.frameNo, this.stepCurrent(this.frameNo));
     this.frameNo++;
     return events;
+  }
+
+  /**
+   * Sends the inputs the peer has not acknowledged yet, without stepping. A
+   * peer that stops calling advance() once its own result is final would
+   * otherwise take its last packets with it, and the other side may be
+   * missing exactly those. Returns true once the peer has acknowledged
+   * everything this side has confirmed.
+   */
+  flush(): boolean {
+    this.send();
+    return this.peerAck >= this.confirmedNo;
+  }
+
+  /** Filters the events of `frame` down to those not reported for it, or an alias of it, before. */
+  private report(frame: number, events: number): number {
+    const fresh = events & ~(this.emitted[frame] as number);
+    if (fresh === 0) return 0;
+    this.emitted[frame] = (this.emitted[frame] as number) | fresh;
+    let out = 0;
+    for (let bit = 0; bit < 8; bit++) {
+      const mask = 1 << bit;
+      if ((fresh & mask) === 0) continue;
+      if (Math.abs(frame - (this.lastEventFrame[bit] as number)) < EVENT_DEDUPE_FRAMES) continue;
+      this.lastEventFrame[bit] = frame;
+      out |= mask;
+    }
+    return out;
   }
 
   private remoteInputFor(frame: number): number {
@@ -250,13 +311,18 @@ export class RollbackSession {
     }
   }
 
-  private rollback(): void {
+  /** Rewinds to `confirmed` and replays; returns the events the replay found that are new. */
+  private rollback(): number {
     this.mispredicted = false;
     const depth = this.frameNo - this.confirmedNo;
     copyState(this.current, this.confirmed);
-    for (let f = this.confirmedNo; f < this.frameNo; f++) this.stepCurrent(f);
+    let events = 0;
+    for (let f = this.confirmedNo; f < this.frameNo; f++) {
+      events |= this.report(f, this.stepCurrent(f));
+    }
     this.stats.rollbacks++;
     if (depth > this.stats.maxRollbackFrames) this.stats.maxRollbackFrames = depth;
+    return events;
   }
 
   /**
@@ -296,11 +362,6 @@ export class RollbackSession {
     if (!packet || packet.matchId !== this.matchId) return;
     this.heardFromPeer = true;
     if (packet.ack > this.peerAck) this.peerAck = Math.min(packet.ack, this.localKnown);
-    // Reordered packets: only the newest one says where the peer is now.
-    if (packet.frame >= this.remoteFrame) {
-      this.remoteFrame = packet.frame;
-      this.remoteAdvantage = packet.advantage;
-    }
 
     // Inputs are only taken as a gapless continuation of what is known; a
     // packet that starts later is waiting for one that got lost, and the
@@ -313,6 +374,20 @@ export class RollbackSession {
         if (f < this.frameNo && this.usedRemote[f] !== input) this.mispredicted = true;
       }
       if (end > this.remoteKnown) this.remoteKnown = end;
+    }
+
+    // Reordered packets: only the newest one says where the peer is now. The
+    // claim is held to what an honest peer can say -- it never runs ahead of
+    // the inputs it has from this side by more than the prediction window, and
+    // it records its own input `inputDelay` frames before it steps -- so one
+    // forged value cannot freeze the pacing for the rest of the match.
+    const claimed = Math.max(
+      this.remoteKnown - this.inputDelay - 1,
+      Math.min(packet.frame, this.localKnown + this.maxPrediction),
+    );
+    if (claimed >= this.remoteFrame) {
+      this.remoteFrame = claimed;
+      this.remoteAdvantage = packet.advantage;
     }
 
     if (packet.hashFrame > 0) {

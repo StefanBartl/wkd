@@ -13,8 +13,21 @@ export interface Driver {
   tick(localInput: number): number;
   /** OVER_* once the result is final for everyone involved, else 0. */
   readonly outcome: number;
+  /**
+   * Whether the next tick will use the input it is given. Where it will not
+   * (rollback waiting for the peer), a latched button press must be kept for
+   * a later tick instead of being spent on this one.
+   */
+  readonly wantsInput: boolean;
+  /** The peers' results can no longer be trusted to agree; the match is void. */
+  readonly desynced: boolean;
   /** A line for the HUD describing the connection, or null when there is none. */
   status(): string | null;
+  /**
+   * After the match: re-send what the peer may still be missing. Returns true
+   * once nothing is owed any more. Absent where there is no peer.
+   */
+  flush?(): boolean;
 }
 
 /** The player is fighter 0, the handwritten AI fighter 1, nothing in between. */
@@ -28,6 +41,8 @@ export function aiDriver(
     get outcome() {
       return state[G_OVER] as number;
     },
+    wantsInput: true,
+    desynced: false,
     status: () => null,
   };
 }

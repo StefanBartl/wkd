@@ -40,11 +40,13 @@ import {
   F_Y,
   FP,
   fighterBase,
+  G_FRAME,
   IN_ATTACK1,
   IN_ATTACK2,
   IN_JUMP,
   IN_LEFT,
   IN_RIGHT,
+  INTRO_FRAMES,
   MOVE_SPEED,
   OVER_NONE,
   OVER_P0,
@@ -350,6 +352,11 @@ class InputLatch {
     }
   }
 
+  /** Everything down now or tapped since the last consume(); the taps stay latched. */
+  peek(): number {
+    return this.held | this.pressed;
+  }
+
   consume(): number {
     const bits = this.held | this.pressed;
     this.pressed = 0;
@@ -424,6 +431,10 @@ const STEP_MS = 1000 / SIM_HZ;
 // up step by step -- the match just loses that time.
 const MAX_FRAME_MS = 100;
 const MAX_STEPS_PER_FRAME = 6;
+// After a match against a peer: keep re-sending the last inputs for at most
+// this long, so the other side can still confirm the result (see flush()).
+const LINGER_MS = 3000;
+const LINGER_TICK_MS = 100;
 // The handwritten opponent walks a little slower than the player.
 const AI_SPEED = Math.round(MOVE_SPEED * 0.85);
 
@@ -532,6 +543,7 @@ class Match {
   private lastFrameAt = 0;
   private acc = 0;
   private raf = 0;
+  private linger: ReturnType<typeof setInterval> | undefined;
   private running = false;
   private over = false;
   private musicWanted: boolean;
@@ -594,6 +606,7 @@ class Match {
 
   stop(): void {
     this.pause();
+    clearInterval(this.linger);
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
   }
@@ -609,8 +622,9 @@ class Match {
     // match -- left via a real view-tab change, not yet Escape, see
     // views.ts -- can't keep reacting to touch buttons/keys anywhere on
     // the page. Input during the "FIGHT!" intro is latched like any other:
-    // the sim ignores it until the intro ends, and a button still held at
-    // that point takes effect on the first live frame.
+    // the sim ignores it until the intro ends; sampleInput() keeps a tap
+    // latched until then, so a quick tap early still counts on the first live
+    // frame, like a button that is still held.
     if (this.over || !this.running) return;
     this.input.set(ACTION_BITS[action], down);
   }
@@ -643,7 +657,7 @@ class Match {
     let events = 0;
     let steps = 0;
     while (this.acc >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
-      events |= this.driver.tick(this.input.consume() | pad);
+      events |= this.driver.tick(this.sampleInput() | pad);
       this.acc -= STEP_MS;
       steps++;
     }
@@ -653,10 +667,21 @@ class Match {
     this.syncHud();
     // Not on the KO/time-up event: with rollback that is only a prediction
     // until the driver has the frame confirmed by both peers.
-    if (this.driver.outcome !== OVER_NONE) this.finish();
+    if (this.driver.desynced) this.finish(true);
+    else if (this.driver.outcome !== OVER_NONE) this.finish(false);
     this.render(dt / 1000);
     if (this.running) this.raf = requestAnimationFrame(this.tick);
   };
+
+  /**
+   * The local input for one step. A latched tap is only spent where the step
+   * can use it: not during the intro (the sim ignores input there), and not
+   * on a tick where rollback is waiting for the peer and will not record it.
+   */
+  private sampleInput(): number {
+    const live = (this.driver.state[G_FRAME] as number) >= INTRO_FRAMES;
+    return live && this.driver.wantsInput ? this.input.consume() : this.input.peek();
+  }
 
   private emitParticles(events: number, fx: Particles): void {
     const s = this.driver.state;
@@ -695,17 +720,38 @@ class Match {
     }
   }
 
-  private finish(): void {
+  /** `voided`: the peers' states diverged, so whatever the result says, it does not count. */
+  private finish(voided: boolean): void {
     this.over = true;
     this.pause();
-    const outcome = this.driver.outcome;
-    const won = outcome === (this.local === 0 ? OVER_P0 : OVER_P1);
-    const lost = outcome === (this.local === 0 ? OVER_P1 : OVER_P0);
-    this.hud.resultText.textContent = won ? 'You win.' : lost ? 'You lose.' : 'Draw.';
-    if (won) writeCount(WINS_KEY, readCount(WINS_KEY) + 1);
-    else if (lost) writeCount(LOSSES_KEY, readCount(LOSSES_KEY) + 1);
-    updateRecord(this.hud.recordEl);
+    if (voided) {
+      this.hud.resultText.textContent =
+        'The two games went out of sync. This match does not count.';
+    } else {
+      const outcome = this.driver.outcome;
+      const won = outcome === (this.local === 0 ? OVER_P0 : OVER_P1);
+      const lost = outcome === (this.local === 0 ? OVER_P1 : OVER_P0);
+      this.hud.resultText.textContent = won ? 'You win.' : lost ? 'You lose.' : 'Draw.';
+      if (won) writeCount(WINS_KEY, readCount(WINS_KEY) + 1);
+      else if (lost) writeCount(LOSSES_KEY, readCount(LOSSES_KEY) + 1);
+      updateRecord(this.hud.recordEl);
+      this.startLinger();
+    }
     this.hud.resultBox.hidden = false;
+  }
+
+  /**
+   * The loop is stopped, and with it the packets. The peer may not have
+   * received the last inputs yet (the channel is unreliable), and without
+   * them it can never confirm the final frames; so keep re-sending for a
+   * moment, until it has acknowledged them.
+   */
+  private startLinger(): void {
+    if (!this.driver.flush) return;
+    const until = performance.now() + LINGER_MS;
+    this.linger = setInterval(() => {
+      if (this.driver.flush?.() || performance.now() > until) clearInterval(this.linger);
+    }, LINGER_TICK_MS);
   }
 
   private render(frameSeconds: number): void {
