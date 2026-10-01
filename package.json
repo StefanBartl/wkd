@@ -15,6 +15,7 @@
     "preview": "astro preview",
     "check": "astro check",
     "test": "node --test \"tests/*.test.ts\"",
+    "build:wasm": "node scripts/build-wasm.mjs",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "verify": "pnpm lint && pnpm check && pnpm build"

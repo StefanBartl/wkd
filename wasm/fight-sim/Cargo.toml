@@ -1,0 +1,16 @@
+[package]
+name = "fight-sim"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "The fight minigame's step() from src/lib/fight-engine/sim.ts, in Rust, for WebAssembly."
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

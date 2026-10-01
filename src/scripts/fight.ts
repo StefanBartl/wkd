@@ -213,6 +213,8 @@ function setUp(root: HTMLElement): void {
       match?.resume();
   });
 
+  requestWasmCore(root.querySelector<HTMLElement>('[data-fight-core]'));
+
   // The controller legend only appears once a controller has announced
   // itself (browsers hold that back until its first button press).
   const padHint = root.querySelector<HTMLElement>('[data-fight-gamepad]');
@@ -370,6 +372,26 @@ const MAX_STEPS_PER_FRAME = 6;
 // The handwritten opponent walks a little slower than the player.
 const AI_SPEED = Math.round(MOVE_SPEED * 0.85);
 
+// `?sim=wasm` swaps the TypeScript step() for its Rust/WebAssembly twin
+// (wasm/fight-sim). Same rules, bit for bit -- tests/fight-wasm.test.ts
+// holds them to that -- so this is a switch for comparing the two, not a
+// feature; the TypeScript core stays the default.
+type WasmCore = Pick<typeof import('../lib/fight-engine/wasm-loader'), 'instantiateSim'> & {
+  module: WebAssembly.Module;
+};
+let wasmCore: WasmCore | null = null;
+function requestWasmCore(hint: HTMLElement | null): void {
+  if (new URLSearchParams(location.search).get('sim') !== 'wasm') return;
+  import('../lib/fight-engine/wasm-loader')
+    .then(async (m) => {
+      wasmCore = { instantiateSim: m.instantiateSim, module: await m.loadSimModule() };
+      if (hint) hint.hidden = false;
+    })
+    .catch(() => {
+      // The TypeScript core runs instead.
+    });
+}
+
 // WebGPU hit sparks and landing dust: a separate chunk, fetched on the
 // first match instead of with every page view, and simply absent where
 // WebGPU is (see particles.ts) or where the visitor asked for less motion.
@@ -393,6 +415,7 @@ class Match {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly hud: Hud;
   private readonly state: SimState;
+  private readonly step: (input0: number, input1: number) => number;
   private readonly views: readonly [FighterView, FighterView];
   private readonly input = new InputLatch();
   private bg = loadImage(`${BASE}fight/background.png`);
@@ -428,11 +451,19 @@ class Match {
     const other = rest[Math.floor(Math.random() * rest.length)] ?? FIGHTERS[1];
     if (!chosen || !other) throw new Error('fight: no fighters configured');
     this.views = [new FighterView(chosen), new FighterView(other)];
-    this.state = createState(
+    const initial = createState(
       { anim: chosen.anim },
       { anim: other.anim, speed: AI_SPEED },
       Math.floor(Math.random() * 0x1_0000_0000),
     );
+    if (wasmCore) {
+      const sim = wasmCore.instantiateSim(wasmCore.module, initial);
+      this.state = sim.state;
+      this.step = sim.step;
+    } else {
+      this.state = initial;
+      this.step = (input0, input1) => step(initial, input0, input1);
+    }
     this.hud.resultBox.hidden = true;
   }
 
@@ -523,7 +554,7 @@ class Match {
     let events = 0;
     let steps = 0;
     while (this.acc >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
-      events |= step(this.state, this.input.consume() | pad, aiInput(this.state, 1));
+      events |= this.step(this.input.consume() | pad, aiInput(this.state, 1));
       this.acc -= STEP_MS;
       steps++;
     }
