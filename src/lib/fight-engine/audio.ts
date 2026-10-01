@@ -45,8 +45,20 @@ function loadWorklet(ctx: AudioContext): void {
 /** Call from a user gesture: browsers keep a context suspended until one. */
 function getAudioCtx(): AudioContext | null {
   if (typeof AudioContext === 'undefined') return null;
-  if (!audioCtx) audioCtx = new AudioContext();
-  if (audioCtx.state === 'suspended') void audioCtx.resume();
+  if (!audioCtx) {
+    // Before the first click or key press the browser keeps a new context
+    // suspended, and whatever is played meanwhile (the hover blip) would be
+    // heard later, all at once, on top of the first real sound.
+    if (typeof navigator !== 'undefined' && navigator.userActivation?.hasBeenActive === false) {
+      return null;
+    }
+    audioCtx = new AudioContext();
+  }
+  // Safari parks the context as 'interrupted' (a call, the lock screen) and
+  // does not bring it back by itself.
+  if (audioCtx.state === 'suspended' || (audioCtx.state as string) === 'interrupted') {
+    void audioCtx.resume();
+  }
   loadWorklet(audioCtx);
   return audioCtx;
 }

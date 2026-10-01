@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { type PadSnapshot, padInput } from '../src/lib/fight-engine/gamepad.ts';
+import {
+  connectedPads,
+  type PadSnapshot,
+  padInput,
+  pollGamepads,
+} from '../src/lib/fight-engine/gamepad.ts';
 import { IN_ATTACK1, IN_ATTACK2, IN_JUMP, IN_LEFT, IN_RIGHT } from '../src/lib/fight-engine/sim.ts';
 
 function pad(pressed: number[], axes: number[] = [0, 0], mapping = 'standard'): PadSnapshot {
@@ -37,4 +42,32 @@ test('the stick needs a clear push past its deadzone', () => {
 
 test('a pad reporting fewer buttons or axes than the layout is tolerated', () => {
   assert.equal(padInput({ mapping: 'standard', axes: [], buttons: [{ pressed: true }] }), IN_JUMP);
+});
+
+/** Runs `body` with a stand-in `navigator`, then puts the real one back. */
+function withNavigator(stub: unknown, body: () => void): void {
+  const saved = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  Object.defineProperty(globalThis, 'navigator', { value: stub, configurable: true });
+  try {
+    body();
+  } finally {
+    if (saved) Object.defineProperty(globalThis, 'navigator', saved);
+    else Reflect.deleteProperty(globalThis, 'navigator');
+  }
+}
+
+test('a browser that refuses getGamepads() leaves keyboard and touch play alone', () => {
+  const refusing = {
+    getGamepads() {
+      throw new DOMException('gamepad is not allowed here', 'SecurityError');
+    },
+  };
+  withNavigator(refusing, () => {
+    assert.equal(pollGamepads(), 0);
+    assert.deepEqual(connectedPads(), []);
+  });
+});
+
+test('no navigator.getGamepads at all is the same as no controller', () => {
+  withNavigator({}, () => assert.equal(pollGamepads(), 0));
 });

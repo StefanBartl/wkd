@@ -82,7 +82,8 @@ fn vertex(@builtin(vertex_index) corner: u32, @builtin(instance_index) index: u3
     vec2f(-1.0, 1.0), vec2f(1.0, -1.0), vec2f(1.0, 1.0),
   );
   let p = drawn[index];
-  let t = clamp(p.life / p.maxLife, 0.0, 1.0);
+  // Never-spawned slots are all zeros: dividing by their maxLife would be 0/0.
+  let t = clamp(p.life / max(p.maxLife, 0.0001), 0.0, 1.0);
   let isDust = step(0.5, p.kind);
   // Dead particles collapse to a zero-area quad instead of needing a
   // compacted buffer. Sparks shrink as they cool, dust puffs up.
@@ -116,6 +117,8 @@ export interface Particles {
   dust(x: number, y: number): void;
   /** Advance the particles by `dt` seconds and composite them onto `ctx`. */
   draw(ctx: CanvasRenderingContext2D, dt: number): void;
+  /** Remove every particle: a new match must not inherit the last one's final sparks. */
+  clear(): void;
 }
 
 export async function createParticles(
@@ -202,6 +205,7 @@ export async function createParticles(
   // Seconds until the longest-lived particle has died: lets draw() skip the
   // GPU passes and the canvas copy while nothing is on screen.
   let alive = 0;
+  const empty = new Float32Array(MAX_PARTICLES * FLOATS_PER_PARTICLE);
 
   const spawn = (data: Float32Array<ArrayBuffer>, longestLife: number): void => {
     if (lost) return;
@@ -275,10 +279,19 @@ export async function createParticles(
       }
       spawn(data, 0.65);
     },
+    clear() {
+      alive = 0;
+      cursor = 0;
+      if (!lost) device.queue.writeBuffer(particleBuffer, 0, empty);
+    },
     draw(ctx, dt) {
       if (lost || alive <= 0) return;
-      alive -= dt;
-      params[0] = Math.min(dt, 0.05);
+      // The countdown and the simulation must age particles by the same
+      // (capped) amount, or a slow frame ends the layer with particles
+      // still alive in the buffer, frozen until the next burst revives them.
+      const step = Math.min(dt, 0.05);
+      alive -= step;
+      params[0] = step;
       device.queue.writeBuffer(paramsBuffer, 0, params);
 
       const encoder = device.createCommandEncoder();
@@ -303,8 +316,10 @@ export async function createParticles(
       render.end();
       device.queue.submit([encoder.finish()]);
 
-      // Black adds nothing under 'lighter', so the opaque layer needs no
-      // alpha channel to leave the scene untouched where it has no sparks.
+      // Black adds no colour under 'lighter', so the scene stays untouched
+      // where there are no sparks. Its alpha is added too, though: while
+      // particles live the canvas turns opaque, which the arena background
+      // (it covers the whole canvas) makes invisible.
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       ctx.drawImage(layer, 0, 0);

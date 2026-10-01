@@ -55,4 +55,6 @@ export interface MatchSetup {
   /** Which of the two the person at this screen controls. */
   readonly local: 0 | 1;
   readonly level: LevelConfig;
+  /** True when the Rust/WebAssembly step runs this match (the legend says so). */
+  readonly wasm?: boolean;
 }

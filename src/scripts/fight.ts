@@ -21,8 +21,9 @@ import {
   WINS_KEY,
 } from '../lib/fight';
 import { music, playSfx } from '../lib/fight-engine/audio';
+import { MAX_FRAME_MS, StepClock } from '../lib/fight-engine/clock';
 import { aiDriver, type Driver, type MatchSetup } from '../lib/fight-engine/driver';
-import { pollGamepads } from '../lib/fight-engine/gamepad';
+import { connectedPads, pollGamepads } from '../lib/fight-engine/gamepad';
 import type { Particles } from '../lib/fight-engine/particles';
 import {
   BOX_H,
@@ -128,6 +129,10 @@ function setUp(root: HTMLElement): void {
     return;
   }
 
+  // The "Sim core: Rust / WebAssembly" legend belongs to a match, not to the
+  // page: only an AI match actually stepped by the module shows it (a match
+  // against a friend or behind ?net=loopback always runs the TypeScript step).
+  const coreHint = root.querySelector<HTMLElement>('[data-fight-core]');
   let match: Match | null = null;
   let picked: string | null = null;
   let musicOn = readMusicPref();
@@ -155,6 +160,7 @@ function setUp(root: HTMLElement): void {
     arena.hidden = false;
     // Which health bar gets the "you" tag (see .fight-you in modern.css).
     arena.dataset.you = String(setup.local);
+    if (coreHint) coreHint.hidden = !setup.wasm;
     match?.stop();
     match = new Match(ctx, hud, setup, musicOn);
     // Not visible: set up, but wait for resume() instead of playing music
@@ -277,7 +283,7 @@ function setUp(root: HTMLElement): void {
     else if (fightShown()) match?.resume();
   });
 
-  requestWasmCore(root.querySelector<HTMLElement>('[data-fight-core]'));
+  requestWasmCore();
   requestLagDemo();
 
   // The controller legend only appears once a controller has announced
@@ -285,7 +291,7 @@ function setUp(root: HTMLElement): void {
   const padHint = root.querySelector<HTMLElement>('[data-fight-gamepad]');
   if (padHint) {
     const sync = (): void => {
-      padHint.hidden = !navigator.getGamepads?.().some((p) => p?.mapping === 'standard');
+      padHint.hidden = !connectedPads().some((p) => p?.mapping === 'standard');
     };
     window.addEventListener('gamepadconnected', sync);
     window.addEventListener('gamepaddisconnected', sync);
@@ -452,11 +458,6 @@ class FighterView {
 }
 
 // ---- match ------------------------------------------------------------
-const STEP_MS = 1000 / SIM_HZ;
-// A frame this late (tab was throttled, debugger, GC pause) is not caught
-// up step by step -- the match just loses that time.
-const MAX_FRAME_MS = 100;
-const MAX_STEPS_PER_FRAME = 6;
 // After a match against a peer: keep re-sending the last inputs for at most
 // this long, so the other side can still confirm the result (see flush()).
 const LINGER_MS = 3000;
@@ -472,12 +473,11 @@ type WasmCore = Pick<typeof import('../lib/fight-engine/wasm-loader'), 'instanti
   module: WebAssembly.Module;
 };
 let wasmCore: WasmCore | null = null;
-function requestWasmCore(hint: HTMLElement | null): void {
+function requestWasmCore(): void {
   if (new URLSearchParams(location.search).get('sim') !== 'wasm') return;
   import('../lib/fight-engine/wasm-loader')
     .then(async (m) => {
       wasmCore = { instantiateSim: m.instantiateSim, module: await m.loadSimModule() };
-      if (hint) hint.hidden = false;
     })
     .catch(() => {
       // The TypeScript core runs instead.
@@ -525,16 +525,21 @@ function aiSetup(playerId: string): MatchSetup {
     { anim: other.anim, speed: AI_SPEED },
     Math.floor(Math.random() * 0x1_0000_0000),
   );
-  let driver: Driver;
+  let driver: Driver | null = null;
+  let wasm = false;
   if (lagDemo) {
     driver = lagDemo(initial);
   } else if (wasmCore) {
-    const sim = wasmCore.instantiateSim(wasmCore.module, initial);
-    driver = aiDriver(sim.state, sim.step);
-  } else {
-    driver = aiDriver(initial, (input0, input1) => step(initial, input0, input1));
+    try {
+      const sim = wasmCore.instantiateSim(wasmCore.module, initial);
+      driver = aiDriver(sim.state, sim.step);
+      wasm = true;
+    } catch {
+      // A module built for another state layout: the TypeScript core runs instead.
+    }
   }
-  return { driver, fighters: [chosen, other], local: 0, level };
+  driver ??= aiDriver(initial, (input0, input1) => step(initial, input0, input1));
+  return { driver, fighters: [chosen, other], local: 0, level, wasm };
 }
 
 // WebGPU hit sparks and landing dust: a separate chunk, fetched on the
@@ -567,7 +572,7 @@ class Match {
   private readonly level: LevelConfig;
   private ticks = 0;
   private lastFrameAt = 0;
-  private acc = 0;
+  private readonly clock = new StepClock();
   private raf = 0;
   private linger: ReturnType<typeof setInterval> | undefined;
   private running = false;
@@ -597,7 +602,7 @@ class Match {
   /** `active` false: wait for resume() -- nobody is looking at the Fight tab right now. */
   start(active = true): void {
     this.lastFrameAt = performance.now();
-    this.acc = 0;
+    this.clock.reset();
     this.over = false;
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
@@ -605,6 +610,9 @@ class Match {
     void this.hud.introEl.offsetWidth; // restart the CSS animation
     this.hud.introEl.classList.add('fight-intro-play');
     requestParticles();
+    // Module state outlives matches: the last blow of the previous one froze
+    // its sparks in the buffer when the loop stopped.
+    particles?.clear();
     if (!active) return;
     this.running = true;
     playSfx('stinger');
@@ -627,7 +635,7 @@ class Match {
     if (this.over || this.running) return;
     this.running = true;
     this.lastFrameAt = performance.now();
-    this.acc = 0;
+    this.clock.reset();
     if (this.musicWanted) music.start();
     this.raf = requestAnimationFrame(this.tick);
   }
@@ -668,26 +676,15 @@ class Match {
 
   private tick = (now: number): void => {
     if (!this.running) return;
-    let dt = now - this.lastFrameAt;
+    const dt = now - this.lastFrameAt;
     this.lastFrameAt = now;
-    // The sim always advances in whole 60 Hz steps, however fast the
-    // display refreshes -- a 120 Hz screen renders twice per step instead
-    // of running the match at double speed. On a 60 Hz screen frame times
-    // jitter around 16.67ms; snapping those keeps it at exactly one step
-    // per frame instead of an occasional 0-then-2 stutter.
-    if (Math.abs(dt - STEP_MS) < 2) dt = STEP_MS;
-    dt = Math.min(dt, MAX_FRAME_MS);
-    this.acc += dt;
 
     // Controllers have no events for button state, only polling; once per
     // rendered frame is as fresh as the browser's own snapshot gets.
     const pad = pollGamepads();
     let events = 0;
-    let steps = 0;
-    while (this.acc >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
+    for (let steps = this.clock.frame(dt); steps > 0; steps--) {
       events |= this.driver.tick(this.sampleInput() | pad);
-      this.acc -= STEP_MS;
-      steps++;
     }
 
     if (events & (EV_HIT_P0 | EV_HIT_P1)) playSfx('hit');
@@ -697,7 +694,7 @@ class Match {
     // until the driver has the frame confirmed by both peers.
     if (this.driver.desynced) this.finish(true);
     else if (this.driver.outcome !== OVER_NONE) this.finish(false);
-    this.render(dt / 1000);
+    this.render(Math.min(dt, MAX_FRAME_MS) / 1000);
     if (this.running) this.raf = requestAnimationFrame(this.tick);
   };
 

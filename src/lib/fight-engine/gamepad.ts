@@ -41,10 +41,23 @@ export function padInput(pad: PadSnapshot | null | undefined): number {
   return input;
 }
 
+/**
+ * Every connected pad the browser reports, or none where it will not say.
+ * getGamepads() throws a SecurityError when the page is embedded without the
+ * "gamepad" permission; a controller is an extra, so that must never be able
+ * to take keyboard and touch play down with it.
+ */
+export function connectedPads(): readonly (PadSnapshot | null)[] {
+  try {
+    return typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : [];
+  } catch {
+    return [];
+  }
+}
+
 /** Combined input of every connected standard-layout controller. */
 export function pollGamepads(): number {
-  if (typeof navigator === 'undefined' || !navigator.getGamepads) return 0;
   let input = 0;
-  for (const pad of navigator.getGamepads()) input |= padInput(pad);
+  for (const pad of connectedPads()) input |= padInput(pad);
   return input;
 }
