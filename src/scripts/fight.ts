@@ -13,6 +13,7 @@ import {
   CANVAS,
   FIGHTERS,
   type FighterConfig,
+  GROUND_Y,
   LEVELS,
   type LevelConfig,
   LOSSES_KEY,
@@ -22,6 +23,7 @@ import {
 import { aiInput } from '../lib/fight-engine/ai';
 import { music, playSfx } from '../lib/fight-engine/audio';
 import { pollGamepads } from '../lib/fight-engine/gamepad';
+import type { Particles } from '../lib/fight-engine/particles';
 import {
   BOX_H,
   BOX_W,
@@ -29,6 +31,8 @@ import {
   EV_HIT_P0,
   EV_HIT_P1,
   EV_KO,
+  EV_LAND_P0,
+  EV_LAND_P1,
   EV_TIMEUP,
   F_ANIM_FRAME,
   F_FACING,
@@ -366,6 +370,25 @@ const MAX_STEPS_PER_FRAME = 6;
 // The handwritten opponent walks a little slower than the player.
 const AI_SPEED = Math.round(MOVE_SPEED * 0.85);
 
+// WebGPU hit sparks and landing dust: a separate chunk, fetched on the
+// first match instead of with every page view, and simply absent where
+// WebGPU is (see particles.ts) or where the visitor asked for less motion.
+let particles: Particles | null = null;
+let particlesRequested = false;
+function requestParticles(): void {
+  if (particlesRequested) return;
+  particlesRequested = true;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  import('../lib/fight-engine/particles')
+    .then((m) => m.createParticles(CANVAS.w, CANVAS.h, GROUND_Y))
+    .then((fx) => {
+      particles = fx;
+    })
+    .catch(() => {
+      // No particles, the match is unaffected.
+    });
+}
+
 class Match {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly hud: Hud;
@@ -425,6 +448,7 @@ class Match {
     this.hud.introEl.classList.add('fight-intro-play');
     playSfx('stinger');
     if (this.musicWanted) music.start();
+    requestParticles();
     this.raf = requestAnimationFrame(this.tick);
   }
 
@@ -490,7 +514,8 @@ class Match {
     // jitter around 16.67ms; snapping those keeps it at exactly one step
     // per frame instead of an occasional 0-then-2 stutter.
     if (Math.abs(dt - STEP_MS) < 2) dt = STEP_MS;
-    this.acc += Math.min(dt, MAX_FRAME_MS);
+    dt = Math.min(dt, MAX_FRAME_MS);
+    this.acc += dt;
 
     // Controllers have no events for button state, only polling; once per
     // rendered frame is as fresh as the browser's own snapshot gets.
@@ -504,11 +529,26 @@ class Match {
     }
 
     if (events & (EV_HIT_P0 | EV_HIT_P1)) playSfx('hit');
+    if (events && particles) this.emitParticles(events, particles);
     this.syncHud();
     if (events & (EV_KO | EV_TIMEUP)) this.finish();
-    this.render();
+    this.render(dt / 1000);
     if (this.running) this.raf = requestAnimationFrame(this.tick);
   };
+
+  private emitParticles(events: number, fx: Particles): void {
+    const s = this.state;
+    for (const index of [0, 1] as const) {
+      const me = fighterBase(index);
+      const cx = (s[me + F_X] as number) / FP + BOX_W / 2;
+      if (events & (index === 0 ? EV_HIT_P0 : EV_HIT_P1)) {
+        // Sparks fly on along the blow, i.e. the way the attacker faces.
+        const attacker = fighterBase(index === 0 ? 1 : 0);
+        fx.sparks(cx, (s[me + F_Y] as number) / FP + 70, s[attacker + F_FACING] as number);
+      }
+      if (events & (index === 0 ? EV_LAND_P0 : EV_LAND_P1)) fx.dust(cx, GROUND_Y);
+    }
+  }
 
   private syncHud(): void {
     const playerHealth = this.state[fighterBase(0) + F_HEALTH] as number;
@@ -540,7 +580,7 @@ class Match {
     this.hud.resultBox.hidden = false;
   }
 
-  private render(): void {
+  private render(frameSeconds: number): void {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, CANVAS.w, CANVAS.h);
     ctx.save();
@@ -551,5 +591,6 @@ class Match {
     ctx.restore();
     this.views[0].draw(ctx, this.state, fighterBase(0));
     this.views[1].draw(ctx, this.state, fighterBase(1));
+    particles?.draw(ctx, frameSeconds);
   }
 }
