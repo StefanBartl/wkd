@@ -20,6 +20,7 @@ import {
   WINS_KEY,
 } from '../lib/fight';
 import { aiInput } from '../lib/fight-engine/ai';
+import { pollGamepads } from '../lib/fight-engine/gamepad';
 import {
   BOX_H,
   BOX_W,
@@ -206,6 +207,17 @@ function setUp(root: HTMLElement): void {
     else if ((document.getElementById('view-fight') as HTMLInputElement | null)?.checked)
       match?.resume();
   });
+
+  // The controller legend only appears once a controller has announced
+  // itself (browsers hold that back until its first button press).
+  const padHint = root.querySelector<HTMLElement>('[data-fight-gamepad]');
+  if (padHint) {
+    const sync = (): void => {
+      padHint.hidden = !navigator.getGamepads?.().some((p) => p?.mapping === 'standard');
+    };
+    window.addEventListener('gamepadconnected', sync);
+    window.addEventListener('gamepaddisconnected', sync);
+  }
 
   // Small reward for noticing the tab. mouseenter (not mouseover) so this
   // fires once per hover, not on every sub-pixel pointer move inside the
@@ -593,10 +605,13 @@ class Match {
     if (Math.abs(dt - STEP_MS) < 2) dt = STEP_MS;
     this.acc += Math.min(dt, MAX_FRAME_MS);
 
+    // Controllers have no events for button state, only polling; once per
+    // rendered frame is as fresh as the browser's own snapshot gets.
+    const pad = pollGamepads();
     let events = 0;
     let steps = 0;
     while (this.acc >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
-      events |= step(this.state, this.input.consume(), aiInput(this.state, 1));
+      events |= step(this.state, this.input.consume() | pad, aiInput(this.state, 1));
       this.acc -= STEP_MS;
       steps++;
     }
