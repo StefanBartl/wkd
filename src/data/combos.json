@@ -16,7 +16,15 @@
       "id": "statusline-segments",
       "name": "Statusline segments",
       "blurb": "Each contributes one optional segment to ui.nvim's statusline -- none is a dependency, the segment is simply absent without it.",
-      "members": ["ui", "filetree", "github_stats", "runtime-analysis", "recommender", "sessions", "sandbox"]
+      "members": [
+        "ui",
+        "filetree",
+        "github_stats",
+        "runtime-analysis",
+        "recommender",
+        "sessions",
+        "sandbox"
+      ]
     },
     {
       "id": "git-family",

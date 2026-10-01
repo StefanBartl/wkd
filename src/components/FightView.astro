@@ -27,6 +27,7 @@ const pickCss = fightPickCss(BASE);
           <button type="button" class="fight-pick" data-fighter={f.id}>
             <span class="fight-pick-sprite" aria-hidden="true"></span>
             <span>{f.name}</span>
+            <span class="fight-pick-move">{f.specialName}</span>
           </button>
         ))
       }
@@ -36,6 +37,9 @@ const pickCss = fightPickCss(BASE);
       <button type="button" class="fight-toolbtn" data-fight-difficulty="easy">Easy</button>
       <button type="button" class="fight-toolbtn" data-fight-difficulty="normal">Normal</button>
       <button type="button" class="fight-toolbtn" data-fight-difficulty="hard">Hard</button>
+      <button type="button" class="fight-toolbtn" data-fight-difficulty="unwinnable">
+        Unwinnable
+      </button>
     </div>
     {
       /* Shown by fight.ts only where WebRTC exists. All of its behaviour
@@ -73,7 +77,9 @@ const pickCss = fightPickCss(BASE);
   <div class="fight-arena" data-fight-arena hidden>
     <div class="fight-hud">
       <div class="fight-bar">
-        <span class="fight-name" data-fight-name="0"></span>
+        <span class="fight-name">
+          <span data-fight-name="0"></span><span class="fight-move" data-fight-move="0"></span>
+        </span>
         <div class="fight-bar-fill" aria-hidden="true" data-fight-health="player"></div>
       </div>
       <div class="fight-hud-center">
@@ -81,7 +87,9 @@ const pickCss = fightPickCss(BASE);
         <div class="fight-timer" data-fight-timer>{MATCH_SECONDS}</div>
       </div>
       <div class="fight-bar fight-bar-flip">
-        <span class="fight-name" data-fight-name="1"></span>
+        <span class="fight-name">
+          <span data-fight-name="1"></span><span class="fight-move" data-fight-move="1"></span>
+        </span>
         <div class="fight-bar-fill" aria-hidden="true" data-fight-health="enemy"></div>
       </div>
     </div>
@@ -118,15 +126,16 @@ const pickCss = fightPickCss(BASE);
         <button type="button" data-fight-action="jump" aria-label="Jump">&uarr;</button>
         <button type="button" data-fight-action="attack1" aria-label="Light attack">A</button>
         <button type="button" data-fight-action="attack2" aria-label="Heavy attack">B</button>
+        <button type="button" data-fight-action="special" aria-label="Special move">S</button>
       </div>
     </div>
     <p class="fight-controls">
       <kbd>&larr;</kbd><kbd>&rarr;</kbd> move &middot; <kbd>&uarr;</kbd> jump &middot;
-      <kbd>Space</kbd> light &middot; <kbd>X</kbd> heavy &middot; <kbd>P</kbd> pause
+      <kbd>Space</kbd> light &middot; <kbd>X</kbd> heavy &middot; <kbd>C</kbd> special &middot; <kbd>P</kbd> pause
     </p>
     <p class="fight-controls" data-fight-gamepad hidden>
       Gamepad: stick or d-pad move &middot; <kbd>A</kbd> jump &middot; <kbd>X</kbd> light &middot;
-      <kbd>B</kbd> heavy
+      <kbd>B</kbd> heavy &middot; <kbd>Y</kbd> special
     </p>
     <p class="fight-controls" data-fight-core hidden>Sim core: Rust / WebAssembly</p>
     <p class="fight-controls" data-fight-net hidden></p>

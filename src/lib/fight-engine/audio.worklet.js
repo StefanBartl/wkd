@@ -21,6 +21,9 @@ const SFX = {
   blip: [
     { wave: 'sine', f0: 880, f1: 1320, sweep: 0.06, at: 0, dur: 0.08, attack: 0.015, peak: 0.12 },
   ],
+  special: [
+    { wave: 'square', f0: 330, f1: 990, sweep: 0.14, at: 0, dur: 0.2, attack: 0.01, peak: 0.13 },
+  ],
 };
 
 // e^-6.9 ~ 0.001: the envelope has faded to silence when the note ends.

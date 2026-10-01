@@ -266,7 +266,11 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
       const level = LEVELS.find((l) => l.id === start.level);
       // Only the host's own start message is known to be well-formed.
       if (!f0 || !f1 || !level) return;
-      const initial = createState({ anim: f0.anim }, { anim: f1.anim }, start.seed);
+      const initial = createState(
+        { anim: f0.anim, special: f0.special },
+        { anim: f1.anim, special: f1.special },
+        start.seed,
+      );
       session = new RollbackSession({
         local: host ? 0 : 1,
         state: initial,

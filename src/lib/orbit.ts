@@ -56,7 +56,14 @@ function polar(cx: number, cy: number, r: number, deg: number): { x: number; y: 
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-function sectorPath(cx: number, cy: number, r1: number, r2: number, a1: number, a2: number): string {
+function sectorPath(
+  cx: number,
+  cy: number,
+  r1: number,
+  r2: number,
+  a1: number,
+  a2: number,
+): string {
   const large = a2 - a1 > 180 ? 1 : 0;
   const p1 = polar(cx, cy, r2, a1);
   const p2 = polar(cx, cy, r2, a2);
@@ -71,7 +78,10 @@ function sectorPath(cx: number, cy: number, r1: number, r2: number, a1: number, 
   ].join(' ');
 }
 
-export function orbitLayout(plugins: OrbitPlugin[], categories: Record<string, string>): OrbitLayout {
+export function orbitLayout(
+  plugins: OrbitPlugin[],
+  categories: Record<string, string>,
+): OrbitLayout {
   const cx = SIZE / 2;
   const cy = SIZE / 2;
   const order = Object.keys(categories).filter((id) => plugins.some((p) => p.category === id));

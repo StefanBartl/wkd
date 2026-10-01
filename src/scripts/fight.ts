@@ -36,8 +36,15 @@ import {
   EV_HIT_P1,
   EV_LAND_P0,
   EV_LAND_P1,
+  EV_SPECIAL,
   F_FACING,
   F_HEALTH,
+  F_PROJ_KIND,
+  F_PROJ_VX,
+  F_PROJ_X,
+  F_PROJ_Y,
+  F_SPECIAL,
+  F_SPECIAL_UNTIL,
   F_STATE,
   F_X,
   F_Y,
@@ -49,13 +56,20 @@ import {
   IN_JUMP,
   IN_LEFT,
   IN_RIGHT,
+  IN_SPECIAL,
   INTRO_FRAMES,
   MOVE_SPEED,
   OVER_NONE,
   OVER_P0,
   OVER_P1,
+  PROJ_H,
+  PROJ_W,
   SIM_HZ,
   type SimState,
+  SP_BULLET,
+  SP_NONE,
+  SP_ORB,
+  SP_TELEPORT,
   ST_DEATH,
   secondsLeft,
   step,
@@ -162,6 +176,10 @@ function setUp(root: HTMLElement): void {
     nameEls: [
       root.querySelector<HTMLElement>('[data-fight-name="0"]'),
       root.querySelector<HTMLElement>('[data-fight-name="1"]'),
+    ],
+    moveEls: [
+      root.querySelector<HTMLElement>('[data-fight-move="0"]'),
+      root.querySelector<HTMLElement>('[data-fight-move="1"]'),
     ],
     pauseBtn,
     pausedBox: root.querySelector<HTMLElement>('[data-fight-paused]'),
@@ -382,6 +400,8 @@ interface Hud {
   netEl: HTMLElement | null;
   /** The labels above the two health bars. */
   nameEls: readonly [HTMLElement | null, HTMLElement | null];
+  /** The special move's name next to each of them; marked while the move is ready. */
+  moveEls: readonly [HTMLElement | null, HTMLElement | null];
   pauseBtn: HTMLButtonElement | null;
   pausedBox: HTMLElement | null;
 }
@@ -405,7 +425,7 @@ export interface OnlineHandlers {
   change?(): void;
 }
 
-type Action = 'left' | 'right' | 'jump' | 'attack1' | 'attack2';
+type Action = 'left' | 'right' | 'jump' | 'attack1' | 'attack2' | 'special';
 
 const KEY_ACTIONS: Readonly<Record<string, Action>> = {
   ArrowLeft: 'left',
@@ -413,6 +433,7 @@ const KEY_ACTIONS: Readonly<Record<string, Action>> = {
   ArrowUp: 'jump',
   ' ': 'attack1',
   x: 'attack2',
+  c: 'special',
 };
 
 const ACTION_BITS: Readonly<Record<Action, number>> = {
@@ -421,6 +442,7 @@ const ACTION_BITS: Readonly<Record<Action, number>> = {
   jump: IN_JUMP,
   attack1: IN_ATTACK1,
   attack2: IN_ATTACK2,
+  special: IN_SPECIAL,
 };
 
 const imageCache = new Map<string, HTMLImageElement>();
@@ -508,9 +530,10 @@ class InputLatch {
 }
 
 // ---- fighter sprite ---------------------------------------------------
-// The sprite is drawn larger than the sim's hurtbox and centered over it
-// (raw frames have a lot of transparent margin).
-const DRAW_SCALE = 1.7;
+// A raw 200 px frame is mostly transparent margin: the figure in it is some
+// 60 px tall. At this scale it stands about 125 px against the sim's 150 px
+// hurt box, close enough that what looks like a hit is one.
+const DRAW_SCALE = 2.1;
 
 class FighterView {
   private readonly images: Record<AnimKey, HTMLImageElement>;
@@ -560,7 +583,84 @@ class FighterView {
   }
 }
 
+// ---- projectiles --------------------------------------------------------
+// The sprite packs have nothing for the special moves, so their projectiles
+// are drawn here: once each, facing right, into a small canvas with room for
+// the glow around the sim's box, and blitted from there on every frame.
+const PROJECTILE_PAD = 24;
+const projectileSprites = new Map<number, HTMLCanvasElement | null>();
+
+function projectileSprite(kind: number): HTMLCanvasElement | null {
+  const cached = projectileSprites.get(kind);
+  if (cached !== undefined) return cached;
+  const w = PROJ_W[kind] ?? 0;
+  const h = PROJ_H[kind] ?? 0;
+  const sprite = document.createElement('canvas');
+  sprite.width = w + 2 * PROJECTILE_PAD;
+  sprite.height = h + 2 * PROJECTILE_PAD;
+  const c = w > 0 ? sprite.getContext('2d') : null;
+  if (!c) {
+    projectileSprites.set(kind, null);
+    return null;
+  }
+  // The origin is the top-left corner of the sim's box.
+  c.translate(PROJECTILE_PAD, PROJECTILE_PAD);
+  if (kind === SP_BULLET) {
+    const trail = c.createLinearGradient(-PROJECTILE_PAD, 0, w, 0);
+    trail.addColorStop(0, 'rgba(255, 214, 110, 0)');
+    trail.addColorStop(1, 'rgba(255, 236, 170, 0.9)');
+    c.fillStyle = trail;
+    c.fillRect(-PROJECTILE_PAD, 2, PROJECTILE_PAD + w, h - 4);
+    c.fillStyle = '#fff';
+    c.fillRect(w - 8, 0, 8, h);
+  } else if (kind === SP_ORB) {
+    const r = w / 2;
+    const glow = c.createRadialGradient(r, r, 2, r, r, r + PROJECTILE_PAD * 0.8);
+    glow.addColorStop(0, '#fff');
+    glow.addColorStop(0.4, 'rgba(120, 225, 255, 0.95)');
+    glow.addColorStop(1, 'rgba(70, 110, 255, 0)');
+    c.fillStyle = glow;
+    c.beginPath();
+    c.arc(r, r, r + PROJECTILE_PAD * 0.8, 0, Math.PI * 2);
+    c.fill();
+  } else {
+    // The wave: a blade of light leaning the way it travels.
+    const edge = c.createLinearGradient(0, 0, w, 0);
+    edge.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    edge.addColorStop(1, 'rgba(255, 250, 225, 0.95)');
+    c.fillStyle = edge;
+    c.beginPath();
+    c.moveTo(0, h);
+    c.quadraticCurveTo(w * 1.25, h * 0.6, w * 0.6, -h * 0.35);
+    c.quadraticCurveTo(w * 0.7, h * 0.5, w * 0.15, h);
+    c.closePath();
+    c.fill();
+  }
+  projectileSprites.set(kind, sprite);
+  return sprite;
+}
+
+function drawProjectile(ctx: CanvasRenderingContext2D, s: SimState, b: number): void {
+  const kind = s[b + F_PROJ_KIND] as number;
+  if (kind === SP_NONE) return;
+  const sprite = projectileSprite(kind);
+  if (!sprite) return;
+  const x = (s[b + F_PROJ_X] as number) / FP;
+  const y = (s[b + F_PROJ_Y] as number) / FP;
+  if ((s[b + F_PROJ_VX] as number) >= 0) {
+    ctx.drawImage(sprite, x - PROJECTILE_PAD, y - PROJECTILE_PAD);
+  } else {
+    ctx.save();
+    ctx.translate(x + (PROJ_W[kind] ?? 0), 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(sprite, -PROJECTILE_PAD, y - PROJECTILE_PAD);
+    ctx.restore();
+  }
+}
+
 // ---- match ------------------------------------------------------------
+/** A fighter that moved further than this in one frame did not walk there. */
+const TELEPORT_MIN_PX = 60;
 // After a match against a peer: keep re-sending the last inputs for at most
 // this long, so the other side can still confirm the result (see flush()).
 const LINGER_MS = 3000;
@@ -631,8 +731,13 @@ function aiSetup(playerId: string, difficulty: Difficulty): MatchSetup {
   if (!chosen || !other || !level) throw new Error('fight: no fighters configured');
   const profile = AI_PROFILES[difficulty];
   const initial = createState(
-    { anim: chosen.anim },
-    { anim: other.anim, speed: Math.round(MOVE_SPEED * profile.speed) },
+    { anim: chosen.anim, special: chosen.special },
+    {
+      anim: other.anim,
+      special: other.special,
+      speed: Math.round(MOVE_SPEED * profile.speed),
+      power: profile.power,
+    },
     Math.floor(Math.random() * 0x1_0000_0000),
   );
   let driver: Driver | null = null;
@@ -704,6 +809,8 @@ class Match {
   private lastPlayerHealth = -1;
   private lastEnemyHealth = -1;
   private lastRemaining = -1;
+  private readonly specialReady: [boolean | null, boolean | null] = [null, null];
+  private readonly lastCx: [number, number] = [0, 0];
   private onKeyDown = (e: KeyboardEvent): void => this.handleKey(e, true);
   private onKeyUp = (e: KeyboardEvent): void => this.handleKey(e, false);
 
@@ -722,6 +829,8 @@ class Match {
     for (const index of [0, 1] as const) {
       const label = this.hud.nameEls[index];
       if (label) label.textContent = `${index === this.local ? 'You · ' : ''}${this.names[index]}`;
+      const move = this.hud.moveEls[index];
+      if (move) move.textContent = setup.fighters[index].specialName;
     }
     this.showPause();
   }
@@ -888,7 +997,9 @@ class Match {
       playSfx('hit');
       this.shake();
     }
+    if (events & EV_SPECIAL) playSfx('special');
     if (events && particles) this.emitParticles(events, particles);
+    this.rememberPositions();
     this.syncHud();
     // Not on the KO/time-up event: with rollback that is only a prediction
     // until the driver has the frame confirmed by both peers.
@@ -916,10 +1027,23 @@ class Match {
       if (events & (index === 0 ? EV_HIT_P0 : EV_HIT_P1)) {
         // Sparks fly on along the blow, i.e. the way the attacker faces.
         const attacker = fighterBase(index === 0 ? 1 : 0);
-        fx.sparks(cx, (s[me + F_Y] as number) / FP + 70, s[attacker + F_FACING] as number);
+        fx.sparks(cx, (s[me + F_Y] as number) / FP + 55, s[attacker + F_FACING] as number);
       }
       if (events & (index === 0 ? EV_LAND_P0 : EV_LAND_P1)) fx.dust(cx, GROUND_Y);
+      // A teleport: a puff where the fighter was and where it is now.
+      const jumped = Math.abs(cx - (this.lastCx[index] as number)) > TELEPORT_MIN_PX;
+      if (events & EV_SPECIAL && s[me + F_SPECIAL] === SP_TELEPORT && jumped) {
+        fx.dust(this.lastCx[index] as number, GROUND_Y);
+        fx.dust(cx, GROUND_Y);
+      }
     }
+  }
+
+  /** Where the fighters stood after this frame, for effects that need "before and after". */
+  private rememberPositions(): void {
+    const s = this.driver.state;
+    this.lastCx[0] = (s[fighterBase(0) + F_X] as number) / FP + BOX_W / 2;
+    this.lastCx[1] = (s[fighterBase(1) + F_X] as number) / FP + BOX_W / 2;
   }
 
   private syncHud(): void {
@@ -935,6 +1059,16 @@ class Match {
       this.lastEnemyHealth = enemyHealth;
       this.hud.enemyBar.style.width = `${enemyHealth}%`;
       this.hud.enemyBar.toggleAttribute('data-low', enemyHealth <= LOW_HEALTH);
+    }
+    const frame = state[G_FRAME] as number;
+    for (const index of [0, 1] as const) {
+      const me = fighterBase(index);
+      const ready =
+        frame >= (state[me + F_SPECIAL_UNTIL] as number) && state[me + F_PROJ_KIND] === SP_NONE;
+      if (ready !== this.specialReady[index]) {
+        this.specialReady[index] = ready;
+        this.hud.moveEls[index]?.toggleAttribute('data-ready', ready);
+      }
     }
     const remaining = secondsLeft(state);
     if (remaining !== this.lastRemaining) {
@@ -1013,6 +1147,8 @@ class Match {
     const outro = this.over ? this.outro : -1;
     this.views[0].draw(ctx, this.driver.state, fighterBase(0), outro);
     this.views[1].draw(ctx, this.driver.state, fighterBase(1), outro);
+    drawProjectile(ctx, this.driver.state, fighterBase(0));
+    drawProjectile(ctx, this.driver.state, fighterBase(1));
     particles?.draw(ctx, frameSeconds);
   }
 }

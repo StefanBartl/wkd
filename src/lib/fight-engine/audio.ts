@@ -12,7 +12,7 @@
 // -- only in the deployed build, the dev server enforces no CSP.
 import workletUrl from './audio.worklet.js?url&no-inline';
 
-export type Sfx = 'hit' | 'stinger' | 'blip';
+export type Sfx = 'hit' | 'stinger' | 'blip' | 'special';
 
 let audioCtx: AudioContext | null = null;
 let worklet: AudioWorkletNode | null = null;
@@ -83,6 +83,9 @@ const FALLBACK_SFX: Readonly<Record<Sfx, readonly Tone[]>> = {
   ],
   blip: [
     { type: 'sine', f0: 880, f1: 1320, sweep: 0.06, at: 0, dur: 0.08, attack: 0.015, peak: 0.12 },
+  ],
+  special: [
+    { type: 'square', f0: 330, f1: 990, sweep: 0.14, at: 0, dur: 0.2, attack: 0.01, peak: 0.13 },
   ],
 };
 

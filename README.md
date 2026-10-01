@@ -70,7 +70,16 @@ worker, worklet or WASM file has to be checked against `pnpm build && pnpm previ
   deterministic 60 Hz simulation over one `Int32Array` in `src/lib/fight-engine/sim.ts`,
   which is what makes the rest possible:
   - `ai.ts`, `gamepad.ts`: the opponent and controllers as input sources. The opponent has
-    three difficulty profiles (easy, normal, hard), picked on the fighter cards and remembered.
+    four difficulty profiles, picked on the fighter cards and remembered: easy, normal, hard,
+    and unwinnable, which reads the state every frame, never throws a swing away and hits
+    three times as hard (`tests/fight-ai.test.ts` plays thirteen scripted strategies against
+    it; none wins a match).
+  - Four fighters, each with one special move of its own (`C`, pad `Y`, touch `S`): a ground
+    wave that a jump clears, a slow heavy orb, a pistol shot, and a teleport behind the
+    opponent. The projectiles are part of the sim state, so they roll back and replay like
+    everything else; they are drawn procedurally (the sprite packs have nothing for them).
+  - A jump can clear a light swing if it starts ahead of it; the heavy swing reaches high
+    and is the answer to a jump.
   - `audio.ts` + `audio.worklet.js`: synthesised music and effects on the audio thread.
   - `particles.ts`: hit sparks and dust as WebGPU compute-shader particles, composited onto
     the 2D canvas; absent without WebGPU or with `prefers-reduced-motion`.

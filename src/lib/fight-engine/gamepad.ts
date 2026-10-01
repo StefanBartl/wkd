@@ -1,7 +1,7 @@
 // Gamepad as one more input source: a controller snapshot in, the same
 // IN_* bitmask out that keyboard and touch produce. Kept free of
 // `navigator` so it can be tested with plain objects.
-import { IN_ATTACK1, IN_ATTACK2, IN_JUMP, IN_LEFT, IN_RIGHT } from './sim.ts';
+import { IN_ATTACK1, IN_ATTACK2, IN_JUMP, IN_LEFT, IN_RIGHT, IN_SPECIAL } from './sim.ts';
 
 /** The subset of the Gamepad interface this needs. */
 export interface PadSnapshot {
@@ -37,7 +37,8 @@ export function padInput(pad: PadSnapshot | null | undefined): number {
   if (down(DPAD_RIGHT) || x > WALK_DEADZONE) input |= IN_RIGHT;
   if (down(BTN_A) || down(DPAD_UP) || y < -JUMP_DEADZONE) input |= IN_JUMP;
   if (down(BTN_X)) input |= IN_ATTACK1;
-  if (down(BTN_B) || down(BTN_Y)) input |= IN_ATTACK2;
+  if (down(BTN_B)) input |= IN_ATTACK2;
+  if (down(BTN_Y)) input |= IN_SPECIAL;
   return input;
 }
 

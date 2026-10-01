@@ -1330,6 +1330,11 @@
     color: var(--acid-ink);
     outline: none;
   }
+  .fight-pick-move {
+    font-size: 0.65rem;
+    letter-spacing: 0.06em;
+    opacity: 0.7;
+  }
   .fight-pick-sprite {
     display: block;
     width: 100px;
@@ -1415,6 +1420,17 @@
   .fight-bar-flip .fight-name {
     left: auto;
     right: 0;
+  }
+  /* The fighter's special move, after its name: dim while it cools down. */
+  .fight-move {
+    opacity: 0.45;
+  }
+  .fight-move::before {
+    content: " · ";
+  }
+  .fight-move[data-ready] {
+    color: var(--ink);
+    opacity: 1;
   }
   .fight-difficulty {
     display: flex;
