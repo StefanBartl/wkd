@@ -7,9 +7,13 @@ import { createLoopback, RollbackSession } from '../src/lib/fight-engine/rollbac
 import {
   createState,
   EV_HIT_P0,
+  F_FACING,
   F_HEALTH,
+  F_X,
   fighterBase,
   IN_ATTACK1,
+  IN_LEFT,
+  IN_RIGHT,
   OVER_P0,
   OVER_P1,
   step,
@@ -52,9 +56,16 @@ test('the AI behind a laggy, lossy link still fights and the match still ends', 
 
 test('behind the same link the player can still win', () => {
   const driver = laggedAiDriver(createState(samurai, kenji, 8), { delay: 4 });
-  // Stand still and swing: the AI walks into it.
+  // Keep the blade toward the opponent (it may step behind) and swing.
+  const p0 = fighterBase(0);
+  const p1 = fighterBase(1);
   let ticks = 0;
-  while (driver.outcome === 0 && ticks++ < 10_000) driver.tick(IN_ATTACK1);
+  while (driver.outcome === 0 && ticks++ < 10_000) {
+    const ahead = (driver.state[p1 + F_X] as number) > (driver.state[p0 + F_X] as number);
+    const facing = driver.state[p0 + F_FACING] as number;
+    const turn = ahead === (facing === 1) ? 0 : ahead ? IN_RIGHT : IN_LEFT;
+    driver.tick(IN_ATTACK1 | turn);
+  }
   assert.ok(driver.outcome === OVER_P0 || driver.outcome === OVER_P1);
   assert.ok((driver.state[fighterBase(1) + F_HEALTH] as number) < 100, 'the AI took no damage');
 });

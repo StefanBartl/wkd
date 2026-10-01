@@ -6,6 +6,7 @@ import {
   cloneState,
   copyState,
   F_AI_DIR,
+  F_AI_INTENT,
   F_AI_NEXT,
   fighterBase,
   G_RNG,
@@ -68,15 +69,18 @@ export function laggedAiDriver(
   const scratch = cloneState(initial);
   let aiNext = 0;
   let aiDir = 0;
+  let aiIntent = 0;
   let rng = initial[G_RNG] as number;
   const think = (): number => {
     copyState(scratch, remote.current);
     scratch[ai + F_AI_NEXT] = aiNext;
     scratch[ai + F_AI_DIR] = aiDir;
+    scratch[ai + F_AI_INTENT] = aiIntent;
     scratch[G_RNG] = rng;
     const input = aiInput(scratch, 1, profile);
     aiNext = scratch[ai + F_AI_NEXT] as number;
     aiDir = scratch[ai + F_AI_DIR] as number;
+    aiIntent = scratch[ai + F_AI_INTENT] as number;
     rng = scratch[G_RNG] as number;
     return input;
   };

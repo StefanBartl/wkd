@@ -348,8 +348,9 @@ fn landed_damage(s: &State, atk: usize, def: usize) -> i32 {
     if frame < frames * 3 / 10 || frame > (frames * 8 + 9) / 10 {
         return 0;
     }
+    // From the attacker's middle, so a swing reaches an opponent standing inside it.
     let ax0 = if s[atk + F_FACING] == 1 {
-        s[atk + F_X] + BOX_W_FP
+        s[atk + F_X] + BOX_W_FP / 2
     } else {
         s[atk + F_X] - ATTACK_W * FP
     };
@@ -360,7 +361,14 @@ fn landed_damage(s: &State, atk: usize, def: usize) -> i32 {
         ATTACK2_Y_OFFSET
     };
     let ay0 = s[atk + F_Y] + offset * FP;
-    if !touches(s, def, ax0, ay0, ATTACK_W * FP, ATTACK_H * FP) {
+    if !touches(
+        s,
+        def,
+        ax0,
+        ay0,
+        ATTACK_W * FP + BOX_W_FP / 2,
+        ATTACK_H * FP,
+    ) {
         return 0;
     }
     scaled(

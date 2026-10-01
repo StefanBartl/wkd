@@ -113,6 +113,8 @@ export const F_PROJ_X = 37;
 export const F_PROJ_Y = 38;
 export const F_PROJ_VX = 39;
 export const F_PROJ_UNTIL = 40;
+/** The button the AI means to keep pressing until its next decision (step() never reads it). */
+export const F_AI_INTENT = 41;
 export const FIGHTER_SIZE = 48;
 
 export const STATE_LEN = GLOBAL_SIZE + 2 * FIGHTER_SIZE;
@@ -132,7 +134,8 @@ export const BOX_H = 150;
  */
 export const AIR_TUCK = 30;
 export const ATTACK_RANGE = 90;
-const ATTACK_W = 100;
+/** How far a swing reaches beyond the front of the attacker's box. */
+export const ATTACK_W = 100;
 const ATTACK_H = 60;
 /** Top of the attack box below the top of the attacker's own box. */
 const ATTACK1_Y_OFFSET = 50;
@@ -367,13 +370,16 @@ function landedDamage(s: SimState, atk: number, def: number): number {
   const frame = s[atk + F_ANIM_FRAME] as number;
   // The middle of the swing is where the blade is actually out.
   if (frame < Math.floor((frames * 3) / 10) || frame > Math.ceil((frames * 8) / 10)) return 0;
+  // The box starts at the attacker's middle, not at its front: fighters can
+  // stand inside each other, and a swing must not pass through an opponent
+  // who does.
   const ax0 =
     s[atk + F_FACING] === 1
-      ? (s[atk + F_X] as number) + BOX_W_FP
+      ? (s[atk + F_X] as number) + BOX_W_FP / 2
       : (s[atk + F_X] as number) - ATTACK_W * FP;
   const light = st === ST_ATTACK1;
   const ay0 = (s[atk + F_Y] as number) + (light ? ATTACK1_Y_OFFSET : ATTACK2_Y_OFFSET) * FP;
-  if (!touches(s, def, ax0, ay0, ATTACK_W * FP, ATTACK_H * FP)) return 0;
+  if (!touches(s, def, ax0, ay0, ATTACK_W * FP + BOX_W_FP / 2, ATTACK_H * FP)) return 0;
   return scaled(s, atk, light ? ATTACK1_DAMAGE : ATTACK2_DAMAGE);
 }
 

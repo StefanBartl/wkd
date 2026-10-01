@@ -250,3 +250,10 @@ test('the heavy swing is the answer to a jump', () => {
   const kenjiLight = leads.filter((lead) => !swingHitsJumper(kenji, IN_ATTACK1, lead));
   assert.ok(kenjiHeavy.length < kenjiLight.length, `${kenjiHeavy.length} vs ${kenjiLight.length}`);
 });
+
+test('a swing reaches an opponent standing inside the attacker, not one behind its middle', () => {
+  const inside = duel(SP_NONE, 0);
+  assert.ok(until(inside, EV_HIT_P1, IN_ATTACK1, 0, 40) > 0);
+  const behind = duel(SP_NONE, -60);
+  assert.equal(until(behind, EV_HIT_P1, IN_ATTACK1, 0, 40), -1);
+});
