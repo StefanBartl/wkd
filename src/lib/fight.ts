@@ -19,6 +19,13 @@ export interface AnimDef {
   readonly hold: number;
 }
 
+/**
+ * A fighter's special move. The numbers are what the sim state stores (and
+ * what the Rust port switches on), so they are part of the wire format.
+ */
+export const SPECIAL = { none: 0, bullet: 1, orb: 2, teleport: 3, wave: 4 } as const;
+export type SpecialKind = (typeof SPECIAL)[keyof typeof SPECIAL];
+
 export interface FighterConfig {
   readonly id: string;
   readonly name: string;
@@ -38,6 +45,10 @@ export interface FighterConfig {
    * -- and drawing mirrors whenever the fighter faces the other way.
    */
   readonly nativeFacing: 1 | -1;
+  /** The one move the others do not have. */
+  readonly special: SpecialKind;
+  /** What that move is called on the fighter card. */
+  readonly specialName: string;
   readonly anim: Readonly<Record<AnimKey, AnimDef>>;
 }
 
@@ -45,7 +56,10 @@ export interface FighterConfig {
 // via checksum) under different pack names -- "Martial Hero" gets a
 // hue-rotate filter applied wherever it's drawn, the only way those two
 // picks are visually distinct until real, separate art replaces one of
-// them. kenji is a genuinely different pack (own frame counts throughout).
+// them. kenji is a genuinely different pack (own frame counts throughout),
+// and "Ronin" is to Kenji what Martial Hero is to Samurai Mack: the same
+// sheets under another filter. What really tells the four apart is the
+// special move each one has.
 const SAMURAI_ANIM: Readonly<Record<AnimKey, AnimDef>> = {
   idle: { file: 'idle.png', frames: 8, hold: 6 },
   run: { file: 'run.png', frames: 8, hold: 6 },
@@ -76,6 +90,8 @@ export const FIGHTERS: readonly FighterConfig[] = [
     filter: 'none',
     footMargin: 78,
     nativeFacing: 1,
+    special: SPECIAL.wave,
+    specialName: 'Ground wave',
     anim: SAMURAI_ANIM,
   },
   {
@@ -85,6 +101,8 @@ export const FIGHTERS: readonly FighterConfig[] = [
     filter: 'hue-rotate(190deg) saturate(1.4)',
     footMargin: 78,
     nativeFacing: 1,
+    special: SPECIAL.orb,
+    specialName: 'Spirit orb',
     anim: SAMURAI_ANIM,
   },
   {
@@ -94,6 +112,19 @@ export const FIGHTERS: readonly FighterConfig[] = [
     filter: 'none',
     footMargin: 72,
     nativeFacing: -1,
+    special: SPECIAL.teleport,
+    specialName: 'Shadow step',
+    anim: KENJI_ANIM,
+  },
+  {
+    id: 'ronin',
+    name: 'Ronin',
+    spriteBase: 'kenji',
+    filter: 'hue-rotate(125deg) saturate(1.5) brightness(1.1)',
+    footMargin: 72,
+    nativeFacing: -1,
+    special: SPECIAL.bullet,
+    specialName: 'Pistol',
     anim: KENJI_ANIM,
   },
 ];
