@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { FIGHTERS, type FighterConfig } from '../src/lib/fight.ts';
 import {
   createLoopback,
+  EventLedger,
   type LoopbackOptions,
   RollbackSession,
 } from '../src/lib/fight-engine/rollback.ts';
@@ -11,6 +12,9 @@ import {
   createState,
   EV_HIT_P0,
   EV_HIT_P1,
+  EV_KO,
+  EV_LAND_P0,
+  EV_LAND_P1,
   F_HEALTH,
   fighterBase,
   G_OVER,
@@ -209,41 +213,88 @@ test('the rendered present is always confirmed plus the guessed frames -- rollba
   assert.ok(a.stats.rollbacks > 0 && b.stats.rollbacks > 0);
 });
 
-test('a hit that only shows up in a rollback replay is still reported', () => {
-  let real = 0;
-  let reported = 0;
-  for (const seed of [3, 11, 21, 77]) {
-    const initial = createState(samurai, kenji, seed);
-    const link = createLoopback({ delay: 6, seed });
-    const a = new RollbackSession({ local: 0, state: initial, transport: link.a });
-    const b = new RollbackSession({ local: 1, state: initial, transport: link.b });
-    const inA = inputScript(seed * 5);
-    const inB = inputScript(seed * 7);
-    const logA: number[] = [];
-    const logB: number[] = [];
-    for (let ticks = 0; (a.outcome === 0 || b.outcome === 0) && ticks < 20_000; ticks++) {
-      const recordsA = a.wantsInput;
-      const fa = a.frame;
-      const ia = inA();
-      const events = a.advance(ia);
-      if (recordsA) logA[fa + 2] = ia;
-      if (events & (EV_HIT_P0 | EV_HIT_P1)) reported++;
-      const recordsB = b.wantsInput;
-      const fb = b.frame;
-      const ib = inB();
-      b.advance(ib);
-      if (recordsB) logB[fb + 2] = ib;
-      link.tick();
-    }
-    const offline = createState(samurai, kenji, seed);
-    for (let f = 0; (offline[G_OVER] as number) === 0; f++) {
-      const events = step(offline, logA[f] ?? 0, logB[f] ?? 0);
-      if (events & (EV_HIT_P0 | EV_HIT_P1)) real++;
+/** Hits per fighter that peer A was told about, and the hits that really happened. */
+function hitCounts(net: LoopbackOptions, seed: number): { reported: number[]; real: number[] } {
+  const initial = createState(samurai, kenji, seed);
+  const link = createLoopback({ ...net, seed });
+  const a = new RollbackSession({ local: 0, state: initial, transport: link.a });
+  const b = new RollbackSession({ local: 1, state: initial, transport: link.b });
+  const inA = inputScript(seed * 5);
+  const inB = inputScript(seed * 7);
+  const logA: number[] = [];
+  const logB: number[] = [];
+  const reported = [0, 0];
+  for (let ticks = 0; (a.outcome === 0 || b.outcome === 0) && ticks < 20_000; ticks++) {
+    const recordsA = a.wantsInput;
+    const fa = a.frame;
+    const ia = inA();
+    const events = a.advance(ia);
+    if (recordsA) logA[fa + 2] = ia;
+    if (events & EV_HIT_P0) reported[0]++;
+    if (events & EV_HIT_P1) reported[1]++;
+    const recordsB = b.wantsInput;
+    const fb = b.frame;
+    const ib = inB();
+    b.advance(ib);
+    if (recordsB) logB[fb + 2] = ib;
+    link.tick();
+  }
+  const real = [0, 0];
+  const offline = createState(samurai, kenji, seed);
+  for (let f = 0; (offline[G_OVER] as number) === 0; f++) {
+    const events = step(offline, logA[f] ?? 0, logB[f] ?? 0);
+    if (events & EV_HIT_P0) real[0]++;
+    if (events & EV_HIT_P1) real[1]++;
+  }
+  return { reported: reported, real };
+}
+
+test('every real hit is reported, for each fighter and each match -- also those found while catching up', () => {
+  let hits = 0;
+  for (const net of [{ delay: 3 }, { delay: 6, jitter: 4 }, { delay: 10, jitter: 3, loss: 0.1 }]) {
+    for (const seed of [3, 11, 21, 77, 5, 9, 31, 64]) {
+      const { reported, real } = hitCounts(net, seed);
+      for (const fighter of [0, 1]) {
+        // Phantoms (a predicted hit that rollback took back) are allowed;
+        // a sum over fighters or matches would let them hide a missing hit.
+        assert.ok(
+          (reported[fighter] as number) >= (real[fighter] as number),
+          `${JSON.stringify(net)} seed ${seed}: fighter ${fighter} had ${real[fighter]} hits, ${reported[fighter]} reported`,
+        );
+        hits += real[fighter] as number;
+      }
     }
   }
-  assert.ok(real > 20, 'too few hits in the sample to prove anything');
-  // Phantoms (a predicted hit that rollback took back) are allowed; misses are not.
-  assert.ok(reported >= real, `${real - reported} of ${real} real hits were never reported`);
+  assert.ok(hits > 200, 'too few hits in the sample to prove anything');
+});
+
+test('the event ledger reports a frame once, and a moved event only once', () => {
+  const ledger = new EventLedger();
+  assert.equal(ledger.fresh(100, EV_HIT_P1), EV_HIT_P1);
+  // The same frame replayed: nothing new.
+  assert.equal(ledger.fresh(100, EV_HIT_P1), 0);
+  // The replay adds a second event to a frame already seen: only that is news.
+  assert.equal(ledger.fresh(100, EV_HIT_P1 | EV_LAND_P0), EV_LAND_P0);
+  // The corrected input moved the hit by up to five frames: still the one hit.
+  assert.equal(ledger.fresh(101, EV_HIT_P1), 0);
+  assert.equal(ledger.fresh(95, EV_HIT_P1), 0);
+  // Six frames away it is a different hit (hits are at least 27 frames apart).
+  assert.equal(ledger.fresh(106, EV_HIT_P1), EV_HIT_P1);
+  // Another event type is independent of the hit's window.
+  assert.equal(ledger.fresh(101, EV_LAND_P1), EV_LAND_P1);
+  // A rollback replays an early frame again after a later hit was reported:
+  // the window alone would let it through, the per-frame record does not.
+  assert.equal(ledger.fresh(140, EV_HIT_P0), EV_HIT_P0);
+  assert.equal(ledger.fresh(120, EV_HIT_P0), EV_HIT_P0);
+  assert.equal(ledger.fresh(120, EV_HIT_P0), 0);
+  assert.equal(ledger.fresh(140, EV_HIT_P0), 0);
+});
+
+test('what was replayed and what was stepped for the first time are both reported', () => {
+  const ledger = new EventLedger();
+  assert.equal(ledger.fresh(10, 0), 0);
+  assert.equal(ledger.fresh(200, EV_KO), EV_KO);
+  assert.equal(ledger.fresh(200, EV_KO), 0);
 });
 
 test('a peer that stops once its result is final does not strand the other one', () => {
@@ -383,12 +434,70 @@ test('a good packet is taken, a repeat adds nothing, and reserved input bits are
 test('a peer that claims impossible frames and acks cannot crash or wedge the session', () => {
   const { session, feed } = lonelySession();
   feed(craftPacket({ frame: 0xffff_ffff, ack: 0xffff_ffff, advantage: -127 }));
+  // It never runs ahead of the inputs it got from this side by more than the window.
+  assert.ok(session.peerPacing.frame <= 2 + 8, `claimed frame ${session.peerPacing.frame}`);
   feed(craftPacket({ frame: 0, ack: 0, advantage: 127 }));
   for (let i = 0; i < 50; i++) {
     session.advance(0);
     feed(craftPacket({ frame: 0xffff_ffff, ack: 0xffff_ffff, advantage: -128 }));
   }
   assert.ok(session.frame <= 8, 'with no real input from the peer the window still holds');
+  // This side recorded inputs up to frame + inputDelay, and the window adds 8.
+  assert.ok(session.peerPacing.frame <= session.frame + 2 + 1 + 8);
+});
+
+test('an older packet that arrives late does not replace the newer pacing report', () => {
+  const { session, feed } = lonelySession();
+  // Thirteen inputs known: an honest peer at frame 10 (it records two frames ahead).
+  feed(craftPacket({ frame: 10, advantage: 3, inputs: new Array(13).fill(0) }));
+  assert.deepEqual(session.peerPacing, { frame: 10, advantage: 3 });
+  // A packet from frame 8 was reordered behind it: stale news, even though the
+  // inputs already known keep the claimed frame itself from going backwards.
+  feed(craftPacket({ frame: 8, advantage: -5, inputs: new Array(11).fill(0) }));
+  assert.deepEqual(session.peerPacing, { frame: 10, advantage: 3 });
+  feed(craftPacket({ frame: 11, advantage: 1, inputs: new Array(14).fill(0) }));
+  assert.deepEqual(session.peerPacing, { frame: 11, advantage: 1 });
+});
+
+test('flush() says so only once the peer has acknowledged what this side confirmed', () => {
+  const { session, feed } = lonelySession();
+  feed(craftPacket({ inputs: new Array(20).fill(0), ack: 0 }));
+  for (let i = 0; i < 10; i++) session.advance(0);
+  assert.ok(session.confirmedFrame > 5, 'frames must be confirmed for this to prove anything');
+  assert.equal(session.flush(), false, 'the peer has acknowledged nothing yet');
+  feed(craftPacket({ start: 20, ack: session.confirmedFrame - 1 }));
+  assert.equal(session.flush(), false, 'one frame short');
+  feed(craftPacket({ start: 20, ack: session.confirmedFrame }));
+  assert.equal(session.flush(), true);
+});
+
+test('the stall counter counts a run of waiting ticks and starts over after a step', () => {
+  const { session, feed } = lonelySession();
+  for (let i = 0; i < 30; i++) session.advance(0);
+  assert.ok(session.stalledFor > 15);
+  feed(craftPacket({ inputs: new Array(40).fill(0) }));
+  session.advance(0);
+  assert.equal(session.stalledFor, 0);
+});
+
+test('a peer that voided the match keeps sending, so the other one notices the divergence too', () => {
+  for (let seed = 1; seed <= 30; seed++) {
+    const initial = createState(samurai, kenji, seed);
+    const link = createLoopback({ delay: 3, jitter: 3, loss: 0.3, seed });
+    const a = new RollbackSession({ local: 0, state: initial, transport: link.a });
+    const b = new RollbackSession({ local: 1, state: initial, transport: link.b });
+    b.confirmed[fighterBase(0) + F_HEALTH] = 37;
+    let ticks = 0;
+    for (; ticks < 3000 && !(a.desynced && b.desynced); ticks++) {
+      // What the page does: the loop stops at the verdict, flush() keeps the hashes going out.
+      if (!a.desynced) a.advance(0);
+      else if (ticks % 6 === 0) assert.equal(a.flush(), false);
+      if (!b.desynced) b.advance(0);
+      else if (ticks % 6 === 0) assert.equal(b.flush(), false);
+      link.tick();
+    }
+    assert.ok(a.desynced && b.desynced, `seed ${seed}: only one side noticed after ${ticks} ticks`);
+  }
 });
 
 test('one forged frame number cannot switch the pacing off for the whole match', () => {

@@ -114,6 +114,33 @@ function decodePacket(bytes: Uint8Array): Packet | null {
   };
 }
 
+/**
+ * Which EV_* bits were already handed to the page, per frame. A rollback
+ * replays frames the page has seen events for; only what is new may be
+ * reported again, and an event that merely moved by a few frames (a hit the
+ * corrected input delays by one) is the same event, not a second one.
+ */
+export class EventLedger {
+  private readonly emitted = new Uint8Array(MAX_FRAMES);
+  private readonly lastFrame = new Int32Array(8).fill(-1000);
+
+  /** The bits of `events` (of `frame`) that are news; they count as reported from now on. */
+  fresh(frame: number, events: number): number {
+    const news = events & ~(this.emitted[frame] as number);
+    if (news === 0) return 0;
+    this.emitted[frame] = (this.emitted[frame] as number) | news;
+    let out = 0;
+    for (let bit = 0; bit < 8; bit++) {
+      const mask = 1 << bit;
+      if ((news & mask) === 0) continue;
+      if (Math.abs(frame - (this.lastFrame[bit] as number)) < EVENT_DEDUPE_FRAMES) continue;
+      this.lastFrame[bit] = frame;
+      out |= mask;
+    }
+    return out;
+  }
+}
+
 export class RollbackSession {
   /** The predicted present: render this. */
   readonly current: SimState;
@@ -144,13 +171,15 @@ export class RollbackSession {
   private remoteKnown = 0;
   private peerAck = 0;
   private mispredicted = false;
-  /** EV_* bits already handed out per frame, so a replay only adds what is new. */
-  private readonly emitted = new Uint8Array(MAX_FRAMES);
-  private readonly lastEventFrame = new Int32Array(8).fill(-1000);
+  private readonly ledger = new EventLedger();
   private stallRun = 0;
+  /** Events of frames confirm() stepped since the last advance(), not yet handed out. */
+  private pending = 0;
 
   private heardFromPeer = false;
   private remoteFrame = 0;
+  /** Frame number of the newest packet seen (capped), which decides whose advantage counts. */
+  private newestFrame = -1;
   private remoteAdvantage = 0;
   private lastSyncSkip = -SYNC_SKIP_COOLDOWN;
 
@@ -195,6 +224,11 @@ export class RollbackSession {
     return this.frameNo - this.confirmedNo;
   }
 
+  /** What the peer last said about its pacing, as far as it is believable. */
+  get peerPacing(): { readonly frame: number; readonly advantage: number } {
+    return { frame: this.remoteFrame, advantage: this.remoteAdvantage };
+  }
+
   /**
    * Whether the next advance() will record the input it is given. When it
    * will not (a stalled or skipped tick), the caller should keep a latched
@@ -229,7 +263,12 @@ export class RollbackSession {
     this.confirm();
     this.send();
 
-    let events = this.mispredicted ? this.rollback() : 0;
+    // What confirm() found while catching up counts too: a wrong guess is
+    // usually put right by the very packet that confirms those frames, and
+    // rollback() then only replays what is still guessed.
+    let events = this.pending;
+    this.pending = 0;
+    if (this.mispredicted) events |= this.rollback();
 
     if (this.frameNo >= MAX_FRAMES - 1) return events;
     if (this.frameNo - this.confirmedNo >= this.maxPrediction) {
@@ -243,7 +282,7 @@ export class RollbackSession {
     }
 
     this.stallRun = 0;
-    events |= this.report(this.frameNo, this.stepCurrent(this.frameNo));
+    events |= this.ledger.fresh(this.frameNo, this.stepCurrent(this.frameNo));
     this.frameNo++;
     return events;
   }
@@ -253,27 +292,13 @@ export class RollbackSession {
    * peer that stops calling advance() once its own result is final would
    * otherwise take its last packets with it, and the other side may be
    * missing exactly those. Returns true once the peer has acknowledged
-   * everything this side has confirmed.
+   * everything this side has confirmed. A desynced session never says so:
+   * it keeps sending its hashes, because the peer can only notice the
+   * divergence from a packet that arrives after it has confirmed that frame.
    */
   flush(): boolean {
     this.send();
-    return this.peerAck >= this.confirmedNo;
-  }
-
-  /** Filters the events of `frame` down to those not reported for it, or an alias of it, before. */
-  private report(frame: number, events: number): number {
-    const fresh = events & ~(this.emitted[frame] as number);
-    if (fresh === 0) return 0;
-    this.emitted[frame] = (this.emitted[frame] as number) | fresh;
-    let out = 0;
-    for (let bit = 0; bit < 8; bit++) {
-      const mask = 1 << bit;
-      if ((fresh & mask) === 0) continue;
-      if (Math.abs(frame - (this.lastEventFrame[bit] as number)) < EVENT_DEDUPE_FRAMES) continue;
-      this.lastEventFrame[bit] = frame;
-      out |= mask;
-    }
-    return out;
+    return !this.desynced && this.peerAck >= this.confirmedNo;
   }
 
   private remoteInputFor(frame: number): number {
@@ -297,10 +322,15 @@ export class RollbackSession {
   private confirm(): void {
     const until = Math.min(this.remoteKnown, this.localKnown, this.frameNo);
     while (this.confirmedNo < until) {
-      this.stepWith(
-        this.confirmed,
+      // Every frame stepped here was stepped before on `current` (with a
+      // guess); the ledger keeps what was already reported from repeating.
+      this.pending |= this.ledger.fresh(
         this.confirmedNo,
-        this.remoteInputs[this.confirmedNo] as number,
+        this.stepWith(
+          this.confirmed,
+          this.confirmedNo,
+          this.remoteInputs[this.confirmedNo] as number,
+        ),
       );
       this.confirmedNo++;
       if (this.confirmedNo % HASH_INTERVAL === 0) {
@@ -318,7 +348,7 @@ export class RollbackSession {
     copyState(this.current, this.confirmed);
     let events = 0;
     for (let f = this.confirmedNo; f < this.frameNo; f++) {
-      events |= this.report(f, this.stepCurrent(f));
+      events |= this.ledger.fresh(f, this.stepCurrent(f));
     }
     this.stats.rollbacks++;
     if (depth > this.stats.maxRollbackFrames) this.stats.maxRollbackFrames = depth;
@@ -381,12 +411,12 @@ export class RollbackSession {
     // the inputs it has from this side by more than the prediction window, and
     // it records its own input `inputDelay` frames before it steps -- so one
     // forged value cannot freeze the pacing for the rest of the match.
-    const claimed = Math.max(
-      this.remoteKnown - this.inputDelay - 1,
-      Math.min(packet.frame, this.localKnown + this.maxPrediction),
-    );
-    if (claimed >= this.remoteFrame) {
-      this.remoteFrame = claimed;
+    const frame = Math.min(packet.frame, this.localKnown + this.maxPrediction);
+    this.remoteFrame = Math.max(this.remoteFrame, this.remoteKnown - this.inputDelay - 1, frame);
+    // The advantage belongs to the packet it came in: a late older one must
+    // not replace a newer one's (the frame floor above would let it pass).
+    if (frame >= this.newestFrame) {
+      this.newestFrame = frame;
       this.remoteAdvantage = packet.advantage;
     }
 

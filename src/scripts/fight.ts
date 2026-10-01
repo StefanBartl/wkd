@@ -760,8 +760,10 @@ class Match {
       if (won) writeCount(WINS_KEY, readCount(WINS_KEY) + 1);
       else if (lost) writeCount(LOSSES_KEY, readCount(LOSSES_KEY) + 1);
       updateRecord(this.hud.recordEl);
-      this.startLinger();
     }
+    // Also for a voided match: the peer only learns of the divergence from
+    // the hashes this side keeps sending (flush() never settles while desynced).
+    this.startLinger();
     this.hud.resultBox.hidden = false;
   }
 
