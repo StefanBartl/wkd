@@ -1,5 +1,5 @@
 // Drivers that run the match through rollback netcode (see rollback.ts).
-import { aiInput } from './ai.ts';
+import { type AiProfile, aiInput } from './ai.ts';
 import type { Driver } from './driver.ts';
 import { createLoopback, type LoopbackOptions, RollbackSession } from './rollback.ts';
 import {
@@ -51,7 +51,11 @@ export function peerDriver(session: RollbackSession): Driver {
  * the player's by an in-process network with the given latency, jitter and
  * loss. Exists to see and feel rollback without a second machine.
  */
-export function laggedAiDriver(initial: SimState, net: LoopbackOptions): Driver {
+export function laggedAiDriver(
+  initial: SimState,
+  net: LoopbackOptions,
+  profile?: AiProfile,
+): Driver {
   const link = createLoopback(net);
   const player = new RollbackSession({ local: 0, state: initial, transport: link.a });
   const remote = new RollbackSession({ local: 1, state: initial, transport: link.b });
@@ -70,7 +74,7 @@ export function laggedAiDriver(initial: SimState, net: LoopbackOptions): Driver 
     scratch[ai + F_AI_NEXT] = aiNext;
     scratch[ai + F_AI_DIR] = aiDir;
     scratch[G_RNG] = rng;
-    const input = aiInput(scratch, 1);
+    const input = aiInput(scratch, 1, profile);
     aiNext = scratch[ai + F_AI_NEXT] as number;
     aiDir = scratch[ai + F_AI_DIR] as number;
     rng = scratch[G_RNG] as number;

@@ -337,7 +337,8 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
         iWantRematch = true;
         peer.sendControl({ type: 'rematch', match: current });
         if (theyWantRematch) startIfReady();
-        else if (ui.resultText) ui.resultText.textContent = 'Waiting for your friend…';
+        // Added to the result, not in place of it: who won should stay readable.
+        else if (ui.resultText) ui.resultText.textContent += ' Waiting for your friend…';
       },
       leave,
     });

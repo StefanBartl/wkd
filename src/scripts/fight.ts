@@ -11,6 +11,7 @@
 import {
   type AnimKey,
   CANVAS,
+  DIFFICULTY_KEY,
   FIGHTERS,
   type FighterConfig,
   GROUND_Y,
@@ -20,11 +21,13 @@ import {
   MUSIC_KEY,
   WINS_KEY,
 } from '../lib/fight';
+import { AI_PROFILES, type Difficulty, isDifficulty } from '../lib/fight-engine/ai';
 import { music, playSfx } from '../lib/fight-engine/audio';
 import { MAX_FRAME_MS, StepClock } from '../lib/fight-engine/clock';
 import { aiDriver, type Driver, type MatchSetup } from '../lib/fight-engine/driver';
 import { connectedPads, pollGamepads } from '../lib/fight-engine/gamepad';
 import type { Particles } from '../lib/fight-engine/particles';
+import { pose } from '../lib/fight-engine/pose';
 import {
   BOX_H,
   BOX_W,
@@ -33,7 +36,6 @@ import {
   EV_HIT_P1,
   EV_LAND_P0,
   EV_LAND_P1,
-  F_ANIM_FRAME,
   F_FACING,
   F_HEALTH,
   F_STATE,
@@ -54,7 +56,7 @@ import {
   OVER_P1,
   SIM_HZ,
   type SimState,
-  STATE_ANIM,
+  ST_DEATH,
   secondsLeft,
   step,
 } from '../lib/fight-engine/sim';
@@ -87,11 +89,20 @@ function readMusicPref(): boolean {
     return true;
   }
 }
-function writeMusicPref(on: boolean): void {
+function writePref(key: string, value: string): void {
   try {
-    localStorage.setItem(MUSIC_KEY, on ? 'on' : 'off');
+    localStorage.setItem(key, value);
   } catch {
     /* private mode etc. */
+  }
+}
+const writeMusicPref = (on: boolean): void => writePref(MUSIC_KEY, on ? 'on' : 'off');
+function readDifficulty(): Difficulty {
+  try {
+    const stored = localStorage.getItem(DIFFICULTY_KEY);
+    return isDifficulty(stored) ? stored : 'normal';
+  } catch {
+    return 'normal';
   }
 }
 
@@ -136,7 +147,9 @@ function setUp(root: HTMLElement): void {
   let match: Match | null = null;
   let picked: string | null = null;
   let musicOn = readMusicPref();
+  let difficulty = readDifficulty();
 
+  const pauseBtn = root.querySelector<HTMLButtonElement>('[data-fight-pause]');
   const hud: Hud = {
     timerEl,
     playerBar,
@@ -146,6 +159,12 @@ function setUp(root: HTMLElement): void {
     resultBox,
     resultText,
     netEl: root.querySelector<HTMLElement>('[data-fight-net]'),
+    nameEls: [
+      root.querySelector<HTMLElement>('[data-fight-name="0"]'),
+      root.querySelector<HTMLElement>('[data-fight-name="1"]'),
+    ],
+    pauseBtn,
+    pausedBox: root.querySelector<HTMLElement>('[data-fight-paused]'),
   };
   updateRecord(recordEl);
 
@@ -158,8 +177,6 @@ function setUp(root: HTMLElement): void {
   const launch = (setup: MatchSetup): void => {
     selectPanel.hidden = true;
     arena.hidden = false;
-    // Which health bar gets the "you" tag (see .fight-you in modern.css).
-    arena.dataset.you = String(setup.local);
     if (coreHint) coreHint.hidden = !setup.wasm;
     match?.stop();
     match = new Match(ctx, hud, setup, musicOn);
@@ -168,18 +185,61 @@ function setUp(root: HTMLElement): void {
     match.start(fightShown());
   };
 
+  /** Stop whatever is running and go back to the fighter cards. */
+  const showSelect = (): void => {
+    match?.stop();
+    match = null;
+    arena.hidden = true;
+    selectPanel.hidden = false;
+  };
+
   // The AI game is the default owner of the fighter cards and the rematch
   // button; an online session takes them over while it lasts.
   const versusAi: OnlineHandlers = {
     pick(id: string): void {
       picked = id;
-      launch(aiSetup(id));
+      launch(aiSetup(id, difficulty));
     },
     rematch(): void {
-      if (picked) launch(aiSetup(picked));
+      if (picked) launch(aiSetup(picked, difficulty));
+    },
+    change(): void {
+      showSelect();
+      root.querySelector<HTMLElement>('[data-fighter]')?.focus();
     },
   };
   let handlers: OnlineHandlers = versusAi;
+
+  // Easy / normal / hard for the AI opponent; remembered like the music switch.
+  const difficultyBtns = root.querySelectorAll<HTMLButtonElement>('[data-fight-difficulty]');
+  const showDifficulty = (): void => {
+    for (const btn of difficultyBtns) {
+      btn.setAttribute('aria-pressed', String(btn.dataset.fightDifficulty === difficulty));
+    }
+  };
+  for (const btn of difficultyBtns) {
+    btn.addEventListener('click', () => {
+      const value = btn.dataset.fightDifficulty;
+      if (!isDifficulty(value)) return;
+      difficulty = value;
+      writePref(DIFFICULTY_KEY, value);
+      showDifficulty();
+    });
+  }
+  showDifficulty();
+
+  pauseBtn?.addEventListener('click', () => {
+    match?.togglePause();
+    // Space is an attack again; it must not press this button once more.
+    pauseBtn.blur();
+  });
+  root
+    .querySelector<HTMLButtonElement>('[data-fight-resume]')
+    ?.addEventListener('click', () => match?.togglePause());
+  // In the result box and on the pause screen. An online session keeps its
+  // fighters for the rematch, so the button is the AI game's alone.
+  const changeBtns = root.querySelectorAll<HTMLButtonElement>('[data-fight-change]');
+  for (const btn of changeBtns) btn.addEventListener('click', () => handlers.change?.());
 
   for (const btn of root.querySelectorAll<HTMLButtonElement>('[data-fighter]')) {
     btn.addEventListener('click', () => {
@@ -199,15 +259,11 @@ function setUp(root: HTMLElement): void {
     const api: OnlineApi = {
       root,
       launch,
-      showSelect() {
-        match?.stop();
-        match = null;
-        arena.hidden = true;
-        selectPanel.hidden = false;
-      },
+      showSelect,
       takeOver(next) {
         handlers = next ?? versusAi;
         if (leaveBtn) leaveBtn.hidden = !handlers.leave;
+        for (const btn of changeBtns) btn.hidden = !handlers.change;
       },
     };
     online.hidden = false;
@@ -218,14 +274,16 @@ function setUp(root: HTMLElement): void {
     for (const mode of ['invite', 'join'] as const) {
       online.querySelector(`[data-fight-${mode}]`)?.addEventListener('click', () => {
         // WebRTC, rollback and the invitation flow: fetched on first use.
-        import('./fight-online')
-          .then((m) => m.begin(mode, api))
-          .catch(() => {
+        import('./fight-online').then(
+          (m) => m.begin(mode, api),
+          () => {
             // A page left open across a deploy points at chunks that are gone.
+            // (Only the failed load: an error inside begin() is not this.)
             if (onlineStatus) {
               onlineStatus.textContent = 'Could not load online play. Reload the page and retry.';
             }
-          });
+          },
+        );
       });
     }
   }
@@ -322,6 +380,10 @@ interface Hud {
   resultBox: HTMLElement;
   resultText: HTMLElement;
   netEl: HTMLElement | null;
+  /** The labels above the two health bars. */
+  nameEls: readonly [HTMLElement | null, HTMLElement | null];
+  pauseBtn: HTMLButtonElement | null;
+  pausedBox: HTMLElement | null;
 }
 
 /** What fight-online.ts gets to drive the page with. */
@@ -339,6 +401,8 @@ export interface OnlineHandlers {
   rematch(): void;
   /** Present while a session can be left from the arena; shows the Leave button. */
   leave?(): void;
+  /** Present where the fighter can be picked anew; shows the Change fighter buttons. */
+  change?(): void;
 }
 
 type Action = 'left' | 'right' | 'jump' | 'attack1' | 'attack2';
@@ -368,6 +432,44 @@ function loadImage(src: string): HTMLImageElement {
     imageCache.set(src, img);
   }
   return img;
+}
+
+// A canvas filter is evaluated on every draw it is set for -- measured here,
+// the night arena and a hue-shifted fighter cost several milliseconds of
+// each frame. The pictures never change, so each one is filtered once, into
+// a bitmap, and that is what gets drawn from then on.
+const bakedCache = new Map<string, CanvasImageSource>();
+function filtered(img: HTMLImageElement, filter: string): CanvasImageSource {
+  if (filter === 'none') return img;
+  const key = `${filter}|${img.src}`;
+  let baked = bakedCache.get(key);
+  if (!baked) {
+    baked = bake(img, filter);
+    bakedCache.set(key, baked);
+  }
+  return baked;
+}
+
+/** `img` must be loaded. Where no canvas can be had, the unfiltered picture has to do. */
+function bake(img: HTMLImageElement, filter: string): CanvasImageSource {
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  if (typeof OffscreenCanvas !== 'undefined') {
+    const ctx = new OffscreenCanvas(w, h).getContext('2d');
+    if (ctx) {
+      ctx.filter = filter;
+      ctx.drawImage(img, 0, 0);
+      return ctx.canvas.transferToImageBitmap();
+    }
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return img;
+  ctx.filter = filter;
+  ctx.drawImage(img, 0, 0);
+  return canvas;
 }
 
 // ---- input ------------------------------------------------------------
@@ -429,8 +531,9 @@ class FighterView {
     };
   }
 
-  draw(ctx: CanvasRenderingContext2D, s: SimState, b: number): void {
-    const key = STATE_ANIM[s[b + F_STATE] as number] ?? 'idle';
+  /** `outro`: frames since the match ended (see pose.ts), -1 while it runs. */
+  draw(ctx: CanvasRenderingContext2D, s: SimState, b: number, outro: number): void {
+    const { key, frame } = pose(s, b, this.cfg.anim, outro);
     const img = this.images[key];
     if (!img.complete || img.naturalWidth === 0) return;
     const fw = img.naturalWidth / this.cfg.anim[key].frames;
@@ -443,21 +546,17 @@ class FighterView {
     // footMargin pushes the drawn sprite down so the actual feet -- not
     // the bottom of its transparent bounding box -- land on the ground.
     const drawY = y + BOX_H - drawH + this.cfg.footMargin * DRAW_SCALE;
-    const sx = (s[b + F_ANIM_FRAME] as number) * fw;
-    ctx.save();
-    // Skipping the assignment for the (usual) unfiltered case avoids
-    // exercising canvas's filter code path -- known slow, especially on
-    // WebKit -- on every frame of the match for a value that never
-    // actually changes once the fighter is created.
-    if (this.cfg.filter !== 'none') ctx.filter = this.cfg.filter;
+    const sx = frame * fw;
+    const sheet = filtered(img, this.cfg.filter);
     if (s[b + F_FACING] !== this.cfg.nativeFacing) {
+      ctx.save();
       ctx.translate(cx, 0);
       ctx.scale(-1, 1);
-      ctx.drawImage(img, sx, 0, fw, fh, -drawW / 2, drawY, drawW, drawH);
+      ctx.drawImage(sheet, sx, 0, fw, fh, -drawW / 2, drawY, drawW, drawH);
+      ctx.restore();
     } else {
-      ctx.drawImage(img, sx, 0, fw, fh, cx - drawW / 2, drawY, drawW, drawH);
+      ctx.drawImage(sheet, sx, 0, fw, fh, cx - drawW / 2, drawY, drawW, drawH);
     }
-    ctx.restore();
   }
 }
 
@@ -466,8 +565,14 @@ class FighterView {
 // this long, so the other side can still confirm the result (see flush()).
 const LINGER_MS = 3000;
 const LINGER_TICK_MS = 100;
-// The handwritten opponent walks a little slower than the player.
-const AI_SPEED = Math.round(MOVE_SPEED * 0.85);
+const PAUSE_KEY = 'p';
+/** Percent of health at which a bar starts to blink. */
+const LOW_HEALTH = 25;
+// How long the picture keeps playing after the result, in 60 Hz frames: long
+// enough for the slowest death animation (7 frames of 8), shorter when the
+// clock ran out and nobody falls.
+const KO_OUTRO_FRAMES = 80;
+const TIME_UP_OUTRO_FRAMES = 50;
 
 // `?sim=wasm` swaps the TypeScript step() for its Rust/WebAssembly twin
 // (wasm/fight-sim). Same rules, bit for bit -- tests/fight-wasm.test.ts
@@ -492,7 +597,7 @@ function requestWasmCore(): void {
 // network (`lag` one-way ms, `jitter` ms, `loss` percent), to see and feel
 // what rollback does without a second machine. A debugging aid, like
 // ?sim=wasm.
-let lagDemo: ((initial: SimState) => Driver) | null = null;
+let lagDemo: ((initial: SimState, difficulty: Difficulty) => Driver) | null = null;
 function requestLagDemo(): void {
   const query = new URLSearchParams(location.search);
   if (query.get('net') !== 'loopback') return;
@@ -507,7 +612,7 @@ function requestLagDemo(): void {
   };
   import('../lib/fight-engine/net-driver')
     .then((m) => {
-      lagDemo = (initial) => m.laggedAiDriver(initial, net);
+      lagDemo = (initial, difficulty) => m.laggedAiDriver(initial, net, AI_PROFILES[difficulty]);
     })
     .catch(() => {
       // The plain AI game runs instead.
@@ -515,7 +620,7 @@ function requestLagDemo(): void {
 }
 
 /** A match against the AI: the visitor's pick on the left, a random other fighter and arena. */
-function aiSetup(playerId: string): MatchSetup {
+function aiSetup(playerId: string, difficulty: Difficulty): MatchSetup {
   const chosen = FIGHTERS.find((f) => f.id === playerId) ?? FIGHTERS[0];
   // A random pick among the rest, not FIGHTERS.find()'s first-in-order
   // match: with 2 fighters that's the same one either way, but with 3+
@@ -524,25 +629,26 @@ function aiSetup(playerId: string): MatchSetup {
   const other = rest[Math.floor(Math.random() * rest.length)] ?? FIGHTERS[1];
   const level = LEVELS[Math.floor(Math.random() * LEVELS.length)];
   if (!chosen || !other || !level) throw new Error('fight: no fighters configured');
+  const profile = AI_PROFILES[difficulty];
   const initial = createState(
     { anim: chosen.anim },
-    { anim: other.anim, speed: AI_SPEED },
+    { anim: other.anim, speed: Math.round(MOVE_SPEED * profile.speed) },
     Math.floor(Math.random() * 0x1_0000_0000),
   );
   let driver: Driver | null = null;
   let wasm = false;
   if (lagDemo) {
-    driver = lagDemo(initial);
+    driver = lagDemo(initial, difficulty);
   } else if (wasmCore) {
     try {
       const sim = wasmCore.instantiateSim(wasmCore.module, initial);
-      driver = aiDriver(sim.state, sim.step);
+      driver = aiDriver(sim.state, sim.step, profile);
       wasm = true;
     } catch {
       // A module built for another state layout: the TypeScript core runs instead.
     }
   }
-  driver ??= aiDriver(initial, (input0, input1) => step(initial, input0, input1));
+  driver ??= aiDriver(initial, (input0, input1) => step(initial, input0, input1), profile);
   return { driver, fighters: [chosen, other], local: 0, level, wasm };
 }
 
@@ -583,6 +689,14 @@ class Match {
   private over = false;
   /** Started while nobody was looking: the intro banner and stinger wait for resume(). */
   private introPending = false;
+  /** Paused with the Pause button or P, as opposed to by leaving the view. */
+  private heldByUser = false;
+  /** Frames since the result, and how many of them are shown before the result box. */
+  private outro = 0;
+  private outroLength = 0;
+  /** Only a match without a peer can stand still; an opponent's would run on. */
+  private readonly pausable: boolean;
+  private readonly names: readonly [string, string];
   private musicWanted: boolean;
   // Written health/timer values, so the HUD only touches the DOM on the
   // ~1-2/sec ticks where they actually changed instead of every one of a
@@ -601,8 +715,38 @@ class Match {
     this.local = setup.local;
     this.level = setup.level;
     this.views = [new FighterView(setup.fighters[0]), new FighterView(setup.fighters[1])];
+    this.names = [setup.fighters[0].name, setup.fighters[1].name];
+    this.pausable = !this.driver.flush;
     this.hud.resultBox.hidden = true;
     if (this.hud.netEl) this.hud.netEl.hidden = this.driver.status() === null;
+    for (const index of [0, 1] as const) {
+      const label = this.hud.nameEls[index];
+      if (label) label.textContent = `${index === this.local ? 'You · ' : ''}${this.names[index]}`;
+    }
+    this.showPause();
+  }
+
+  private showPause(): void {
+    const { pauseBtn, pausedBox } = this.hud;
+    if (pauseBtn) {
+      pauseBtn.hidden = !this.pausable || this.over;
+      pauseBtn.textContent = this.heldByUser ? 'Resume' : 'Pause';
+      pauseBtn.setAttribute('aria-pressed', String(this.heldByUser));
+    }
+    if (pausedBox) pausedBox.hidden = !this.heldByUser;
+  }
+
+  /** The Pause button and the P key. Leaving the view pauses too, but resumes by itself. */
+  togglePause(): void {
+    if (this.over || !this.pausable || this.introPending) return;
+    if (this.heldByUser) {
+      this.heldByUser = false;
+      this.resume();
+    } else if (this.running) {
+      this.heldByUser = true;
+      this.pause();
+    }
+    this.showPause();
   }
 
   /** `active` false: wait for resume() -- nobody is looking at the Fight tab right now. */
@@ -629,10 +773,17 @@ class Match {
 
   /** The "FIGHT!" banner and its sound; the sim's own intro starts with the first step. */
   private playIntro(): void {
-    this.hud.introEl.classList.remove('fight-intro-play');
-    void this.hud.introEl.offsetWidth; // restart the CSS animation
-    this.hud.introEl.classList.add('fight-intro-play');
+    this.banner('FIGHT!');
     playSfx('stinger');
+  }
+
+  /** The big word across the arena: flies in, holds, fades (see .fight-intro-play). */
+  private banner(text: string): void {
+    const el = this.hud.introEl;
+    el.textContent = text;
+    el.classList.remove('fight-intro-play');
+    void el.offsetWidth; // restart the CSS animation
+    el.classList.add('fight-intro-play');
   }
 
   pause(): void {
@@ -644,10 +795,13 @@ class Match {
     // also covers losing a keyup entirely, e.g. the window itself loses
     // focus while a key is held, which never reaches here as any event.
     this.input.clear();
+    // Interrupted while the last animation was still playing: skip to the result.
+    if (this.over) this.hud.resultBox.hidden = false;
   }
 
+  /** Called when the view comes back as well; a match the visitor paused stays paused. */
   resume(): void {
-    if (this.over || this.running) return;
+    if (this.over || this.running || this.heldByUser) return;
     this.running = true;
     this.lastFrameAt = performance.now();
     this.clock.reset();
@@ -686,11 +840,18 @@ class Match {
 
   private handleKey(e: KeyboardEvent, down: boolean): void {
     if (isEditable(e.target)) return;
-    // Not playing (paused on another view, waiting to go live, or over): the
-    // keys are the page's again. Space then activates a focused Rematch or
-    // Disconnect button, and the arrows scroll.
-    if (this.over || !this.running) return;
+    // Alt+Left is "back", Ctrl+P prints, Ctrl+X cuts: chords are the browser's.
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (key === PAUSE_KEY) {
+      // Works while paused, which is the point; the view must be the one shown.
+      if (down && !e.repeat && (this.running || this.heldByUser)) this.togglePause();
+      return;
+    }
+    // Not playing (paused, waiting to go live, or over): the keys are the
+    // page's again. Space then activates a focused Rematch or Disconnect
+    // button, and the arrows scroll.
+    if (this.over || !this.running) return;
     const action = KEY_ACTIONS[key];
     if (!action) return;
     e.preventDefault();
@@ -702,6 +863,19 @@ class Match {
     const dt = now - this.lastFrameAt;
     this.lastFrameAt = now;
 
+    if (this.over) {
+      // The match is decided; only its last animation is still playing.
+      this.outro += this.clock.frame(dt);
+      if (this.outro >= this.outroLength) {
+        this.running = false;
+        this.hud.resultBox.hidden = false;
+        return;
+      }
+      this.render(Math.min(dt, MAX_FRAME_MS) / 1000);
+      this.raf = requestAnimationFrame(this.tick);
+      return;
+    }
+
     // Controllers have no events for button state, only polling; once per
     // rendered frame is as fresh as the browser's own snapshot gets.
     const pad = pollGamepads();
@@ -710,7 +884,10 @@ class Match {
       events |= this.driver.tick(this.sampleInput() | pad);
     }
 
-    if (events & (EV_HIT_P0 | EV_HIT_P1)) playSfx('hit');
+    if (events & (EV_HIT_P0 | EV_HIT_P1)) {
+      playSfx('hit');
+      this.shake();
+    }
     if (events && particles) this.emitParticles(events, particles);
     this.syncHud();
     // Not on the KO/time-up event: with rollback that is only a prediction
@@ -752,10 +929,12 @@ class Match {
     if (playerHealth !== this.lastPlayerHealth) {
       this.lastPlayerHealth = playerHealth;
       this.hud.playerBar.style.width = `${playerHealth}%`;
+      this.hud.playerBar.toggleAttribute('data-low', playerHealth <= LOW_HEALTH);
     }
     if (enemyHealth !== this.lastEnemyHealth) {
       this.lastEnemyHealth = enemyHealth;
       this.hud.enemyBar.style.width = `${enemyHealth}%`;
+      this.hud.enemyBar.toggleAttribute('data-low', enemyHealth <= LOW_HEALTH);
     }
     const remaining = secondsLeft(state);
     if (remaining !== this.lastRemaining) {
@@ -771,23 +950,42 @@ class Match {
   /** `voided`: the peers' states diverged, so whatever the result says, it does not count. */
   private finish(voided: boolean): void {
     this.over = true;
-    this.pause();
-    if (voided) {
-      this.hud.resultText.textContent =
-        'The two games went out of sync. This match does not count.';
-    } else {
-      const outcome = this.driver.outcome;
-      const won = outcome === (this.local === 0 ? OVER_P0 : OVER_P1);
-      const lost = outcome === (this.local === 0 ? OVER_P1 : OVER_P0);
-      this.hud.resultText.textContent = won ? 'You win.' : lost ? 'You lose.' : 'Draw.';
-      if (won) writeCount(WINS_KEY, readCount(WINS_KEY) + 1);
-      else if (lost) writeCount(LOSSES_KEY, readCount(LOSSES_KEY) + 1);
-      updateRecord(this.hud.recordEl);
-    }
+    music.stop();
+    this.input.clear();
+    this.showPause();
     // Also for a voided match: the peer only learns of the divergence from
     // the hashes this side keeps sending (flush() never settles while desynced).
     this.startLinger();
-    this.hud.resultBox.hidden = false;
+    if (voided) {
+      this.hud.resultText.textContent =
+        'The two games went out of sync. This match does not count.';
+      this.pause();
+      return;
+    }
+    const state = this.driver.state;
+    const knockout =
+      state[fighterBase(0) + F_STATE] === ST_DEATH || state[fighterBase(1) + F_STATE] === ST_DEATH;
+    const outcome = this.driver.outcome;
+    const won = outcome === (this.local === 0 ? OVER_P0 : OVER_P1);
+    const lost = outcome === (this.local === 0 ? OVER_P1 : OVER_P0);
+    const verdict = won ? 'You win.' : lost ? 'You lose.' : 'Draw.';
+    this.hud.resultText.textContent = `${knockout ? 'K.O.' : 'Time up.'} ${verdict}`;
+    if (won) writeCount(WINS_KEY, readCount(WINS_KEY) + 1);
+    else if (lost) writeCount(LOSSES_KEY, readCount(LOSSES_KEY) + 1);
+    updateRecord(this.hud.recordEl);
+    // The loop keeps running for the last animation (see tick and pose.ts);
+    // the result box follows it.
+    this.outro = 0;
+    this.outroLength = knockout ? KO_OUTRO_FRAMES : TIME_UP_OUTRO_FRAMES;
+    this.banner(knockout ? 'K.O.' : 'TIME');
+  }
+
+  /** A short jolt of the picture on a hit; CSS leaves it out for reduced motion. */
+  private shake(): void {
+    const canvas = this.ctx.canvas;
+    canvas.classList.remove('fight-shake');
+    void canvas.offsetWidth; // restart the CSS animation
+    canvas.classList.add('fight-shake');
   }
 
   /**
@@ -806,15 +1004,15 @@ class Match {
 
   private render(frameSeconds: number): void {
     const ctx = this.ctx;
-    ctx.clearRect(0, 0, CANVAS.w, CANVAS.h);
-    ctx.save();
-    if (this.level.filter !== 'none') ctx.filter = this.level.filter;
     if (this.bg.complete && this.bg.naturalWidth > 0) {
-      ctx.drawImage(this.bg, 0, 0, CANVAS.w, CANVAS.h);
+      // Covers the whole canvas, so nothing needs clearing first.
+      ctx.drawImage(filtered(this.bg, this.level.filter), 0, 0, CANVAS.w, CANVAS.h);
+    } else {
+      ctx.clearRect(0, 0, CANVAS.w, CANVAS.h);
     }
-    ctx.restore();
-    this.views[0].draw(ctx, this.driver.state, fighterBase(0));
-    this.views[1].draw(ctx, this.driver.state, fighterBase(1));
+    const outro = this.over ? this.outro : -1;
+    this.views[0].draw(ctx, this.driver.state, fighterBase(0), outro);
+    this.views[1].draw(ctx, this.driver.state, fighterBase(1), outro);
     particles?.draw(ctx, frameSeconds);
   }
 }

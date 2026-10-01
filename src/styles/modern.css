@@ -1396,30 +1396,48 @@
   .fight-arena {
     max-width: 64rem;
   }
-  /* Marks the health bar of the fighter this screen controls: always the
-     left one against the AI, either one in a match against a friend. */
+  /* Who is who, above each health bar; fight.ts writes "You · " in front
+     of the fighter this screen controls (always the left one against the
+     AI, either one in a match against a friend). */
   .fight-bar {
     position: relative;
   }
-  .fight-arena[data-you="0"] .fight-bar:not(.fight-bar-flip)::after,
-  .fight-arena[data-you="1"] .fight-bar-flip::after {
-    content: "you";
+  .fight-name {
     position: absolute;
     bottom: calc(100% + 2px);
     left: 0;
     font-size: 0.6rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    white-space: nowrap;
     color: var(--muted);
   }
-  .fight-arena[data-you="1"] .fight-bar-flip::after {
+  .fight-bar-flip .fight-name {
     left: auto;
     right: 0;
+  }
+  .fight-difficulty {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    flex-wrap: wrap;
+    color: var(--muted);
+    font-family: var(--font-mono), monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .fight-difficulty .fight-toolbtn[aria-pressed="true"] {
+    background: var(--acid);
+    border-color: var(--acid);
+    color: var(--acid-ink);
   }
   .fight-hud {
     display: flex;
     align-items: center;
     gap: var(--s-3);
+    /* Room for the names that sit above the bars. */
+    margin-top: var(--s-3);
     margin-bottom: var(--s-2);
     font-family: var(--font-mono), monospace;
   }
@@ -1438,6 +1456,15 @@
   .fight-bar-flip .fight-bar-fill {
     margin-left: auto;
     background: var(--neon-0);
+  }
+  /* A quarter of the health left: the bar blinks. */
+  .fight-bar-fill[data-low] {
+    animation: fight-low 600ms steps(2, jump-none) infinite;
+  }
+  @keyframes fight-low {
+    to {
+      opacity: 0.4;
+    }
   }
   .fight-hud-center {
     flex: none;
@@ -1488,6 +1515,30 @@
     display: block;
     background: var(--ink);
     image-rendering: pixelated;
+  }
+  /* A hit jolts the picture for a moment (fight.ts restarts the animation). */
+  .fight-canvas-wrap {
+    overflow: hidden;
+  }
+  .fight-shake {
+    animation: fight-shake 140ms linear;
+  }
+  @keyframes fight-shake {
+    25% {
+      transform: translate(-0.4%, 0.3%);
+    }
+    50% {
+      transform: translate(0.4%, -0.3%);
+    }
+    75% {
+      transform: translate(-0.2%, -0.2%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fight-shake,
+    .fight-bar-fill[data-low] {
+      animation: none;
+    }
   }
   /* Fullscreen: the UA stylesheet forces .fight-arena to position:fixed,
      100dvw/100dvh, but the canvas above keeps its native 1024:576 ratio
@@ -1612,6 +1663,12 @@
   .fight-result .m-btn {
     color: var(--ink);
     background: var(--paper);
+  }
+  .fight-result-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--s-3);
   }
   .fight-controls {
     margin-top: var(--s-3);

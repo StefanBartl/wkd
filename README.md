@@ -69,10 +69,13 @@ worker, worklet or WASM file has to be checked against `pnpm build && pnpm previ
   `src/scripts/fight.ts` is the shell (canvas, sprites, HUD, input); the rules are a
   deterministic 60 Hz simulation over one `Int32Array` in `src/lib/fight-engine/sim.ts`,
   which is what makes the rest possible:
-  - `ai.ts`, `gamepad.ts`: the opponent and controllers as input sources.
+  - `ai.ts`, `gamepad.ts`: the opponent and controllers as input sources. The opponent has
+    three difficulty profiles (easy, normal, hard), picked on the fighter cards and remembered.
   - `audio.ts` + `audio.worklet.js`: synthesised music and effects on the audio thread.
   - `particles.ts`: hit sparks and dust as WebGPU compute-shader particles, composited onto
     the 2D canvas; absent without WebGPU or with `prefers-reduced-motion`.
+  - `pose.ts`: which sprite frame a fighter shows. The sim stops on the frame of the
+    knockout, so the fall and the winner's last swing are played by the view afterwards.
   - `wasm/fight-sim` → `fight-sim.wasm`: the same `step()` in Rust. `?sim=wasm` swaps it in
     for matches against the AI (a match against a friend, or behind `?net=loopback`, always
     runs the TypeScript step); `tests/fight-wasm.test.ts` holds both to bit-identical state.
@@ -80,6 +83,10 @@ worker, worklet or WASM file has to be checked against `pnpm build && pnpm previ
     link between two browsers, set up by swapping two codes by hand (no server, and no STUN
     server configured, so same network only for now). `?net=loopback&lag=100&jitter=30&loss=5`
     plays the AI through the same netcode over a simulated link.
+
+  A match against the AI can be paused (`P` or the Pause button); a match against a friend
+  cannot. Filtered pictures (the dusk and night arenas, the hue-shifted fighter) are filtered
+  once into a bitmap instead of on every frame.
 
   Online play (`net.ts`, `rollback.ts`, `fight-online.ts`), the particles and the WASM core
   are separate chunks fetched on first use; the AI, gamepad, audio and the frame clock are

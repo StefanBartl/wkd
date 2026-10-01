@@ -26,10 +26,36 @@ import {
 } from './sim.ts';
 
 const CLOSE_ENOUGH = (ATTACK_RANGE + 10) * FP;
-const DECISION_MIN_FRAMES = 21; // 350ms
-const DECISION_SPREAD_FRAMES = 24; // up to +400ms
 
-export function aiInput(s: SimState, index: 0 | 1): number {
+/** How the opponent plays; the numbers are all it takes to make it easier or harder. */
+export interface AiProfile {
+  /** Frames between two decisions: at least this many... */
+  readonly decisionMin: number;
+  /** ...plus up to this many more, picked at random. */
+  readonly decisionSpread: number;
+  /** Percent chance that a decision made in range is an attack. */
+  readonly attackChance: number;
+  /** Percent chance that such an attack is the heavy one. */
+  readonly heavyChance: number;
+  /** Walking speed as a fraction of the player's. */
+  readonly speed: number;
+}
+
+// Measured against a player who just stands there (median of 200 matches,
+// the walk across the arena included): hard wins in 11 seconds, normal in
+// 16, easy takes 31. Hard is what the opponent was before there was a choice.
+export const AI_PROFILES = {
+  easy: { decisionMin: 45, decisionSpread: 45, attackChance: 35, heavyChance: 15, speed: 0.7 },
+  normal: { decisionMin: 30, decisionSpread: 30, attackChance: 45, heavyChance: 25, speed: 0.8 },
+  hard: { decisionMin: 21, decisionSpread: 24, attackChance: 55, heavyChance: 35, speed: 0.85 },
+} as const satisfies Record<string, AiProfile>;
+
+export type Difficulty = keyof typeof AI_PROFILES;
+
+export const isDifficulty = (value: unknown): value is Difficulty =>
+  typeof value === 'string' && Object.hasOwn(AI_PROFILES, value);
+
+export function aiInput(s: SimState, index: 0 | 1, profile: AiProfile = AI_PROFILES.hard): number {
   const me = fighterBase(index);
   const opp = fighterBase(index === 0 ? 1 : 0);
   const st = s[me + F_STATE];
@@ -43,10 +69,12 @@ export function aiInput(s: SimState, index: 0 | 1): number {
 
   if (frame >= (s[me + F_AI_NEXT] as number)) {
     s[me + F_AI_NEXT] =
-      frame + DECISION_MIN_FRAMES + (nextRandom(s) % (DECISION_SPREAD_FRAMES + 1));
+      frame + profile.decisionMin + (nextRandom(s) % (profile.decisionSpread + 1));
     if (close) {
       s[me + F_AI_DIR] = 0;
-      if (nextRandom(s) % 100 < 55) input |= nextRandom(s) % 100 < 35 ? IN_ATTACK2 : IN_ATTACK1;
+      if (nextRandom(s) % 100 < profile.attackChance) {
+        input |= nextRandom(s) % 100 < profile.heavyChance ? IN_ATTACK2 : IN_ATTACK1;
+      }
     } else {
       s[me + F_AI_DIR] = toward;
       if (isOnGround(s, me) && nextRandom(s) % 100 < 8) input |= IN_JUMP;

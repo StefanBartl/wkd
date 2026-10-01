@@ -132,3 +132,4 @@ export const MATCH_SECONDS = 60;
 export const WINS_KEY = 'wkd:fight-wins';
 export const LOSSES_KEY = 'wkd:fight-losses';
 export const MUSIC_KEY = 'wkd:fight-music';
+export const DIFFICULTY_KEY = 'wkd:fight-difficulty';

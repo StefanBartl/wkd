@@ -3,7 +3,7 @@
 // `state`, feeds `tick` the local player's input once per 60 Hz step and
 // stops when `outcome` turns non-zero -- it does not know which one it has.
 import type { FighterConfig, LevelConfig } from '../fight.ts';
-import { aiInput } from './ai.ts';
+import { type AiProfile, aiInput } from './ai.ts';
 import { G_OVER, type SimState } from './sim.ts';
 
 export interface Driver {
@@ -34,10 +34,11 @@ export interface Driver {
 export function aiDriver(
   state: SimState,
   stepFn: (input0: number, input1: number) => number,
+  profile?: AiProfile,
 ): Driver {
   return {
     state,
-    tick: (localInput) => stepFn(localInput, aiInput(state, 1)),
+    tick: (localInput) => stepFn(localInput, aiInput(state, 1, profile)),
     get outcome() {
       return state[G_OVER] as number;
     },

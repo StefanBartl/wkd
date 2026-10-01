@@ -31,6 +31,12 @@ const pickCss = fightPickCss(BASE);
         ))
       }
     </div>
+    <div class="fight-difficulty" role="group" aria-label="Difficulty of the AI opponent">
+      <span>Opponent</span>
+      <button type="button" class="fight-toolbtn" data-fight-difficulty="easy">Easy</button>
+      <button type="button" class="fight-toolbtn" data-fight-difficulty="normal">Normal</button>
+      <button type="button" class="fight-toolbtn" data-fight-difficulty="hard">Hard</button>
+    </div>
     {
       /* Shown by fight.ts only where WebRTC exists. All of its behaviour
          lives in src/scripts/fight-online.ts, fetched on the first click. */
@@ -66,18 +72,21 @@ const pickCss = fightPickCss(BASE);
 
   <div class="fight-arena" data-fight-arena hidden>
     <div class="fight-hud">
-      <div class="fight-bar" aria-hidden="true">
-        <div class="fight-bar-fill" data-fight-health="player"></div>
+      <div class="fight-bar">
+        <span class="fight-name" data-fight-name="0"></span>
+        <div class="fight-bar-fill" aria-hidden="true" data-fight-health="player"></div>
       </div>
       <div class="fight-hud-center">
         <div class="fight-record" data-fight-record aria-label="Wins and losses">0W 0L</div>
         <div class="fight-timer" data-fight-timer>{MATCH_SECONDS}</div>
       </div>
-      <div class="fight-bar fight-bar-flip" aria-hidden="true">
-        <div class="fight-bar-fill" data-fight-health="enemy"></div>
+      <div class="fight-bar fight-bar-flip">
+        <span class="fight-name" data-fight-name="1"></span>
+        <div class="fight-bar-fill" aria-hidden="true" data-fight-health="enemy"></div>
       </div>
     </div>
     <div class="fight-toolbar">
+      <button type="button" class="fight-toolbtn" data-fight-pause hidden>Pause</button>
       <button type="button" class="fight-toolbtn" data-fight-music>Music: on</button>
       <button type="button" class="fight-toolbtn" data-fight-fullscreen>Fullscreen</button>
       <button type="button" class="fight-toolbtn" data-fight-leave hidden>Disconnect</button>
@@ -85,9 +94,19 @@ const pickCss = fightPickCss(BASE);
     <div class="fight-canvas-wrap">
       <canvas data-fight-canvas width={CANVAS.w} height={CANVAS.h}></canvas>
       <div class="fight-intro" data-fight-intro aria-hidden="true">FIGHT!</div>
+      <div class="fight-result" data-fight-paused hidden>
+        <p>Paused</p>
+        <div class="fight-result-actions">
+          <button type="button" class="m-btn" data-fight-resume>Resume</button>
+          <button type="button" class="m-btn" data-fight-change>Change fighter</button>
+        </div>
+      </div>
       <div class="fight-result" data-fight-result hidden>
         <p role="status" data-fight-result-text></p>
-        <button type="button" class="m-btn" data-fight-again>Rematch</button>
+        <div class="fight-result-actions">
+          <button type="button" class="m-btn" data-fight-again>Rematch</button>
+          <button type="button" class="m-btn" data-fight-change>Change fighter</button>
+        </div>
       </div>
     </div>
     <div class="fight-touch" data-fight-touch aria-hidden="true">
@@ -103,7 +122,7 @@ const pickCss = fightPickCss(BASE);
     </div>
     <p class="fight-controls">
       <kbd>&larr;</kbd><kbd>&rarr;</kbd> move &middot; <kbd>&uarr;</kbd> jump &middot;
-      <kbd>Space</kbd> light &middot; <kbd>X</kbd> heavy
+      <kbd>Space</kbd> light &middot; <kbd>X</kbd> heavy &middot; <kbd>P</kbd> pause
     </p>
     <p class="fight-controls" data-fight-gamepad hidden>
       Gamepad: stick or d-pad move &middot; <kbd>A</kbd> jump &middot; <kbd>X</kbd> light &middot;
