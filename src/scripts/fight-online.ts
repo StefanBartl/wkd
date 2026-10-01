@@ -11,6 +11,7 @@ import { FIGHTERS, LEVELS } from '../lib/fight';
 import {
   BadCodeError,
   type ControlMessage,
+  gameSilence,
   invite,
   join,
   LinkFailedError,
@@ -77,6 +78,12 @@ let idleText: string | null = null;
 
 const LINK_FAILED =
   'Could not connect. For now this only works between devices on the same network.';
+// The guest's browser starts probing the moment the reply code exists, but
+// the host answers nothing until that code is entered; after a few minutes
+// the probing gives up. A failure this long after the reply says so.
+const LATE_REPLY_MS = 60_000;
+const LINK_TIMED_OUT =
+  'The connection timed out. Either the reply code was entered too late, or the devices are not on the same network. Start over and enter the codes promptly.';
 
 export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
   const found = findUi(api.root);
@@ -84,10 +91,13 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
   const ui: Ui = found;
   abort?.();
 
-  idleText ??= ui.status.textContent ?? '';
+  // fight.ts stored the page's own text before anything could replace it.
+  idleText ??= ui.status.dataset.idle ?? ui.status.textContent ?? '';
   const idle = idleText;
   let cancelled = false;
   let busy = false;
+  /** When the guest's reply code appeared; 0 for the host. */
+  let repliedAt = 0;
   let pending: { cancel(): void } | null = null;
   let link: PeerLink | null = null;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
@@ -101,6 +111,8 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
   };
   /** The button that was just pressed is hidden by the next step; keyboard users keep their place. */
   const retry = (message: string): void => {
+    // Cancel may have come while the code was still being checked.
+    if (cancelled) return;
     busy = false;
     ui.submit.disabled = false;
     say(message);
@@ -155,12 +167,14 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
   show('cancel', true);
   ui.copy.textContent = 'Copy';
 
-  const failed = (error: unknown): void =>
-    reset(
-      error instanceof LinkFailedError
-        ? LINK_FAILED
-        : 'That did not work. Check the code and try again.',
-    );
+  const failed = (error: unknown): void => {
+    if (!(error instanceof LinkFailedError)) {
+      reset('That did not work. Check the code and try again.');
+      return;
+    }
+    const waited = repliedAt === 0 ? 0 : performance.now() - repliedAt;
+    reset(waited > LATE_REPLY_MS ? LINK_TIMED_OUT : LINK_FAILED);
+  };
 
   if (mode === 'invite') {
     say('Creating an invitation…');
@@ -206,6 +220,7 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
           ui.outLabel.textContent = '2. Send this reply code back to your friend';
           show('in', false);
           show('out', true);
+          repliedAt = performance.now();
           say('Waiting for your friend to enter the reply code.');
           ui.copy.focus();
           reply.link.then(connected, failed);
@@ -233,6 +248,8 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
     let current = -1;
     let playing = false;
     let session: RollbackSession | null = null;
+    // Game packets only flow while a match runs: the watchdog counts from here.
+    let matchStartedAt = 0;
     let iWantRematch = false;
     let theyWantRematch = false;
 
@@ -258,6 +275,7 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
       });
       playing = true;
       current = start.match;
+      matchStartedAt = performance.now();
       say('Connected.');
       iWantRematch = false;
       theyWantRematch = false;
@@ -331,7 +349,7 @@ export function begin(mode: 'invite' | 'join', api: OnlineApi): void {
         session !== null &&
         session.outcome === 0 &&
         !session.desynced &&
-        now - peer.lastGameHeard > GAME_SILENCE_MS;
+        gameSilence(now, peer.lastGameHeard, matchStartedAt) > GAME_SILENCE_MS;
       if (now - peer.lastHeard > SILENCE_MS || matchFrozen) peer.close();
     }, PING_MS);
 

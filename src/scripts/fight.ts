@@ -211,16 +211,20 @@ function setUp(root: HTMLElement): void {
       },
     };
     online.hidden = false;
+    // The page's own text, kept where the lazily loaded flow can find it
+    // however many messages have replaced it by then.
+    const onlineStatus = online.querySelector<HTMLElement>('[data-fight-online-status]');
+    if (onlineStatus) onlineStatus.dataset.idle = onlineStatus.textContent ?? '';
     for (const mode of ['invite', 'join'] as const) {
       online.querySelector(`[data-fight-${mode}]`)?.addEventListener('click', () => {
         // WebRTC, rollback and the invitation flow: fetched on first use.
         import('./fight-online')
           .then((m) => m.begin(mode, api))
           .catch(() => {
-            const status = online.querySelector('[data-fight-online-status]');
             // A page left open across a deploy points at chunks that are gone.
-            if (status)
-              status.textContent = 'Could not load online play. Reload the page and retry.';
+            if (onlineStatus) {
+              onlineStatus.textContent = 'Could not load online play. Reload the page and retry.';
+            }
           });
       });
     }

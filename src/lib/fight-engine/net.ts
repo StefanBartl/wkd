@@ -47,6 +47,15 @@ const isString = (v: unknown): v is string => typeof v === 'string' && v.length 
 const isUint = (v: unknown): v is number =>
   typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 0xffff_ffff;
 
+/**
+ * How long a running match has gone without a game packet. The clock starts
+ * no earlier than the match itself: the last packet may be from the previous
+ * match (or from never), and a peer that is not yet running -- a hidden tab
+ * that waits to resume -- has sent nothing since.
+ */
+export const gameSilence = (now: number, lastGameHeard: number, matchStartedAt: number): number =>
+  now - Math.max(lastGameHeard, matchStartedAt);
+
 /** The peer is a stranger's browser: nothing it sends is trusted to have this shape. */
 export function parseControl(raw: string): ControlMessage | null {
   let data: unknown;
@@ -121,15 +130,40 @@ function through(bytes: Uint8Array<ArrayBuffer>, transform: GenericTransformStre
   return new Blob([bytes]).stream().pipeThrough(transform) as ReadableStream<Uint8Array>;
 }
 
+const CRC_TABLE = ((): Uint32Array => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb8_8320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+/** CRC-32 (the zip/PNG one) of `bytes`. */
+export function crc32(bytes: Uint8Array): number {
+  let c = 0xffff_ffff;
+  for (const byte of bytes) c = (CRC_TABLE[(c ^ byte) & 0xff] as number) ^ (c >>> 8);
+  return (c ^ 0xffff_ffff) >>> 0;
+}
+
+/** The text of a code: the bytes plus their CRC-32, base64url without padding. */
+export function seal(deflated: Uint8Array): string {
+  const sealed = new Uint8Array(deflated.length + 4);
+  sealed.set(deflated);
+  new DataView(sealed.buffer).setUint32(deflated.length, crc32(deflated), true);
+  let binary = '';
+  for (const byte of sealed) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+}
+
 export async function pack(type: string, sdp: string): Promise<string> {
   const json = JSON.stringify({ t: type, s: sdp });
   const deflated = await pump(
     through(new TextEncoder().encode(json), new CompressionStream('deflate-raw')),
     MAX_SDP_BYTES,
   );
-  let binary = '';
-  for (const byte of deflated) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+  return seal(deflated);
 }
 
 const packDescription = (description: RTCSessionDescription | null): Promise<string> => {
@@ -147,8 +181,14 @@ export async function unpack(
     if (compact.length === 0 || compact.length > MAX_CODE_CHARS) throw new BadCodeError();
     const binary = atob(compact.replaceAll('-', '+').replaceAll('_', '/'));
     const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    // A typo changes the SDP into a different, still well-formed text far more
+    // often than into garbage: only the checksum tells the two apart.
+    if (bytes.length <= 4) throw new BadCodeError();
+    const body = bytes.subarray(0, bytes.length - 4);
+    const stored = new DataView(bytes.buffer, bytes.byteOffset + body.length, 4).getUint32(0, true);
+    if (crc32(body) !== stored) throw new BadCodeError();
     const inflated = await pump(
-      through(bytes, new DecompressionStream('deflate-raw')),
+      through(Uint8Array.from(body), new DecompressionStream('deflate-raw')),
       MAX_SDP_BYTES,
     );
     const data: unknown = JSON.parse(new TextDecoder().decode(inflated));
@@ -306,7 +346,11 @@ export async function invite(): Promise<Invitation> {
       accept(replyCode) {
         accepting ??= (async () => {
           const answer = await unpack(replyCode, 'answer');
-          await pc.setRemoteDescription(answer);
+          // A description the browser refuses is a bad code as well; the
+          // connection stays in "have local offer", so another try works.
+          await pc.setRemoteDescription(answer).catch(() => {
+            throw new BadCodeError();
+          });
           return link;
         })().catch((error: unknown) => {
           // A typo is not the end of the invitation; anything else is.
@@ -330,7 +374,10 @@ export async function join(invitationCode: string): Promise<Reply> {
   const link = wire(pc);
   link.catch(() => {});
   try {
-    await pc.setRemoteDescription(offer);
+    await pc.setRemoteDescription(offer).catch(() => {
+      // Nothing useful was built from this code: the pasted text may be tried again.
+      throw new BadCodeError();
+    });
     await pc.setLocalDescription(await pc.createAnswer());
     await gathered(pc);
     return { code: await packDescription(pc.localDescription), link, cancel: () => pc.close() };
