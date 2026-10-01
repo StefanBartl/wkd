@@ -32,6 +32,12 @@ export interface FighterConfig {
    * touches the ground but the visible character floats above it.
    */
   readonly footMargin: number;
+  /**
+   * Which way the raw sprite sheet looks (1 = right, -1 = left). The packs
+   * disagree -- measured from where the blade extends in the attack frames
+   * -- and drawing mirrors whenever the fighter faces the other way.
+   */
+  readonly nativeFacing: 1 | -1;
   readonly anim: Readonly<Record<AnimKey, AnimDef>>;
 }
 
@@ -69,6 +75,7 @@ export const FIGHTERS: readonly FighterConfig[] = [
     spriteBase: 'samurai-mack',
     filter: 'none',
     footMargin: 78,
+    nativeFacing: 1,
     anim: SAMURAI_ANIM,
   },
   {
@@ -77,6 +84,7 @@ export const FIGHTERS: readonly FighterConfig[] = [
     spriteBase: 'martial-hero',
     filter: 'hue-rotate(190deg) saturate(1.4)',
     footMargin: 78,
+    nativeFacing: 1,
     anim: SAMURAI_ANIM,
   },
   {
@@ -85,6 +93,7 @@ export const FIGHTERS: readonly FighterConfig[] = [
     spriteBase: 'kenji',
     filter: 'none',
     footMargin: 72,
+    nativeFacing: -1,
     anim: KENJI_ANIM,
   },
 ];
@@ -118,7 +127,6 @@ export const CANVAS = { w: 1024, h: 576 } as const;
 // ~150px was the other half of the "fighters float" bug alongside the
 // per-sprite foot margin in src/scripts/fight.ts.
 export const GROUND_Y = 480;
-export const GRAVITY = 0.55;
 export const MATCH_SECONDS = 60;
 
 export const WINS_KEY = 'wkd:fight-wins';

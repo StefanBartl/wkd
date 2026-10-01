@@ -4,21 +4,53 @@
 // Lives entirely behind the `data-fight` root in FightView.astro; a no-op if
 // that root isn't on the page (it always is on the homepage, but this file
 // is bundled for every page via client.ts).
+//
+// This file is the shell around the match: DOM, sprites, audio, HUD and
+// input collection. The rules themselves -- physics, hits, clock, outcome
+// -- are the deterministic core in src/lib/fight-engine/sim.ts.
 import {
-  type AnimDef,
   type AnimKey,
   CANVAS,
   FIGHTERS,
   type FighterConfig,
-  GRAVITY,
-  GROUND_Y,
   LEVELS,
   type LevelConfig,
   LOSSES_KEY,
-  MATCH_SECONDS,
   MUSIC_KEY,
   WINS_KEY,
 } from '../lib/fight';
+import { aiInput } from '../lib/fight-engine/ai';
+import {
+  BOX_H,
+  BOX_W,
+  createState,
+  EV_HIT_P0,
+  EV_HIT_P1,
+  EV_KO,
+  EV_TIMEUP,
+  F_ANIM_FRAME,
+  F_FACING,
+  F_HEALTH,
+  F_STATE,
+  F_X,
+  F_Y,
+  FP,
+  fighterBase,
+  G_OVER,
+  IN_ATTACK1,
+  IN_ATTACK2,
+  IN_JUMP,
+  IN_LEFT,
+  IN_RIGHT,
+  MOVE_SPEED,
+  OVER_P0,
+  OVER_P1,
+  SIM_HZ,
+  type SimState,
+  STATE_ANIM,
+  secondsLeft,
+  step,
+} from '../lib/fight-engine/sim';
 import { BASE } from '../lib/site';
 
 // Same guard as search.ts's own isEditable: the search box and category
@@ -209,6 +241,14 @@ const KEY_ACTIONS: Readonly<Record<string, Action>> = {
   x: 'attack2',
 };
 
+const ACTION_BITS: Readonly<Record<Action, number>> = {
+  left: IN_LEFT,
+  right: IN_RIGHT,
+  jump: IN_JUMP,
+  attack1: IN_ATTACK1,
+  attack2: IN_ATTACK2,
+};
+
 const imageCache = new Map<string, HTMLImageElement>();
 function loadImage(src: string): HTMLImageElement {
   let img = imageCache.get(src);
@@ -331,59 +371,47 @@ class MusicLoop {
   }
 }
 
-// ---- fighter ----------------------------------------------------------
-// Logical hurtbox the physics/ground collision uses; the sprite is drawn
-// larger and centered over it (raw frames have a lot of transparent margin).
-const BOX_W = 90;
-const BOX_H = 190;
+// ---- input ------------------------------------------------------------
+// The sim samples input once per 60 Hz step, level-triggered. A key tapped
+// and released between two steps would be invisible to plain "is it held
+// right now" sampling, so every press also sets a latch that survives until
+// the next step has consumed it.
+class InputLatch {
+  private held = 0;
+  private pressed = 0;
+
+  set(bit: number, down: boolean): void {
+    if (down) {
+      this.held |= bit;
+      this.pressed |= bit;
+    } else {
+      this.held &= ~bit;
+    }
+  }
+
+  consume(): number {
+    const bits = this.held | this.pressed;
+    this.pressed = 0;
+    return bits;
+  }
+
+  clear(): void {
+    this.held = 0;
+    this.pressed = 0;
+  }
+}
+
+// ---- fighter sprite ---------------------------------------------------
+// The sprite is drawn larger than the sim's hurtbox and centered over it
+// (raw frames have a lot of transparent margin).
 const DRAW_SCALE = 1.7;
-const ATTACK_RANGE = 90;
-const ATTACK_W = 100;
-const ATTACK_H = 60;
-const HIT_STUN_MS = 350;
-const MOVE_SPEED = 4.2;
-const JUMP_VELOCITY = -12.5;
-const INTRO_MS = 900;
 
-// Light/fast vs. heavy/slow -- "different attacks" per fighter would need
-// per-character move sets kenji's assets don't give us cleanly, but every
-// fighter already has two real, differently-timed swings via attack1/attack2.
-const ATTACK_STATS: Readonly<
-  Record<'attack1' | 'attack2', { damage: number; cooldownMs: number }>
-> = {
-  attack1: { damage: 10, cooldownMs: 450 },
-  attack2: { damage: 22, cooldownMs: 950 },
-};
+class FighterView {
+  private readonly images: Record<AnimKey, HTMLImageElement>;
+  private readonly cfg: FighterConfig;
 
-type State = 'idle' | 'run' | 'jump' | 'fall' | 'attack1' | 'attack2' | 'takeHit' | 'death';
-type AttackState = 'attack1' | 'attack2';
-const isAttackState = (s: State): s is AttackState => s === 'attack1' || s === 'attack2';
-
-class Fighter {
-  x: number;
-  y = GROUND_Y - BOX_H;
-  vx = 0;
-  vy = 0;
-  facing: 1 | -1;
-  health = 100;
-  state: State = 'idle';
-  frame = 0;
-  frameElapsed = 0;
-  attackCooldownUntil = 0;
-  hitUntil = 0;
-  didHitThisSwing = false;
-  dead = false;
-  private images: Record<AnimKey, HTMLImageElement>;
-  private readonly anim: Readonly<Record<AnimKey, AnimDef>>;
-  readonly filter: string;
-  readonly footMargin: number;
-
-  constructor(x: number, facing: 1 | -1, cfg: FighterConfig) {
-    this.x = x;
-    this.facing = facing;
-    this.filter = cfg.filter;
-    this.footMargin = cfg.footMargin;
-    this.anim = cfg.anim;
+  constructor(cfg: FighterConfig) {
+    this.cfg = cfg;
     const base = `${BASE}fight/${cfg.spriteBase}/`;
     this.images = {
       idle: loadImage(base + cfg.anim.idle.file),
@@ -397,179 +425,78 @@ class Fighter {
     };
   }
 
-  get onGround(): boolean {
-    return this.y + BOX_H >= GROUND_Y - 0.01;
-  }
-
-  get attackBox(): { x: number; y: number; w: number; h: number } {
-    const w = ATTACK_W;
-    const x = this.facing === 1 ? this.x + BOX_W : this.x - w;
-    return { x, y: this.y + 30, w, h: ATTACK_H };
-  }
-
-  get hurtBox(): { x: number; y: number; w: number; h: number } {
-    return { x: this.x, y: this.y, w: BOX_W, h: BOX_H };
-  }
-
-  setState(next: State, now: number): void {
-    if (this.state === next) return;
-    if (this.state === 'death') return;
-    if (this.state === 'takeHit' && now < this.hitUntil) return;
-    if (
-      isAttackState(this.state) &&
-      this.frame < this.anim[this.state].frames - 1 &&
-      next !== 'takeHit' &&
-      next !== 'death'
-    ) {
-      return; // let the swing finish its frames before switching
-    }
-    this.state = next;
-    this.frame = 0;
-    this.frameElapsed = 0;
-  }
-
-  startAttack(kind: AttackState, now: number): boolean {
-    if (this.state === 'death' || this.state === 'takeHit') return false;
-    if (now < this.attackCooldownUntil) return false;
-    this.state = kind;
-    this.frame = 0;
-    this.frameElapsed = 0;
-    this.didHitThisSwing = false;
-    this.attackCooldownUntil = now + ATTACK_STATS[kind].cooldownMs;
-    return true;
-  }
-
-  takeHit(damage: number, now: number): void {
-    if (this.state === 'death') return;
-    this.health = Math.max(0, this.health - damage);
-    this.hitUntil = now + HIT_STUN_MS;
-    this.state = this.health <= 0 ? 'death' : 'takeHit';
-    this.frame = 0;
-    this.frameElapsed = 0;
-    if (this.state === 'death') this.dead = true;
-  }
-
-  physics(): void {
-    if (this.dead) return;
-    this.x += this.vx;
-    this.vy += GRAVITY;
-    this.y += this.vy;
-    if (this.y + BOX_H >= GROUND_Y) {
-      this.y = GROUND_Y - BOX_H;
-      this.vy = 0;
-    }
-    this.x = Math.max(10, Math.min(CANVAS.w - BOX_W - 10, this.x));
-    // death is terminal (the `dead` guard above already covers it once
-    // takeHit() has set it, this is just belt-and-suspenders). takeHit is
-    // NOT: setState() already refuses to leave it before `hitUntil` (its
-    // own guard), so the fix for the "stuck in takeHit forever" bug is to
-    // actually call setState() while takeHit is current -- same shape as
-    // the attack1/attack2 fix below, which already gets this right instead
-    // of an unconditional early return.
-    if (this.state === 'death') return;
-    const swingDone = isAttackState(this.state) && this.frame >= this.anim[this.state].frames - 1;
-    if (!isAttackState(this.state) || swingDone) {
-      if (!this.onGround) this.setState(this.vy < 0 ? 'jump' : 'fall', performance.now());
-      else if (this.vx !== 0) this.setState('run', performance.now());
-      else this.setState('idle', performance.now());
-    }
-  }
-
-  advanceFrame(dt: number): void {
-    const anim = this.anim[this.state];
-    this.frameElapsed += dt;
-    const holdMs = anim.hold * 16.7;
-    if (this.frameElapsed >= holdMs) {
-      this.frameElapsed = 0;
-      if (this.frame < anim.frames - 1) this.frame++;
-      else if (this.state !== 'death') this.frame = 0;
-      // Death holds its last frame instead of looping.
-    }
-  }
-
-  /** The frames within the current swing where the attack box can land a hit. */
-  hitWindow(): { start: number; end: number } {
-    const frames = this.anim[this.state].frames;
-    return { start: Math.floor(frames * 0.3), end: Math.ceil(frames * 0.8) };
-  }
-
-  draw(ctx: CanvasRenderingContext2D): void {
-    const img = this.images[this.state];
-    const anim = this.anim[this.state];
+  draw(ctx: CanvasRenderingContext2D, s: SimState, b: number): void {
+    const key = STATE_ANIM[s[b + F_STATE] as number] ?? 'idle';
+    const img = this.images[key];
     if (!img.complete || img.naturalWidth === 0) return;
-    const fw = img.naturalWidth / anim.frames;
+    const fw = img.naturalWidth / this.cfg.anim[key].frames;
     const fh = img.naturalHeight;
     const drawW = fw * DRAW_SCALE;
     const drawH = fh * DRAW_SCALE;
-    const cx = this.x + BOX_W / 2;
+    const x = (s[b + F_X] as number) / FP;
+    const y = (s[b + F_Y] as number) / FP;
+    const cx = x + BOX_W / 2;
     // footMargin pushes the drawn sprite down so the actual feet -- not
     // the bottom of its transparent bounding box -- land on the ground.
-    const drawY = this.y + BOX_H - drawH + this.footMargin * DRAW_SCALE;
+    const drawY = y + BOX_H - drawH + this.cfg.footMargin * DRAW_SCALE;
+    const sx = (s[b + F_ANIM_FRAME] as number) * fw;
     ctx.save();
     // Skipping the assignment for the (usual) unfiltered case avoids
     // exercising canvas's filter code path -- known slow, especially on
     // WebKit -- on every frame of the match for a value that never
     // actually changes once the fighter is created.
-    if (this.filter !== 'none') ctx.filter = this.filter;
-    if (this.facing === -1) {
+    if (this.cfg.filter !== 'none') ctx.filter = this.cfg.filter;
+    if (s[b + F_FACING] !== this.cfg.nativeFacing) {
       ctx.translate(cx, 0);
       ctx.scale(-1, 1);
-      ctx.drawImage(img, this.frame * fw, 0, fw, fh, -drawW / 2, drawY, drawW, drawH);
+      ctx.drawImage(img, sx, 0, fw, fh, -drawW / 2, drawY, drawW, drawH);
     } else {
-      ctx.drawImage(img, this.frame * fw, 0, fw, fh, cx - drawW / 2, drawY, drawW, drawH);
+      ctx.drawImage(img, sx, 0, fw, fh, cx - drawW / 2, drawY, drawW, drawH);
     }
     ctx.restore();
   }
 }
 
-function overlaps(
-  a: { x: number; y: number; w: number; h: number },
-  b: { x: number; y: number; w: number; h: number },
-): boolean {
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-}
+// ---- match ------------------------------------------------------------
+const STEP_MS = 1000 / SIM_HZ;
+// A frame this late (tab was throttled, debugger, GC pause) is not caught
+// up step by step -- the match just loses that time.
+const MAX_FRAME_MS = 100;
+const MAX_STEPS_PER_FRAME = 6;
+// The handwritten opponent walks a little slower than the player.
+const AI_SPEED = Math.round(MOVE_SPEED * 0.85);
 
 class Match {
-  private player: Fighter;
-  private ai: Fighter;
+  private readonly ctx: CanvasRenderingContext2D;
+  private readonly hud: Hud;
+  private readonly state: SimState;
+  private readonly views: readonly [FighterView, FighterView];
+  private readonly input = new InputLatch();
   private bg = loadImage(`${BASE}fight/background.png`);
   private level: LevelConfig = LEVELS[Math.floor(Math.random() * LEVELS.length)] ?? {
     id: 'day',
     label: 'Day',
     filter: 'none',
   };
-  private keys = { left: false, right: false };
   private lastFrameAt = 0;
-  private endsAt = 0;
-  private introUntil = 0;
-  private introShown = false;
-  // A jump/attack pressed while still in the intro window -- see
-  // setAction()'s comment on why this needs queuing instead of just
-  // being dropped like the old blanket "ignore all input" guard did.
-  private pendingJump = false;
-  private pendingAttack: AttackState | null = null;
+  private acc = 0;
   private raf = 0;
   private running = false;
   private over = false;
-  private aiNextDecisionAt = 0;
-  private aiMoveDir = 0;
   private music = new MusicLoop();
   private musicWanted: boolean;
   // Written health/timer values, so the HUD only touches the DOM on the
   // ~1-2/sec ticks where they actually changed instead of every one of a
   // 60fps match's ~3600 frames.
   private lastPlayerHealth = -1;
-  private lastAiHealth = -1;
+  private lastEnemyHealth = -1;
   private lastRemaining = -1;
   private onKeyDown = (e: KeyboardEvent): void => this.handleKey(e, true);
   private onKeyUp = (e: KeyboardEvent): void => this.handleKey(e, false);
 
-  constructor(
-    private ctx: CanvasRenderingContext2D,
-    playerId: string,
-    private hud: Hud,
-    musicWanted: boolean,
-  ) {
+  constructor(ctx: CanvasRenderingContext2D, playerId: string, hud: Hud, musicWanted: boolean) {
+    this.ctx = ctx;
+    this.hud = hud;
     this.musicWanted = musicWanted;
     const chosen = FIGHTERS.find((f) => f.id === playerId) ?? FIGHTERS[0];
     // A random pick among the rest, not FIGHTERS.find()'s first-in-order
@@ -577,24 +504,27 @@ class Match {
     // it keeps the matchup varied instead of always facing the same rival.
     const rest = FIGHTERS.filter((f) => f.id !== chosen?.id);
     const other = rest[Math.floor(Math.random() * rest.length)] ?? FIGHTERS[1];
-    const chosenCfg = chosen ?? FIGHTERS[0];
-    const otherCfg = other ?? FIGHTERS[1];
-    if (!chosenCfg || !otherCfg) throw new Error('fight: no fighters configured');
-    this.player = new Fighter(180, 1, chosenCfg);
-    this.ai = new Fighter(CANVAS.w - 180 - BOX_W, -1, otherCfg);
+    if (!chosen || !other) throw new Error('fight: no fighters configured');
+    this.views = [new FighterView(chosen), new FighterView(other)];
+    this.state = createState(
+      { anim: chosen.anim },
+      { anim: other.anim, speed: AI_SPEED },
+      Math.floor(Math.random() * 0x1_0000_0000),
+    );
     this.hud.resultBox.hidden = true;
   }
 
   start(): void {
-    const now = performance.now();
-    this.introUntil = now + INTRO_MS;
-    this.introShown = false;
-    this.endsAt = now + INTRO_MS + MATCH_SECONDS * 1000;
-    this.lastFrameAt = now;
+    this.lastFrameAt = performance.now();
+    this.acc = 0;
     this.running = true;
     this.over = false;
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
+    this.hud.introEl.classList.remove('fight-intro-play');
+    void this.hud.introEl.offsetWidth; // restart the CSS animation
+    this.hud.introEl.classList.add('fight-intro-play');
+    playStinger();
     if (this.musicWanted) this.music.start();
     this.raf = requestAnimationFrame(this.tick);
   }
@@ -607,14 +537,14 @@ class Match {
     // released during the pause would otherwise never clear -- same fix
     // also covers losing a keyup entirely, e.g. the window itself loses
     // focus while a key is held, which never reaches here as any event.
-    this.keys.left = false;
-    this.keys.right = false;
+    this.input.clear();
   }
 
   resume(): void {
     if (this.over || this.running) return;
     this.running = true;
     this.lastFrameAt = performance.now();
+    this.acc = 0;
     if (this.musicWanted) this.music.start();
     this.raf = requestAnimationFrame(this.tick);
   }
@@ -635,37 +565,11 @@ class Match {
     // `this.running` (not just `this.over`) so a paused-but-not-stopped
     // match -- left via a real view-tab change, not yet Escape, see
     // views.ts -- can't keep reacting to touch buttons/keys anywhere on
-    // the page.
+    // the page. Input during the "FIGHT!" intro is latched like any other:
+    // the sim ignores it until the intro ends, and a button still held at
+    // that point takes effect on the first live frame.
     if (this.over || !this.running) return;
-    const now = performance.now();
-    const duringIntro = now < this.introUntil;
-    switch (action) {
-      case 'left':
-        // Safe to set even during the intro: applying `this.keys` only
-        // has an effect once tick()'s intro branch ends and the normal
-        // movement code runs, so no separate queuing needed here.
-        this.keys.left = down;
-        break;
-      case 'right':
-        this.keys.right = down;
-        break;
-      case 'jump':
-        if (!down) break;
-        // Keyboard auto-repeat papers over a key held through the intro
-        // (another keydown fires once it ends), but a touch button's
-        // pointerdown only fires once -- queue it instead of dropping it,
-        // so both input paths behave the same way.
-        if (duringIntro) this.pendingJump = true;
-        else if (this.player.onGround) this.player.vy = JUMP_VELOCITY;
-        break;
-      case 'attack1':
-      case 'attack2':
-        if (!down) break;
-        if (duringIntro) this.pendingAttack = action;
-        else this.player.startAttack(action, now);
-        break;
-      default:
-    }
+    this.input.set(ACTION_BITS[action], down);
   }
 
   private handleKey(e: KeyboardEvent, down: boolean): void {
@@ -677,117 +581,59 @@ class Match {
     this.setAction(action, down);
   }
 
-  private driveAI(now: number): void {
-    if (this.ai.state === 'death' || this.ai.state === 'takeHit') {
-      this.ai.vx = 0;
-      return;
-    }
-    const dx = this.player.x - this.ai.x;
-    this.ai.facing = dx < 0 ? 1 : -1;
-    const dist = Math.abs(dx);
-    if (now >= this.aiNextDecisionAt) {
-      this.aiNextDecisionAt = now + 350 + Math.random() * 400;
-      if (dist < ATTACK_RANGE + 10) {
-        this.aiMoveDir = 0;
-        if (Math.random() < 0.55)
-          this.ai.startAttack(Math.random() < 0.35 ? 'attack2' : 'attack1', now);
-      } else {
-        this.aiMoveDir = dx < 0 ? -1 : 1;
-        if (this.ai.onGround && Math.random() < 0.08) this.ai.vy = JUMP_VELOCITY;
-      }
-    }
-    this.ai.vx = dist < ATTACK_RANGE + 10 ? 0 : this.aiMoveDir * MOVE_SPEED * 0.85;
-  }
-
   private tick = (now: number): void => {
     if (!this.running) return;
-    const dt = Math.min(50, now - this.lastFrameAt);
+    let dt = now - this.lastFrameAt;
     this.lastFrameAt = now;
+    // The sim always advances in whole 60 Hz steps, however fast the
+    // display refreshes -- a 120 Hz screen renders twice per step instead
+    // of running the match at double speed. On a 60 Hz screen frame times
+    // jitter around 16.67ms; snapping those keeps it at exactly one step
+    // per frame instead of an occasional 0-then-2 stutter.
+    if (Math.abs(dt - STEP_MS) < 2) dt = STEP_MS;
+    this.acc += Math.min(dt, MAX_FRAME_MS);
 
-    if (now < this.introUntil) {
-      if (!this.introShown) {
-        this.introShown = true;
-        this.hud.introEl.classList.remove('fight-intro-play');
-        void this.hud.introEl.offsetWidth; // restart the CSS animation
-        this.hud.introEl.classList.add('fight-intro-play');
-        playStinger();
-      }
-      this.player.advanceFrame(dt);
-      this.ai.advanceFrame(dt);
-      this.render();
-      if (this.running) this.raf = requestAnimationFrame(this.tick);
-      return;
+    let events = 0;
+    let steps = 0;
+    while (this.acc >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
+      events |= step(this.state, this.input.consume(), aiInput(this.state, 1));
+      this.acc -= STEP_MS;
+      steps++;
     }
 
-    // The intro just ended (or ended on an earlier tick): apply whatever
-    // jump/attack got queued by setAction() while it was still playing.
-    if (this.pendingJump) {
-      this.pendingJump = false;
-      if (this.player.onGround) this.player.vy = JUMP_VELOCITY;
-    }
-    if (this.pendingAttack) {
-      const attack = this.pendingAttack;
-      this.pendingAttack = null;
-      this.player.startAttack(attack, now);
-    }
-
-    this.player.vx = (this.keys.right ? MOVE_SPEED : 0) - (this.keys.left ? MOVE_SPEED : 0);
-    if (this.player.vx > 0) this.player.facing = 1;
-    else if (this.player.vx < 0) this.player.facing = -1;
-    this.driveAI(now);
-
-    this.player.physics();
-    this.ai.physics();
-    this.player.advanceFrame(dt);
-    this.ai.advanceFrame(dt);
-
-    this.resolveAttack(this.player, this.ai, now);
-    this.resolveAttack(this.ai, this.player, now);
-
-    if (this.player.health !== this.lastPlayerHealth) {
-      this.lastPlayerHealth = this.player.health;
-      this.hud.playerBar.style.width = `${this.player.health}%`;
-    }
-    if (this.ai.health !== this.lastAiHealth) {
-      this.lastAiHealth = this.ai.health;
-      this.hud.enemyBar.style.width = `${this.ai.health}%`;
-    }
-
-    const remaining = Math.max(0, Math.ceil((this.endsAt - now) / 1000));
-    if (remaining !== this.lastRemaining) {
-      this.lastRemaining = remaining;
-      this.hud.timerEl.textContent = String(remaining);
-    }
-
-    if (this.player.dead || this.ai.dead || remaining <= 0) {
-      this.finish(remaining <= 0);
-    }
-
+    if (events & (EV_HIT_P0 | EV_HIT_P1)) playHit();
+    this.syncHud();
+    if (events & (EV_KO | EV_TIMEUP)) this.finish();
     this.render();
     if (this.running) this.raf = requestAnimationFrame(this.tick);
   };
 
-  private resolveAttack(attacker: Fighter, defender: Fighter, now: number): void {
-    if (!isAttackState(attacker.state) || attacker.didHitThisSwing) return;
-    const { start, end } = attacker.hitWindow();
-    if (attacker.frame < start || attacker.frame > end) return;
-    if (overlaps(attacker.attackBox, defender.hurtBox)) {
-      attacker.didHitThisSwing = true;
-      defender.takeHit(ATTACK_STATS[attacker.state].damage, now);
-      playHit();
+  private syncHud(): void {
+    const playerHealth = this.state[fighterBase(0) + F_HEALTH] as number;
+    const enemyHealth = this.state[fighterBase(1) + F_HEALTH] as number;
+    if (playerHealth !== this.lastPlayerHealth) {
+      this.lastPlayerHealth = playerHealth;
+      this.hud.playerBar.style.width = `${playerHealth}%`;
+    }
+    if (enemyHealth !== this.lastEnemyHealth) {
+      this.lastEnemyHealth = enemyHealth;
+      this.hud.enemyBar.style.width = `${enemyHealth}%`;
+    }
+    const remaining = secondsLeft(this.state);
+    if (remaining !== this.lastRemaining) {
+      this.lastRemaining = remaining;
+      this.hud.timerEl.textContent = String(remaining);
     }
   }
 
-  private finish(timeUp: boolean): void {
+  private finish(): void {
     this.over = true;
     this.pause();
-    const playerWon =
-      (this.ai.dead && !this.player.dead) || (timeUp && this.player.health > this.ai.health);
-    const aiWon =
-      (this.player.dead && !this.ai.dead) || (timeUp && this.ai.health > this.player.health);
-    this.hud.resultText.textContent = playerWon ? 'You win.' : aiWon ? 'You lose.' : 'Draw.';
-    if (playerWon) writeCount(WINS_KEY, readCount(WINS_KEY) + 1);
-    else if (aiWon) writeCount(LOSSES_KEY, readCount(LOSSES_KEY) + 1);
+    const outcome = this.state[G_OVER];
+    this.hud.resultText.textContent =
+      outcome === OVER_P0 ? 'You win.' : outcome === OVER_P1 ? 'You lose.' : 'Draw.';
+    if (outcome === OVER_P0) writeCount(WINS_KEY, readCount(WINS_KEY) + 1);
+    else if (outcome === OVER_P1) writeCount(LOSSES_KEY, readCount(LOSSES_KEY) + 1);
     updateRecord(this.hud.recordEl);
     this.hud.resultBox.hidden = false;
   }
@@ -801,7 +647,7 @@ class Match {
       ctx.drawImage(this.bg, 0, 0, CANVAS.w, CANVAS.h);
     }
     ctx.restore();
-    this.player.draw(ctx);
-    this.ai.draw(ctx);
+    this.views[0].draw(ctx, this.state, fighterBase(0));
+    this.views[1].draw(ctx, this.state, fighterBase(1));
   }
 }
