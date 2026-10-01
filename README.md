@@ -48,16 +48,39 @@ pnpm dev        # http://127.0.0.1:4321/wkd/
 pnpm build      # static output in dist/
 pnpm preview
 pnpm verify     # biome + astro check + build
+pnpm test       # node --test over tests/*.test.ts (the fight engine)
+pnpm build:wasm # rebuild src/lib/fight-engine/fight-sim.wasm from wasm/fight-sim (Rust)
 ```
 
-Requires Node ≥ 22.12 and pnpm ≥ 10.
+Requires Node ≥ 22.18 and pnpm ≥ 10 (`pnpm test` runs the TypeScript sources directly).
+`pnpm build:wasm` additionally needs Rust with the `wasm32-unknown-unknown` target; the
+built binary is committed, so nothing else depends on it.
+
+The dev server does not enforce the CSP, the built site does. Anything that loads a script,
+worker, worklet or WASM file has to be checked against `pnpm build && pnpm preview`.
 
 ## Stack and constraints
 
-- **Astro 7**, zero client JS by default. Total client script is ~8 KB: the preference
-  helper (`src/scripts/prefs.ts`) and the search UI (`src/scripts/search.ts`); the Pagefind
-  engine loads only when the search field is focused for a search (the TUI command line
-  reuses the field but never loads it).
+- **Astro 7**, zero client JS by default. One client bundle (`src/scripts/client.ts`,
+  ~12 KB gzipped) carries the preference helper, search UI, view switcher, Vim keys and the
+  fight minigame's shell; the Pagefind engine loads only when the search field is focused
+  for a search (the TUI command line reuses the field but never loads it).
+- **Fight** (modern skin, fourth tab of the home view switcher): a small 1v1 fighting game.
+  `src/scripts/fight.ts` is the shell (canvas, sprites, HUD, input); the rules are a
+  deterministic 60 Hz simulation over one `Int32Array` in `src/lib/fight-engine/sim.ts`,
+  which is what makes the rest possible:
+  - `ai.ts`, `gamepad.ts`: the opponent and controllers as input sources.
+  - `audio.ts` + `audio.worklet.js`: synthesised music and effects on the audio thread.
+  - `particles.ts`: hit sparks and dust as WebGPU compute-shader particles, composited onto
+    the 2D canvas; absent without WebGPU or with `prefers-reduced-motion`.
+  - `wasm/fight-sim` → `fight-sim.wasm`: the same `step()` in Rust. `?sim=wasm` swaps it in;
+    `tests/fight-wasm.test.ts` holds both to bit-identical state.
+  - `rollback.ts`, `net.ts`, `src/scripts/fight-online.ts`: rollback netcode and a WebRTC
+    link between two browsers, set up by swapping two codes by hand (no server, and no STUN
+    server configured, so same network only for now). `?net=loopback&lag=100&jitter=30&loss=5`
+    plays the AI through the same netcode over a simulated link.
+
+  Everything beyond the shell and the sim is a separate chunk fetched on first use.
 - **Search** is Pagefind, built into `dist/pagefind/` after `astro build` by
   `src/integrations/pagefind.ts` (which also serves that bundle in `astro dev` once a build
   exists). Only the modern-skin plugin pages carry `data-pagefind-body`, so each plugin is
