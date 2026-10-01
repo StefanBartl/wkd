@@ -174,6 +174,15 @@ function setUp(root: HTMLElement): void {
     else if ((document.getElementById('view-fight') as HTMLInputElement | null)?.checked)
       match?.resume();
   });
+
+  // Small reward for noticing the tab. mouseenter (not mouseover) so this
+  // fires once per hover, not on every sub-pixel pointer move inside the
+  // label. Like playStinger()/playHit(), this can be a silent no-op before
+  // the page has seen any user gesture -- browser autoplay policy, not a bug
+  // here.
+  document
+    .querySelector<HTMLLabelElement>('label[for="view-fight"]')
+    ?.addEventListener('mouseenter', playHoverBlip);
 }
 
 function updateRecord(el: HTMLElement): void {
@@ -244,6 +253,23 @@ function playStinger(): void {
     osc.start(now + start);
     osc.stop(now + start + dur + 0.05);
   }
+}
+
+function playHoverBlip(): void {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(880, now);
+  osc.frequency.exponentialRampToValueAtTime(1320, now + 0.06);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.12, now + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.1);
 }
 
 function playHit(): void {
