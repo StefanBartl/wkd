@@ -20,8 +20,8 @@ import {
   MUSIC_KEY,
   WINS_KEY,
 } from '../lib/fight';
-import { aiInput } from '../lib/fight-engine/ai';
 import { music, playSfx } from '../lib/fight-engine/audio';
+import { aiDriver, type Driver, type MatchSetup } from '../lib/fight-engine/driver';
 import { pollGamepads } from '../lib/fight-engine/gamepad';
 import type { Particles } from '../lib/fight-engine/particles';
 import {
@@ -30,10 +30,8 @@ import {
   createState,
   EV_HIT_P0,
   EV_HIT_P1,
-  EV_KO,
   EV_LAND_P0,
   EV_LAND_P1,
-  EV_TIMEUP,
   F_ANIM_FRAME,
   F_FACING,
   F_HEALTH,
@@ -42,13 +40,13 @@ import {
   F_Y,
   FP,
   fighterBase,
-  G_OVER,
   IN_ATTACK1,
   IN_ATTACK2,
   IN_JUMP,
   IN_LEFT,
   IN_RIGHT,
   MOVE_SPEED,
+  OVER_NONE,
   OVER_P0,
   OVER_P1,
   SIM_HZ,
@@ -132,28 +130,73 @@ function setUp(root: HTMLElement): void {
   let picked: string | null = null;
   let musicOn = readMusicPref();
 
-  const hud: Hud = { timerEl, playerBar, enemyBar, recordEl, introEl, resultBox, resultText };
+  const hud: Hud = {
+    timerEl,
+    playerBar,
+    enemyBar,
+    recordEl,
+    introEl,
+    resultBox,
+    resultText,
+    netEl: root.querySelector<HTMLElement>('[data-fight-net]'),
+  };
   updateRecord(recordEl);
 
-  const startMatch = (id: string): void => {
-    picked = id;
+  const launch = (setup: MatchSetup): void => {
     selectPanel.hidden = true;
     arena.hidden = false;
+    // Which health bar gets the "you" tag (see .fight-you in modern.css).
+    arena.dataset.you = String(setup.local);
     match?.stop();
-    match = new Match(ctx, id, hud, musicOn);
+    match = new Match(ctx, hud, setup, musicOn);
     match.start();
   };
+
+  // The AI game is the default owner of the fighter cards and the rematch
+  // button; an online session takes both over while it lasts.
+  const versusAi = {
+    pick(id: string): void {
+      picked = id;
+      launch(aiSetup(id));
+    },
+    rematch(): void {
+      if (picked) launch(aiSetup(picked));
+    },
+  };
+  let handlers: { pick(id: string): void; rematch(): void } = versusAi;
 
   for (const btn of root.querySelectorAll<HTMLButtonElement>('[data-fighter]')) {
     btn.addEventListener('click', () => {
       const id = btn.dataset.fighter;
-      if (id) startMatch(id);
+      if (id) handlers.pick(id);
     });
   }
 
-  againBtn?.addEventListener('click', () => {
-    if (picked) startMatch(picked);
-  });
+  againBtn?.addEventListener('click', () => handlers.rematch());
+
+  const online = root.querySelector<HTMLElement>('[data-fight-online]');
+  if (online && typeof RTCPeerConnection !== 'undefined' && 'CompressionStream' in window) {
+    const api: OnlineApi = {
+      root,
+      launch,
+      showSelect() {
+        match?.stop();
+        match = null;
+        arena.hidden = true;
+        selectPanel.hidden = false;
+      },
+      takeOver(next) {
+        handlers = next ?? versusAi;
+      },
+    };
+    online.hidden = false;
+    for (const mode of ['invite', 'join'] as const) {
+      online.querySelector(`[data-fight-${mode}]`)?.addEventListener('click', () => {
+        // WebRTC, rollback and the invitation flow: fetched on first use.
+        import('./fight-online').then((m) => m.begin(mode, api)).catch(() => {});
+      });
+    }
+  }
 
   musicBtn?.addEventListener('click', () => {
     musicOn = !musicOn;
@@ -214,6 +257,7 @@ function setUp(root: HTMLElement): void {
   });
 
   requestWasmCore(root.querySelector<HTMLElement>('[data-fight-core]'));
+  requestLagDemo();
 
   // The controller legend only appears once a controller has announced
   // itself (browsers hold that back until its first button press).
@@ -246,6 +290,17 @@ interface Hud {
   introEl: HTMLElement;
   resultBox: HTMLElement;
   resultText: HTMLElement;
+  netEl: HTMLElement | null;
+}
+
+/** What fight-online.ts gets to drive the page with. */
+export interface OnlineApi {
+  readonly root: HTMLElement;
+  launch(setup: MatchSetup): void;
+  /** Stop whatever is running and go back to the fighter cards. */
+  showSelect(): void;
+  /** Route fighter picks and the rematch button here; null hands them back to the AI game. */
+  takeOver(handlers: { pick(id: string): void; rematch(): void } | null): void;
 }
 
 type Action = 'left' | 'right' | 'jump' | 'attack1' | 'attack2';
@@ -392,6 +447,59 @@ function requestWasmCore(hint: HTMLElement | null): void {
     });
 }
 
+// `?net=loopback` plays the AI through rollback netcode over a simulated
+// network (`lag` one-way ms, `jitter` ms, `loss` percent), to see and feel
+// what rollback does without a second machine. A debugging aid, like
+// ?sim=wasm.
+let lagDemo: ((initial: SimState) => Driver) | null = null;
+function requestLagDemo(): void {
+  const query = new URLSearchParams(location.search);
+  if (query.get('net') !== 'loopback') return;
+  const frames = (name: string, fallback: number): number => {
+    const ms = Number(query.get(name) ?? fallback);
+    return Number.isFinite(ms) ? Math.max(0, Math.min(30, Math.round((ms * SIM_HZ) / 1000))) : 0;
+  };
+  const net = {
+    delay: frames('lag', 100),
+    jitter: frames('jitter', 0),
+    loss: Math.max(0, Math.min(0.5, Number(query.get('loss') ?? 0) / 100 || 0)),
+  };
+  import('../lib/fight-engine/net-driver')
+    .then((m) => {
+      lagDemo = (initial) => m.laggedAiDriver(initial, net);
+    })
+    .catch(() => {
+      // The plain AI game runs instead.
+    });
+}
+
+/** A match against the AI: the visitor's pick on the left, a random other fighter and arena. */
+function aiSetup(playerId: string): MatchSetup {
+  const chosen = FIGHTERS.find((f) => f.id === playerId) ?? FIGHTERS[0];
+  // A random pick among the rest, not FIGHTERS.find()'s first-in-order
+  // match: with 2 fighters that's the same one either way, but with 3+
+  // it keeps the matchup varied instead of always facing the same rival.
+  const rest = FIGHTERS.filter((f) => f.id !== chosen?.id);
+  const other = rest[Math.floor(Math.random() * rest.length)] ?? FIGHTERS[1];
+  const level = LEVELS[Math.floor(Math.random() * LEVELS.length)];
+  if (!chosen || !other || !level) throw new Error('fight: no fighters configured');
+  const initial = createState(
+    { anim: chosen.anim },
+    { anim: other.anim, speed: AI_SPEED },
+    Math.floor(Math.random() * 0x1_0000_0000),
+  );
+  let driver: Driver;
+  if (lagDemo) {
+    driver = lagDemo(initial);
+  } else if (wasmCore) {
+    const sim = wasmCore.instantiateSim(wasmCore.module, initial);
+    driver = aiDriver(sim.state, sim.step);
+  } else {
+    driver = aiDriver(initial, (input0, input1) => step(initial, input0, input1));
+  }
+  return { driver, fighters: [chosen, other], local: 0, level };
+}
+
 // WebGPU hit sparks and landing dust: a separate chunk, fetched on the
 // first match instead of with every page view, and simply absent where
 // WebGPU is (see particles.ts) or where the visitor asked for less motion.
@@ -414,16 +522,13 @@ function requestParticles(): void {
 class Match {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly hud: Hud;
-  private readonly state: SimState;
-  private readonly step: (input0: number, input1: number) => number;
+  private readonly driver: Driver;
+  private readonly local: 0 | 1;
   private readonly views: readonly [FighterView, FighterView];
   private readonly input = new InputLatch();
   private bg = loadImage(`${BASE}fight/background.png`);
-  private level: LevelConfig = LEVELS[Math.floor(Math.random() * LEVELS.length)] ?? {
-    id: 'day',
-    label: 'Day',
-    filter: 'none',
-  };
+  private readonly level: LevelConfig;
+  private ticks = 0;
   private lastFrameAt = 0;
   private acc = 0;
   private raf = 0;
@@ -439,32 +544,16 @@ class Match {
   private onKeyDown = (e: KeyboardEvent): void => this.handleKey(e, true);
   private onKeyUp = (e: KeyboardEvent): void => this.handleKey(e, false);
 
-  constructor(ctx: CanvasRenderingContext2D, playerId: string, hud: Hud, musicWanted: boolean) {
+  constructor(ctx: CanvasRenderingContext2D, hud: Hud, setup: MatchSetup, musicWanted: boolean) {
     this.ctx = ctx;
     this.hud = hud;
     this.musicWanted = musicWanted;
-    const chosen = FIGHTERS.find((f) => f.id === playerId) ?? FIGHTERS[0];
-    // A random pick among the rest, not FIGHTERS.find()'s first-in-order
-    // match: with 2 fighters that's the same one either way, but with 3+
-    // it keeps the matchup varied instead of always facing the same rival.
-    const rest = FIGHTERS.filter((f) => f.id !== chosen?.id);
-    const other = rest[Math.floor(Math.random() * rest.length)] ?? FIGHTERS[1];
-    if (!chosen || !other) throw new Error('fight: no fighters configured');
-    this.views = [new FighterView(chosen), new FighterView(other)];
-    const initial = createState(
-      { anim: chosen.anim },
-      { anim: other.anim, speed: AI_SPEED },
-      Math.floor(Math.random() * 0x1_0000_0000),
-    );
-    if (wasmCore) {
-      const sim = wasmCore.instantiateSim(wasmCore.module, initial);
-      this.state = sim.state;
-      this.step = sim.step;
-    } else {
-      this.state = initial;
-      this.step = (input0, input1) => step(initial, input0, input1);
-    }
+    this.driver = setup.driver;
+    this.local = setup.local;
+    this.level = setup.level;
+    this.views = [new FighterView(setup.fighters[0]), new FighterView(setup.fighters[1])];
     this.hud.resultBox.hidden = true;
+    if (this.hud.netEl) this.hud.netEl.hidden = this.driver.status() === null;
   }
 
   start(): void {
@@ -554,7 +643,7 @@ class Match {
     let events = 0;
     let steps = 0;
     while (this.acc >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
-      events |= this.step(this.input.consume() | pad, aiInput(this.state, 1));
+      events |= this.driver.tick(this.input.consume() | pad);
       this.acc -= STEP_MS;
       steps++;
     }
@@ -562,13 +651,15 @@ class Match {
     if (events & (EV_HIT_P0 | EV_HIT_P1)) playSfx('hit');
     if (events && particles) this.emitParticles(events, particles);
     this.syncHud();
-    if (events & (EV_KO | EV_TIMEUP)) this.finish();
+    // Not on the KO/time-up event: with rollback that is only a prediction
+    // until the driver has the frame confirmed by both peers.
+    if (this.driver.outcome !== OVER_NONE) this.finish();
     this.render(dt / 1000);
     if (this.running) this.raf = requestAnimationFrame(this.tick);
   };
 
   private emitParticles(events: number, fx: Particles): void {
-    const s = this.state;
+    const s = this.driver.state;
     for (const index of [0, 1] as const) {
       const me = fighterBase(index);
       const cx = (s[me + F_X] as number) / FP + BOX_W / 2;
@@ -582,8 +673,9 @@ class Match {
   }
 
   private syncHud(): void {
-    const playerHealth = this.state[fighterBase(0) + F_HEALTH] as number;
-    const enemyHealth = this.state[fighterBase(1) + F_HEALTH] as number;
+    const state = this.driver.state;
+    const playerHealth = state[fighterBase(0) + F_HEALTH] as number;
+    const enemyHealth = state[fighterBase(1) + F_HEALTH] as number;
     if (playerHealth !== this.lastPlayerHealth) {
       this.lastPlayerHealth = playerHealth;
       this.hud.playerBar.style.width = `${playerHealth}%`;
@@ -592,21 +684,26 @@ class Match {
       this.lastEnemyHealth = enemyHealth;
       this.hud.enemyBar.style.width = `${enemyHealth}%`;
     }
-    const remaining = secondsLeft(this.state);
+    const remaining = secondsLeft(state);
     if (remaining !== this.lastRemaining) {
       this.lastRemaining = remaining;
       this.hud.timerEl.textContent = String(remaining);
+    }
+    if (this.hud.netEl && this.ticks++ % 30 === 0) {
+      const status = this.driver.status();
+      if (status !== null) this.hud.netEl.textContent = status;
     }
   }
 
   private finish(): void {
     this.over = true;
     this.pause();
-    const outcome = this.state[G_OVER];
-    this.hud.resultText.textContent =
-      outcome === OVER_P0 ? 'You win.' : outcome === OVER_P1 ? 'You lose.' : 'Draw.';
-    if (outcome === OVER_P0) writeCount(WINS_KEY, readCount(WINS_KEY) + 1);
-    else if (outcome === OVER_P1) writeCount(LOSSES_KEY, readCount(LOSSES_KEY) + 1);
+    const outcome = this.driver.outcome;
+    const won = outcome === (this.local === 0 ? OVER_P0 : OVER_P1);
+    const lost = outcome === (this.local === 0 ? OVER_P1 : OVER_P0);
+    this.hud.resultText.textContent = won ? 'You win.' : lost ? 'You lose.' : 'Draw.';
+    if (won) writeCount(WINS_KEY, readCount(WINS_KEY) + 1);
+    else if (lost) writeCount(LOSSES_KEY, readCount(LOSSES_KEY) + 1);
     updateRecord(this.hud.recordEl);
     this.hud.resultBox.hidden = false;
   }
@@ -620,8 +717,8 @@ class Match {
       ctx.drawImage(this.bg, 0, 0, CANVAS.w, CANVAS.h);
     }
     ctx.restore();
-    this.views[0].draw(ctx, this.state, fighterBase(0));
-    this.views[1].draw(ctx, this.state, fighterBase(1));
+    this.views[0].draw(ctx, this.driver.state, fighterBase(0));
+    this.views[1].draw(ctx, this.driver.state, fighterBase(1));
     particles?.draw(ctx, frameSeconds);
   }
 }

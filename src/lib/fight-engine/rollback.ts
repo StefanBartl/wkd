@@ -36,6 +36,12 @@ export interface RollbackOptions {
   readonly inputDelay?: number;
   /** Most frames `current` may run ahead of `confirmed` before stalling. */
   readonly maxPrediction?: number;
+  /**
+   * Tags every packet (0..255). Peers that reuse one transport for several
+   * matches bump it per match, so a straggler from the previous match is
+   * dropped instead of being read as news about this one.
+   */
+  readonly matchId?: number;
 }
 
 export interface RollbackStats {
@@ -54,7 +60,7 @@ const MAX_FRAMES = 60 * 75;
 const MAX_INPUTS_PER_PACKET = 64;
 const HASH_INTERVAL = 30;
 const SYNC_SKIP_COOLDOWN = 10;
-const HEADER_BYTES = 22;
+const HEADER_BYTES = 23;
 
 interface Packet {
   /** Sender's current frame. */
@@ -69,6 +75,7 @@ interface Packet {
   /** A frame the sender has confirmed, and its state hash there. */
   hashFrame: number;
   hash: number;
+  matchId: number;
 }
 
 function encodePacket(p: Packet): Uint8Array {
@@ -81,6 +88,7 @@ function encodePacket(p: Packet): Uint8Array {
   view.setUint8(13, p.inputs.length);
   view.setUint32(14, p.hashFrame, true);
   view.setUint32(18, p.hash, true);
+  view.setUint8(22, p.matchId);
   bytes.set(p.inputs, HEADER_BYTES);
   return bytes;
 }
@@ -98,6 +106,7 @@ function decodePacket(bytes: Uint8Array): Packet | null {
     inputs: bytes.subarray(HEADER_BYTES),
     hashFrame: view.getUint32(14, true),
     hash: view.getUint32(18, true),
+    matchId: view.getUint8(22),
   };
 }
 
@@ -119,6 +128,7 @@ export class RollbackSession {
   private readonly transport: Transport;
   private readonly inputDelay: number;
   private readonly maxPrediction: number;
+  private readonly matchId: number;
 
   private frameNo = 0;
   private confirmedNo = 0;
@@ -144,6 +154,7 @@ export class RollbackSession {
     this.transport = options.transport;
     this.inputDelay = options.inputDelay ?? 2;
     this.maxPrediction = options.maxPrediction ?? 8;
+    this.matchId = (options.matchId ?? 0) & 0xff;
     this.current = cloneState(options.state);
     this.confirmed = cloneState(options.state);
     // The first `inputDelay` frames have no input from anyone.
@@ -275,13 +286,14 @@ export class RollbackSession {
         inputs: this.localInputs.subarray(start, start + count),
         hashFrame: this.lastHashFrame,
         hash: this.hashes.get(this.lastHashFrame) ?? 0,
+        matchId: this.matchId,
       }),
     );
   }
 
   private receive(data: Uint8Array): void {
     const packet = decodePacket(data);
-    if (!packet) return;
+    if (!packet || packet.matchId !== this.matchId) return;
     this.heardFromPeer = true;
     if (packet.ack > this.peerAck) this.peerAck = Math.min(packet.ack, this.localKnown);
     // Reordered packets: only the newest one says where the peer is now.

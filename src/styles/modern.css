@@ -1342,8 +1342,79 @@
        style="--x:…" attribute would be blocked by the CSP's style-src,
        which has no 'unsafe-inline'). */
   }
+  .fight-online {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+    padding-top: var(--s-4);
+    border-top: var(--line);
+  }
+  /* `hidden` loses against the display values set on these otherwise. */
+  .fight-online[hidden],
+  .fight-online-step[hidden] {
+    display: none;
+  }
+  .fight-online-row {
+    display: flex;
+    gap: var(--s-2);
+    flex-wrap: wrap;
+  }
+  .fight-online-step {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s-2);
+  }
+  .fight-code {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-1, 0.25rem);
+    width: 100%;
+    font-family: var(--font-mono), monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  .fight-code textarea {
+    width: 100%;
+    padding: var(--s-2);
+    border: 1px solid var(--muted);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-mono), monospace;
+    font-size: 0.7rem;
+    text-transform: none;
+    letter-spacing: 0;
+    word-break: break-all;
+    resize: vertical;
+  }
+  .fight-code textarea:focus-visible {
+    border-color: var(--ink);
+    outline: none;
+  }
   .fight-arena {
     max-width: 64rem;
+  }
+  /* Marks the health bar of the fighter this screen controls: always the
+     left one against the AI, either one in a match against a friend. */
+  .fight-bar {
+    position: relative;
+  }
+  .fight-arena[data-you="0"] .fight-bar:not(.fight-bar-flip)::after,
+  .fight-arena[data-you="1"] .fight-bar-flip::after {
+    content: "you";
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 0;
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .fight-arena[data-you="1"] .fight-bar-flip::after {
+    left: auto;
+    right: 0;
   }
   .fight-hud {
     display: flex;

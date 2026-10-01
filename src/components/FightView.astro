@@ -31,6 +31,37 @@ const pickCss = fightPickCss(BASE);
         ))
       }
     </div>
+    {
+      /* Shown by fight.ts only where WebRTC exists. All of its behaviour
+         lives in src/scripts/fight-online.ts, fetched on the first click. */
+    }
+    <div class="fight-online" data-fight-online hidden>
+      <p class="fight-lede" data-fight-online-status>
+        Or fight a friend, browser to browser. No server in between: you swap two codes through
+        any messenger. For now you both need to be on the same network.
+      </p>
+      <div class="fight-online-row" data-fight-online-menu>
+        <button type="button" class="fight-toolbtn" data-fight-invite>Invite a friend</button>
+        <button type="button" class="fight-toolbtn" data-fight-join>Join with a code</button>
+      </div>
+      <div class="fight-online-step" data-fight-code-out-step hidden>
+        <label class="fight-code">
+          <span data-fight-code-out-label></span>
+          <textarea readonly rows="4" spellcheck="false" data-fight-code-out></textarea>
+        </label>
+        <button type="button" class="fight-toolbtn" data-fight-code-copy>Copy</button>
+      </div>
+      <div class="fight-online-step" data-fight-code-in-step hidden>
+        <label class="fight-code">
+          <span data-fight-code-in-label></span>
+          <textarea rows="4" spellcheck="false" autocomplete="off" data-fight-code-in></textarea>
+        </label>
+        <button type="button" class="fight-toolbtn" data-fight-code-submit></button>
+      </div>
+      <div class="fight-online-row">
+        <button type="button" class="fight-toolbtn" data-fight-online-cancel hidden>Cancel</button>
+      </div>
+    </div>
   </div>
 
   <div class="fight-arena" data-fight-arena hidden>
@@ -78,6 +109,7 @@ const pickCss = fightPickCss(BASE);
       <kbd>B</kbd> heavy
     </p>
     <p class="fight-controls" data-fight-core hidden>Sim core: Rust / WebAssembly</p>
+    <p class="fight-controls" data-fight-net hidden></p>
   </div>
 </div>
 
