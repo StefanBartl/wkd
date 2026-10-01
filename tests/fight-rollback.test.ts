@@ -214,7 +214,9 @@ test('the rendered present is always confirmed plus the guessed frames -- rollba
 });
 
 /** Hits per fighter that peer A was told about, and the hits that really happened. */
-function hitCounts(net: LoopbackOptions, seed: number): { reported: number[]; real: number[] } {
+type Pair = [number, number];
+
+function hitCounts(net: LoopbackOptions, seed: number): { reported: Pair; real: Pair } {
   const initial = createState(samurai, kenji, seed);
   const link = createLoopback({ ...net, seed });
   const a = new RollbackSession({ local: 0, state: initial, transport: link.a });
@@ -223,7 +225,7 @@ function hitCounts(net: LoopbackOptions, seed: number): { reported: number[]; re
   const inB = inputScript(seed * 7);
   const logA: number[] = [];
   const logB: number[] = [];
-  const reported = [0, 0];
+  const reported: Pair = [0, 0];
   for (let ticks = 0; (a.outcome === 0 || b.outcome === 0) && ticks < 20_000; ticks++) {
     const recordsA = a.wantsInput;
     const fa = a.frame;
@@ -239,14 +241,14 @@ function hitCounts(net: LoopbackOptions, seed: number): { reported: number[]; re
     if (recordsB) logB[fb + 2] = ib;
     link.tick();
   }
-  const real = [0, 0];
+  const real: Pair = [0, 0];
   const offline = createState(samurai, kenji, seed);
   for (let f = 0; (offline[G_OVER] as number) === 0; f++) {
     const events = step(offline, logA[f] ?? 0, logB[f] ?? 0);
     if (events & EV_HIT_P0) real[0]++;
     if (events & EV_HIT_P1) real[1]++;
   }
-  return { reported: reported, real };
+  return { reported, real };
 }
 
 test('every real hit is reported, for each fighter and each match -- also those found while catching up', () => {
@@ -254,14 +256,14 @@ test('every real hit is reported, for each fighter and each match -- also those 
   for (const net of [{ delay: 3 }, { delay: 6, jitter: 4 }, { delay: 10, jitter: 3, loss: 0.1 }]) {
     for (const seed of [3, 11, 21, 77, 5, 9, 31, 64]) {
       const { reported, real } = hitCounts(net, seed);
-      for (const fighter of [0, 1]) {
+      for (const fighter of [0, 1] as const) {
         // Phantoms (a predicted hit that rollback took back) are allowed;
         // a sum over fighters or matches would let them hide a missing hit.
         assert.ok(
-          (reported[fighter] as number) >= (real[fighter] as number),
+          reported[fighter] >= real[fighter],
           `${JSON.stringify(net)} seed ${seed}: fighter ${fighter} had ${real[fighter]} hits, ${reported[fighter]} reported`,
         );
-        hits += real[fighter] as number;
+        hits += real[fighter];
       }
     }
   }
