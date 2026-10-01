@@ -581,6 +581,8 @@ class Match {
   private linger: ReturnType<typeof setInterval> | undefined;
   private running = false;
   private over = false;
+  /** Started while nobody was looking: the intro banner and stinger wait for resume(). */
+  private introPending = false;
   private musicWanted: boolean;
   // Written health/timer values, so the HUD only touches the DOM on the
   // ~1-2/sec ticks where they actually changed instead of every one of a
@@ -610,18 +612,27 @@ class Match {
     this.over = false;
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
-    this.hud.introEl.classList.remove('fight-intro-play');
-    void this.hud.introEl.offsetWidth; // restart the CSS animation
-    this.hud.introEl.classList.add('fight-intro-play');
     requestParticles();
     // Module state outlives matches: the last blow of the previous one froze
     // its sparks in the buffer when the loop stopped.
     particles?.clear();
-    if (!active) return;
+    if (!active) {
+      // The banner and the stinger belong to the moment the match goes live.
+      this.introPending = true;
+      return;
+    }
     this.running = true;
-    playSfx('stinger');
+    this.playIntro();
     if (this.musicWanted) music.start();
     this.raf = requestAnimationFrame(this.tick);
+  }
+
+  /** The "FIGHT!" banner and its sound; the sim's own intro starts with the first step. */
+  private playIntro(): void {
+    this.hud.introEl.classList.remove('fight-intro-play');
+    void this.hud.introEl.offsetWidth; // restart the CSS animation
+    this.hud.introEl.classList.add('fight-intro-play');
+    playSfx('stinger');
   }
 
   pause(): void {
@@ -640,6 +651,10 @@ class Match {
     this.running = true;
     this.lastFrameAt = performance.now();
     this.clock.reset();
+    if (this.introPending) {
+      this.introPending = false;
+      this.playIntro();
+    }
     if (this.musicWanted) music.start();
     this.raf = requestAnimationFrame(this.tick);
   }
@@ -671,6 +686,10 @@ class Match {
 
   private handleKey(e: KeyboardEvent, down: boolean): void {
     if (isEditable(e.target)) return;
+    // Not playing (paused on another view, waiting to go live, or over): the
+    // keys are the page's again. Space then activates a focused Rematch or
+    // Disconnect button, and the arrows scroll.
+    if (this.over || !this.running) return;
     const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     const action = KEY_ACTIONS[key];
     if (!action) return;

@@ -18,6 +18,7 @@ import {
   EV_LAND_P0,
   EV_TIMEUP,
   F_ANIM_FRAME,
+  F_ANIM_TICK,
   F_FACING,
   F_HEALTH,
   F_STATE,
@@ -262,6 +263,32 @@ test('the blade is only out in the middle of a swing', () => {
   assert.ok(animFrame >= Math.floor((frames * 3) / 10), `hit on swing frame ${animFrame}`);
   assert.ok(animFrame <= Math.ceil((frames * 8) / 10), `hit on swing frame ${animFrame}`);
   assert.ok(animFrame > 0, 'a swing must not hurt before the blade is out');
+});
+
+test('the blade is gone again in the last frames of a swing', () => {
+  // The upper end of the hit window only exists for swings of more than six
+  // frames (on the shipped ones it is the last frame anyway), so use a long one.
+  const longSwing = { ...samurai.anim, attack1: { file: 'attack1.png', frames: 10, hold: 3 } };
+  const s = createState({ anim: longSwing }, kenji, 1);
+  skipIntro(s);
+  s[P0 + F_X] = 400 * FP;
+  s[P0 + F_FACING] = 1;
+  s[P1 + F_X] = 1100 * FP; // far out of reach while the swing starts
+  s[P1 + F_FACING] = -1;
+  step(s, IN_ATTACK1, 0);
+  // Up to the last tick of swing frame 8: the next step moves it to frame 9.
+  for (
+    let i = 0;
+    i < 100 && !(at(s, P0 + F_ANIM_FRAME) === 8 && at(s, P0 + F_ANIM_TICK) === 2);
+    i++
+  ) {
+    step(s, 0, 0);
+  }
+  assert.equal(at(s, P0 + F_ANIM_FRAME), 8);
+  s[P1 + F_X] = (400 + ATTACK_RANGE) * FP; // now in reach, but too late
+  assert.equal(step(s, 0, 0) & EV_HIT_P1, 0);
+  assert.equal(at(s, P0 + F_ANIM_FRAME), 9);
+  assert.equal(at(s, P1 + F_HEALTH), 100);
 });
 
 test('walking right stops at the right arena edge too', () => {
