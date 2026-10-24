@@ -1,8 +1,8 @@
-# documentation.nvim -- a repository's own shape, written down.
+# docmap.nvim -- a repository's own shape, written down.
 Source demos/_settings.tape
-Output out/documentation.webm
-Output out/documentation.mp4
-Env DEMO_PLUGIN "documentation"
+Output out/docmap.webm
+Output out/docmap.mp4
+Env DEMO_PLUGIN "docmap"
 Env DEMO_DEPS "lib,ui,cascade"
 Hide
 Type `cd "${WKD_ROOT:-$GITHUB_WORKSPACE}" && clear && nvim -u demos/init.lua "${PLUGINS_DIR:-..}/cascade.nvim/lua/cascade/init.lua"`

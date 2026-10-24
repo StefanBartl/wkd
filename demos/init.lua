@@ -99,7 +99,7 @@ local setups = {
   ui = { usrcmds = true, notify = true },
   gopath = {},
   ["runtime-analysis"] = {},
-  documentation = {},
+  docmap = {},
   pickers = {},
   cmdlog = {},
 }
