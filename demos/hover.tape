@@ -6,7 +6,7 @@ Output out/hover.webm
 Output out/hover.mp4
 Env DEMO_PLUGIN "hover"
 Env DEMO_DEPS "lib,ui,markdown"
-Env DEMO_TITLES ":Hover show on a markdown link -> markdown.nvim finds the target -> the file, previewed in place|:Hover show on a bare path in prose -> resolved next to the buffer -> previewed the same way|:Hover show on file.md#heading -> that section of the file, not its top|:Hover show on https://stefanbartl.github.io/wkd/ -> curl fetches the page -> status, title, first words"
+Env DEMO_TITLES ":Hover show on a markdown link -> markdown.nvim finds the target -> the file, previewed in place|:Hover show on a bare path in prose -> resolved next to the buffer -> previewed the same way|:Hover show on file.md#heading -> that section of the file, not its top|:Hover show on https://wkdsteve.github.io/wkd/ -> curl fetches the page -> status, title, first words"
 Hide
 Type `cd "${WKD_ROOT:-$GITHUB_WORKSPACE}" && clear && nvim -u demos/init.lua demos/fixtures/links.md`
 Enter

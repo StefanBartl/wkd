@@ -4,7 +4,7 @@ wkd -- website for the `.nvim` plugin family. Everything on the site — tagline
 ASCII banners, docs listings, commit counts, the activity stream — is read from the
 plugin repositories at build time. Nothing about a plugin is written twice.
 
-Live (once deployed): <https://stefanbartl.github.io/wkd/>
+Live (once deployed): <https://wkdsteve.github.io/wkd/>
 
 ## Two skins, one content layer
 
@@ -241,7 +241,7 @@ To rebuild the site on every plugin push, add this to each plugin repo's CI:
 - name: Notify wkd
   if: github.ref == 'refs/heads/main'
   run: |
-    gh api repos/StefanBartl/wkd/dispatches \
+    gh api repos/WKDSteve/wkd/dispatches \
       -f event_type=plugin-push -f 'client_payload[repo]=${{ github.repository }}'
   env:
     GH_TOKEN: ${{ secrets.WKD_DISPATCH_TOKEN }}

@@ -20,7 +20,7 @@ import registry from '../src/data/registry.json' with { type: 'json' };
 
 const PLUGINS_DIR = resolve(process.env.PLUGINS_DIR ?? '..');
 const WRITE = process.argv.includes('--write');
-const SITE = 'https://stefanbartl.github.io/wkd';
+const SITE = 'https://wkdsteve.github.io/wkd';
 
 const BADGE_MARK = 'wkd-family'; // idempotency check: skip if already present
 

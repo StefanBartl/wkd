@@ -19,7 +19,7 @@ const digest = (s: string) => createHash('sha256').update(s).digest('base64');
 const BASE_PATH = '/wkd';
 
 export default defineConfig({
-  site: 'https://stefanbartl.github.io',
+  site: 'https://wkdsteve.github.io',
   base: BASE_PATH,
   trailingSlash: 'always',
   compressHTML: true,
